@@ -481,6 +481,7 @@ function playStream(streamURL, subtitleURL) {
     const videoPlayer = document.getElementById('video-player');
     const subtitleTrack = document.getElementById('subtitle-track');
     const iframeContainer = document.getElementById('iframe-container');
+    const streamFrame = document.getElementById('streamFrame');
 
     // Untertitel-Setup
     if (subtitleURL) {
@@ -491,14 +492,15 @@ function playStream(streamURL, subtitleURL) {
         subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
     }
 
-    // Überprüfen, ob die URL auf eine HTML-Seite verweist
+    // Überprüfen, ob die URL ein HTML-Dokument ist
     if (streamURL.endsWith('.html')) {
-        // HTML-Seite in einem iframe abspielen
+        videoPlayer.style.display = 'none';
         iframeContainer.style.display = 'block'; // iframe sichtbar machen
-        const iframe = document.getElementById('streamFrame');
-        iframe.src = streamURL;
-        videoPlayer.style.display = 'none'; // Video-Player ausblenden
+        streamFrame.src = streamURL; // HTML-Seite laden
     } else {
+        iframeContainer.style.display = 'none'; // iframe ausblenden
+        videoPlayer.style.display = 'block'; // Video-Player sichtbar machen
+
         // HLS.js-Integration
         if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
             const hls = new Hls();
@@ -530,10 +532,6 @@ function playStream(streamURL, subtitleURL) {
         } else {
             console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
         }
-
-        // iframe ausblenden, wenn kein HTML-Inhalt geladen wird
-        iframeContainer.style.display = 'none';
-        videoPlayer.style.display = 'block'; // Video-Player wieder sichtbar machen
     }
 }
 
