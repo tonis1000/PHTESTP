@@ -477,65 +477,65 @@ function updateClock() {
 }
 
 // Funktion zum Abspielen eines Streams im Video-Player
-function playStream(streamURL, subtitleURL) {
-    const videoPlayer = document.getElementById('video-player');
-    const subtitleTrack = document.getElementById('subtitle-track');
-    const iframeContainer = document.getElementById('iframe-container');
-    const streamFrame = document.getElementById('streamFrame');
+ function playStream(streamURL, subtitleURL) {
+        const videoPlayer = document.getElementById('video-player');
+        const subtitleTrack = document.getElementById('subtitle-track');
+        const iframeContainer = document.getElementById('iframe-container');
 
-    // Untertitel-Setup
-    if (subtitleURL) {
-        subtitleTrack.src = subtitleURL;
-        subtitleTrack.track.mode = 'showing'; // Untertitel anzeigen
-    } else {
-        subtitleTrack.src = '';
-        subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
-    }
-
-    // Überprüfen, ob die URL ein HTML-Dokument ist
-    if (streamURL.endsWith('.html')) {
-        videoPlayer.style.display = 'none';
-        iframeContainer.style.display = 'block'; // iframe sichtbar machen
-        streamFrame.src = streamURL; // HTML-Seite laden
-    } else {
-        iframeContainer.style.display = 'none'; // iframe ausblenden
-        videoPlayer.style.display = 'block'; // Video-Player sichtbar machen
-
-        // HLS.js-Integration
-        if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-            const hls = new Hls();
-            hls.loadSource(streamURL);
-            hls.attachMedia(videoPlayer);
-            hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                videoPlayer.play();
-            });
-        } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
-            // Direktes HLS für Safari
-            videoPlayer.src = streamURL;
-            videoPlayer.addEventListener('loadedmetadata', function () {
-                videoPlayer.play();
-            });
-        } else if (typeof dashjs !== 'undefined' && dashjs.MediaPlayer) {
-            const dashPlayer = dashjs.MediaPlayer().create();
-
-            // Überprüfe, ob das DASH-Format unterstützt wird
-            if (dashPlayer.isTypeSupported('application/dash+xml') && streamURL.endsWith('.mpd')) {
-                // MPEG-DASH für unterstützte Browser
-                dashPlayer.initialize(videoPlayer, streamURL, true);
-            } else {
-                console.error('DASH-Format wird vom aktuellen Browser nicht unterstützt oder die URL ist ungültig.');
-            }
-        } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-            // Direktes MP4- oder WebM-Streaming für andere Browser
-            videoPlayer.src = streamURL;
-            videoPlayer.play();
+        // Untertitel-Setup
+        if (subtitleURL) {
+            subtitleTrack.src = subtitleURL;
+            subtitleTrack.track.mode = 'showing'; // Untertitel anzeigen
         } else {
-            console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
+            subtitleTrack.src = '';
+            subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
+        }
+
+        // Überprüfen, ob die URL auf eine HTML-Seite verweist
+        if (streamURL.endsWith('.html')) {
+            // HTML-Seite in einem iframe abspielen
+            iframeContainer.style.display = 'block'; // iframe sichtbar machen
+            const iframe = document.getElementById('streamFrame');
+            iframe.src = streamURL;
+            videoPlayer.style.display = 'none'; // Video-Player ausblenden
+        } else {
+            // HLS.js-Integration
+            if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+                const hls = new Hls();
+                hls.loadSource(streamURL);
+                hls.attachMedia(videoPlayer);
+                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                    videoPlayer.play();
+                });
+            } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+                // Direktes HLS für Safari
+                videoPlayer.src = streamURL;
+                videoPlayer.addEventListener('loadedmetadata', function () {
+                    videoPlayer.play();
+                });
+            } else if (typeof dashjs !== 'undefined' && dashjs.MediaPlayer) {
+                const dashPlayer = dashjs.MediaPlayer().create();
+
+                // Überprüfe, ob das DASH-Format unterstützt wird
+                if (dashPlayer.isTypeSupported('application/dash+xml') && streamURL.endsWith('.mpd')) {
+                    // MPEG-DASH für unterstützte Browser
+                    dashPlayer.initialize(videoPlayer, streamURL, true);
+                } else {
+                    console.error('DASH-Format wird vom aktuellen Browser nicht unterstützt oder die URL ist ungültig.');
+                }
+            } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+                // Direktes MP4- oder WebM-Streaming für andere Browser
+                videoPlayer.src = streamURL;
+                videoPlayer.play();
+            } else {
+                console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
+            }
+
+            // iframe ausblenden, wenn kein HTML-Inhalt geladen wird
+            iframeContainer.style.display = 'none';
+            videoPlayer.style.display = 'block'; // Video-Player wieder sichtbar machen
         }
     }
-}
-
-
 
 
 
