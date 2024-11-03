@@ -1,0 +1,526 @@
+/* Grundlegende Farben und Schriftgrößen als wiederverwendbare Klassen */
+body {
+    background-color: #333;
+}
+
+.base-background {
+    background-color: #333;  /* Dunkelgrauer Hintergrund für Container und Sidebar */
+}
+
+/* Stil für den "online" Zustand */
+.online {
+    color: lightgreen;
+    font-weight: bold;
+}
+
+.text-white {
+    color: #ffffff;  /* Weiße Schriftfarbe für übergreifende Textelemente */
+}
+
+/* Hauptcontainer */
+.main-container {
+    float: left;
+    margin-right: 10px;
+}
+
+/* Hauptcontainer mit spezifischen Maßen und Layout-Einstellungen */
+.container {
+    border-top: 5px solid transparent;
+    font-size: 16px;
+    background-color: #333;
+    border-top-width: 0px;
+    padding-top: 5px;
+}
+
+/* Styling für Informationen und Button-Reihen innerhalb des Containers */
+.info-panel, .button-row {
+    display: flex;
+    padding-left: 15px;
+}
+
+.info-panel {
+    font-style: italic;
+}
+
+.button-row {
+    gap: 10px;  /* Abstand zwischen den Buttons */
+    margin-top: 10px;  /* Abstand von oberen Elementen */
+    padding-bottom: 10px;  /* Abstand zum unteren Rand */
+}
+
+/* Informationen in einer Gruppe mit Abständen und Farbe */
+.info-group {
+    margin-right: 20px;
+    color: #ffffff;
+}
+
+/* Einheitliche Button-Stile */
+button {
+    background-color: #444;  /* Dunkelgraue Farbe für Buttons */
+    color: #fff;
+    padding: 10px 20px;
+    border: 1px solid #ccc;  /* Dezente Umrandung */
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+button:hover {
+    background-color: #555;  /* Dunklerer Grauton bei Hover */
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+}
+
+button:active {
+    background-color: #666;  /* Noch dunklerer Grauton bei Aktivierung */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transform: translateY(2px);  /* Leichte Verschiebung nach unten bei Aktivierung */
+}
+
+/* Stil für deaktivierte Buttons */
+button:disabled {
+    background-color: #cccccc;  /* Grauer Farbton für deaktivierte Buttons */
+    color: #666666;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Sidebar-Styling mit spezifischen Maßen und Layout-Einstellungen */
+.sidebar {
+    height: 740px;
+}
+
+
+.search-bar {
+  display: flex;
+  gap: 10px;
+}
+
+#search-input {
+  padding-top: 1px;
+  width: 120px;
+  height: 25px;
+}
+
+.sidebar h2 {
+    color: #f10d0d;
+    padding-bottom: 10px;
+    margin-bottom: 1px;
+    margin-top: 1px;
+}
+
+.sidebar-content {
+    overflow-y: auto;
+    height: calc(100% - 40px);
+    background-color: #0f0e0e;
+    padding-right: 5px;
+    padding-left: 5px;
+    margin-top: 0px;
+    border-top-width: 5px;
+    border-top-style: solid;
+}
+
+/* Sidebar-Listenstil ohne Bullet Points */
+#sidebar-list {
+    list-style-type: none;
+    padding: 0;
+    margin-top: 0px;
+}
+
+#sidebar-list li {
+    margin-bottom: 5px;
+    padding-left: 5px;
+    padding-top: 5px;
+    background-color: #333;
+}
+
+/* Fügt rechtes Padding für das erste span-Element innerhalb des dritten span-Elements in einem div in li hinzu */
+#sidebar-list li > div > span:nth-child(3) > span:nth-child(1) {
+    padding-right: 10px;
+    padding-left: 10px;
+    
+}
+
+
+#filter-online-button,
+#show-all-button {
+    padding: 6px 10px; /* Innenabstand anpassen */
+    font-size: 12px; /* Schriftgröße anpassen */
+    border: none; /* Rahmen entfernen */
+    border-radius: 5px; /* Ecken abrunden */
+    background-color: #4CAF50; /* Hintergrundfarbe */
+    color: white; /* Textfarbe */
+    cursor: pointer; /* Zeiger bei Hover */
+    transition: background-color 0.3s; /* Sanfter Übergang für Hover-Effekt */
+    margin-bottom: 8px;
+    margin-top: 2px;
+}
+
+/* Stil für den Online-Button */
+#filter-online-button {
+    background-color: #4CAF50; /* Grüner Hintergrund */
+    color: white; /* Weiße Schriftfarbe */
+}
+
+#filter-online-button:hover {
+    background-color: #45a049; /* Dunkleres Grün bei Hover */
+    transform: translateY(-2px); /* Leichter Aufwärtsbewegungseffekt */
+}
+
+/* Stil für den Alle-Button */
+#show-all-button {
+    background-color: #007BFF; /* Blauer Hintergrund */
+    color: white; /* Weiße Schriftfarbe */
+}
+
+#show-all-button:hover {
+    background-color: #0056b3; /* Dunkleres Blau bei Hover */
+    transform: translateY(-2px); /* Leichter Aufwärtsbewegungseffekt */
+}
+
+
+
+
+
+
+/* Stil für die Senderinformationen innerhalb der Sidebar */
+.channel-info {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Abstand zwischen den Elementen */
+    background-color: #444; /* Hintergrundfarbe für die Senderinformationen */
+    cursor: pointer;
+}
+
+.logo-container {
+    width: 30px; /* Breite des Logo-Containers */
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.logo-container img {
+    width: 100%; /* Logo-Bild wird auf die Breite des Containers angepasst */
+    object-fit: cover; /* Das Bild wird proportional in den Container eingepasst */
+}
+
+/* Stil für den Sendername */
+.sender-name {
+    font-size: 18px; /* Größe des Sendernamens */
+    color: #ffffff; /* Farbe des Sendernamens */
+    width: 70px;
+}
+
+/* Stil für den Sendungstitel */
+.epg-channel {
+    display: flex;
+    flex-direction: column;
+    margin-left: 10px;
+    font-size: 12px;
+    color: #ffffff;
+    flex: 1; /* Alle inneren Elemente gleichmäßig verteilen */
+    width: 120px;
+}
+
+.epg-channel span {
+    padding-bottom: 5px;
+}
+
+/* Zeitachse für das laufende Programm */
+.epg-timeline {
+    display: flex;
+    height: 5px; /* Erhöhe die Höhe für eine bessere Sichtbarkeit */
+    border-radius: 2px; /* Abrundung der Ecken */
+    padding-right: 15px;
+}
+
+#sidebar-list li > div > span:nth-child(3) {
+    padding-left: 10px;
+}
+
+/* Stil für den Abschnitt, der bereits gesendet wurde */
+.epg-past {
+    flex-grow: 1; /* Der Abschnitt wird so groß wie möglich gemacht */
+    background-color: #ff0000; /* Farbe für bereits vergangene Zeit */
+}
+
+/* Stil für den Abschnitt, der noch gesendet wird */
+.epg-future {
+    flex-grow: 1; /* Der Abschnitt wird so groß wie möglich gemacht */
+    background-color: #00ff00; /* Farbe für noch verbleibende Zeit */
+}
+
+/* Container für den Video-Player und Steuerungsleiste */
+.player-container {
+    width: 1000px;
+    display: flex;
+    flex-direction: column; /* Ändert das Layout zu einer Spalte */
+    margin-right: 10px;
+    min-width: 1000px;
+}
+
+/* Grundlegende Stile für die Player-Header */
+.player-header {
+    display: flex;
+    align-items: flex-start;
+    background-color: #333;
+    color: #fff;
+    border-bottom: 1px solid #ccc;
+    height: auto;
+}
+
+/* Spezifische Stile für das Logo im Player-Bereich */
+.player-logo-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100px;  /* Breite des Logos im Player-Bereich */
+    height: 100px; /* Höhe des Logos im Player-Bereich */
+}
+
+.player-logo-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Container für Sendername, SRT-Label und Eingabefeld */
+.player-info-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    margin-left: 10px;
+}
+
+/* Container für den Sendername und das SRT-Label */
+.player-info-top {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+/* Stil für den Sendername */
+#current-channel-name {
+    font-size: 35px; /* Größe des Sendernamens */
+    color: #ffffff; /* Farbe des Sendernamens */
+}
+
+/* Stil für den SRT-Label */
+label[for="subtitle-file"] {
+    cursor: pointer;
+    background-color: #007bff;
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 5px;
+    margin-left: 10px;
+}
+
+/* Container für das Eingabefeld und den Play-Button */
+.player-info-bottom {
+    display: flex;
+    align-items: center;
+    margin-top: 15px;
+}
+
+/* Stil für den Stream URL Input */
+#stream-url {
+    flex: 1;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    margin-right: 10px;
+}
+
+/* Stil für den Play-Button */
+#play-button {
+    padding: 5px 10px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#play-button:hover {
+    background-color: #0056b3;
+}
+
+/* Wrapper für den Player und zusätzlichen Inhalt, um sie nebeneinander zu platzieren */
+.content-wrapper {
+    display: flex;
+}
+
+/* Zusätzlicher Inhalt rechts neben dem Player */
+.additional-content {
+    background-color: #333;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    width: 100%;
+    max-width: 560px;
+    margin-bottom: 20px;
+    color: #ffffff;
+}
+
+/* Stil für die Überschriften "Foothubhd" und "Wetter" */
+.content-title {
+    background-color: #444;
+    padding: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.content-title:hover {
+    background-color: #0056b3; /* Dunklere Blauton bei Hover */
+}
+
+
+.content-body {
+    padding: 10px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    max-height: 0;
+}
+
+.expanded {
+    height: 700px !important; /* Höhe des Inhalts nach dem Aufklappen */
+}
+
+/* Stil für Programminformationen */
+#program-info {
+    color: #ffffff;
+}
+
+/* Stil für das nächste Programm */
+.next-program {
+    margin-top: 2px;
+    margin-bottom: 2px; /* Ändere den Abstand zwischen den Programmen nach Bedarf */
+    color: #ffffff;
+}
+
+div.next-program p {
+    margin-top: 0px;
+}
+
+div.next-program h4 {
+    margin-top: 0px;
+}
+
+.next-program-title {
+    font-weight: bold;
+    margin-bottom: 2px;
+    cursor: pointer;
+}
+
+.next-program-desc {
+    margin-bottom: 2px;
+}
+
+.expandable {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.expandable.expanded {
+    max-height: 600px; /* oder eine andere geeignete Höhe */
+}
+
+
+
+
+
+
+
+
+
+/* Hinzufügen von zusätzlichem Stil für den playlist-urls Container */
+#playlist-urls {
+    background-color: #444;
+    color: #ffffff;
+    padding: 10px;
+}
+
+#playlist-url-list {
+    list-style: none;
+    padding: 0;
+}
+
+#playlist-url-list li {
+    background-color: #555;
+    margin-bottom: 5px;
+    padding: 5px;
+    border-radius: 3px;
+}
+
+
+
+        /* Nur den Button im Link mit der ID #seite2-link ansprechen */
+        #seite2-link button {
+            background-color: #4CAF50; /* Beispiel für Button-Style */
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+        }
+
+        #seite2-link button:hover {
+            background-color: #45a049; /* Hover-Effekt */
+        }
+
+
+
+
+
+
+/* Medienabfragen für verschiedene Geräte und Bildschirmgrößen */
+
+/* Für Smartphones im Hochformat */
+@media only screen and (max-width: 480px) {
+    .player-container {
+        width: 100%; /* Breite auf 100% setzen */
+    }
+    .content-wrapper {
+        flex-direction: column; /* Anordnung in Spalte ändern */
+    }
+}
+
+/* Für Smartphones im Querformat */
+@media only screen and (min-width: 481px) and (max-width: 800px) {
+    .player-container {
+        width: 100%; /* Breite auf 100% setzen */
+    }
+    .content-wrapper {
+        flex-direction: column; /* Anordnung in Spalte ändern */
+    }
+}
+
+/* Für Tablets */
+@media only screen and (min-width: 801px) and (max-width: 1024px) {
+    .player-container {
+        width: 100%; /* Breite auf 100% setzen */
+    }
+    .content-wrapper {
+        flex-direction: column; /* Anordnung in Spalte ändern */
+    }
+}
+
+/* Für Desktops und größere Bildschirme */
+@media only screen and (min-width: 1025px) {
+    .player-container {
+        width: 900px; /* Feste Breite */
+    }
+    .content-wrapper {
+        flex-direction: row; /* Anordnung in Reihe */
+    }
+}
+.example {
+    -webkit-transform: rotate(30deg); /* Chrome, Safari */
+    -ms-transform: rotate(30deg); /* Internet Explorer */
+    transform: rotate(30deg);
+}
