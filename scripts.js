@@ -480,6 +480,7 @@ function updateClock() {
 function playStream(streamURL, subtitleURL) {
     const videoPlayer = document.getElementById('video-player');
     const subtitleTrack = document.getElementById('subtitle-track');
+    const iframeContainer = document.getElementById('iframe-container');
 
     // Untertitel-Setup
     if (subtitleURL) {
@@ -490,38 +491,52 @@ function playStream(streamURL, subtitleURL) {
         subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
     }
 
-    // HLS.js-Integration
-    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-        const hls = new Hls();
-        hls.loadSource(streamURL);
-        hls.attachMedia(videoPlayer);
-        hls.on(Hls.Events.MANIFEST_PARSED, function () {
-            videoPlayer.play();
-        });
-    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
-        // Direktes HLS für Safari
-        videoPlayer.src = streamURL;
-        videoPlayer.addEventListener('loadedmetadata', function () {
-            videoPlayer.play();
-        });
-    } else if (typeof dashjs !== 'undefined' && dashjs.MediaPlayer) {
-        const dashPlayer = dashjs.MediaPlayer().create();
-
-        // Überprüfe, ob das DASH-Format unterstützt wird
-        if (dashPlayer.isTypeSupported('application/dash+xml') && streamURL.endsWith('.mpd')) {
-            // MPEG-DASH für unterstützte Browser
-            dashPlayer.initialize(videoPlayer, streamURL, true);
-        } else {
-            console.error('DASH-Format wird vom aktuellen Browser nicht unterstützt oder die URL ist ungültig.');
-        }
-    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-        // Direktes MP4- oder WebM-Streaming für andere Browser
-        videoPlayer.src = streamURL;
-        videoPlayer.play();
+    // Überprüfen, ob die URL auf eine HTML-Seite verweist
+    if (streamURL.endsWith('.html')) {
+        // HTML-Seite in einem iframe abspielen
+        iframeContainer.style.display = 'block'; // iframe sichtbar machen
+        const iframe = document.getElementById('streamFrame');
+        iframe.src = streamURL;
+        videoPlayer.style.display = 'none'; // Video-Player ausblenden
     } else {
-        console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
+        // HLS.js-Integration
+        if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+            const hls = new Hls();
+            hls.loadSource(streamURL);
+            hls.attachMedia(videoPlayer);
+            hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                videoPlayer.play();
+            });
+        } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+            // Direktes HLS für Safari
+            videoPlayer.src = streamURL;
+            videoPlayer.addEventListener('loadedmetadata', function () {
+                videoPlayer.play();
+            });
+        } else if (typeof dashjs !== 'undefined' && dashjs.MediaPlayer) {
+            const dashPlayer = dashjs.MediaPlayer().create();
+
+            // Überprüfe, ob das DASH-Format unterstützt wird
+            if (dashPlayer.isTypeSupported('application/dash+xml') && streamURL.endsWith('.mpd')) {
+                // MPEG-DASH für unterstützte Browser
+                dashPlayer.initialize(videoPlayer, streamURL, true);
+            } else {
+                console.error('DASH-Format wird vom aktuellen Browser nicht unterstützt oder die URL ist ungültig.');
+            }
+        } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+            // Direktes MP4- oder WebM-Streaming für andere Browser
+            videoPlayer.src = streamURL;
+            videoPlayer.play();
+        } else {
+            console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
+        }
+
+        // iframe ausblenden, wenn kein HTML-Inhalt geladen wird
+        iframeContainer.style.display = 'none';
+        videoPlayer.style.display = 'block'; // Video-Player wieder sichtbar machen
     }
 }
+
 
 
 
