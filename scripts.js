@@ -288,12 +288,12 @@ async function updateSidebarFromM3U(data) {
     const sidebarList = document.getElementById('sidebar-list');
     sidebarList.innerHTML = '';
 
-    const extractStreamURLs = (data) => {
+    const extractStreamURLs = async (data) => {
         const urls = {};
         const lines = data.split('\n');
         let currentChannelId = null;
 
-        lines.forEach(line => {
+        for (const line of lines) {
             if (line.startsWith('#EXTINF')) {
                 const idMatch = line.match(/tvg-id="([^"]+)"/);
                 currentChannelId = idMatch ? idMatch[1] : null;
@@ -301,15 +301,28 @@ async function updateSidebarFromM3U(data) {
                     urls[currentChannelId] = [];
                 }
             } else if (currentChannelId && line.startsWith('http')) {
-                urls[currentChannelId].push(line);
+                if (line.endsWith('.php')) {
+                    try {
+                        const response = await fetch(line.trim());
+                        if (response.ok) {
+                            const phpContent = await response.text();
+                            urls[currentChannelId].push(phpContent.trim());
+                        } else {
+                            console.error(`PHP-Stream konnte nicht geladen werden: ${line}`);
+                        }
+                    } catch (error) {
+                        console.error(`Fehler beim Laden des PHP-Streams: ${line}`, error);
+                    }
+                } else {
+                    urls[currentChannelId].push(line.trim());
+                }
                 currentChannelId = null;
             }
-        });
-
+        }
         return urls;
     };
 
-    const streamURLs = extractStreamURLs(data);
+    const streamURLs = await extractStreamURLs(data);
     const lines = data.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
@@ -355,6 +368,76 @@ async function updateSidebarFromM3U(data) {
     checkStreamStatus();
 }
 
+// Funktion zum Laden der Playlist-URLs aus playlist-urls.txt und Aktualisieren der Sidebar
+function loadPlaylistUrls() {
+    fetch('playlist-urls.txt')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Netzwerkantwort war nicht ok.');
+            }
+            return response.text();
+        })
+        .then(data => {
+            const playlistList = document.getElementById('playlist-url-list');
+            playlistList.innerHTML = ''; // Leert die Liste, um neue Einträge hinzuzufügen
+
+            const lines = data.split('\n');
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (trimmedLine) {
+                    const [label, url] = trimmedLine.split(',').map(part => part.trim());
+
+                    if (label && url) {
+                        const li = document.createElement('li');
+                        const link = document.createElement('a');
+                        link.textContent = label;
+                        link.href = '#'; // Verhindert, dass der Link die Seite neu lädt
+                        link.addEventListener('click', function(event) {
+                            event.preventDefault(); // Verhindert, dass der Link die Seite neu lädt
+                            document.getElementById('stream-url').value = url; // Setzt die URL in das Eingabefeld stream-url
+
+                            // Nach dem Setzen der URL in das Eingabefeld
+                            console.log('Versuche URL abzurufen:', url); // Debugging-Log
+                            fetch(url)
+                                .then(response => {
+                                    if (!response.ok) {
+                                        throw new Error('Netzwerkantwort war nicht ok.');
+                                    }
+                                    return response.text();
+                                })
+                                .then(data => {
+                                    console.log('Daten erfolgreich geladen. Verarbeite M3U-Daten.'); // Debugging-Log
+                                    updateSidebarFromM3U(data);
+                                })
+                                .catch(error => {
+                                    console.error('Fehler beim Laden der Playlist:', error);
+                                    alert('Fehler beim Laden der Playlist. Siehe Konsole für Details.'); // Optional: Benutzer informieren
+                                });
+                        });
+
+                        li.appendChild(link);
+                        playlistList.appendChild(li);
+                    } else {
+                        console.warn('Zeile hat kein Label oder keine URL:', trimmedLine); // Debugging-Log für leere Zeilen
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der Playlist URLs:', error);
+            alert('Fehler beim Laden der Playlist-URLs. Siehe Konsole für Details.'); // Optional: Benutzer informieren
+        });
+}
+
+// Event-Listener für den Klick auf den Playlist-URLs-Titel
+document.addEventListener('DOMContentLoaded', function() {
+    const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
+    if (playlistUrlsTitle) {
+        playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
+    } else {
+        console.error('Element für den Klick-Event-Listener wurde nicht gefunden.');
+    }
+});
 
 
 
@@ -620,76 +703,6 @@ function toggleContent(contentId) {
 
 
 
-// Funktion zum Laden der Playlist-URLs aus playlist-urls.txt und Aktualisieren der Sidebar
-function loadPlaylistUrls() {
-    fetch('playlist-urls.txt')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Netzwerkantwort war nicht ok.');
-            }
-            return response.text();
-        })
-        .then(data => {
-            const playlistList = document.getElementById('playlist-url-list');
-            playlistList.innerHTML = ''; // Leert die Liste, um neue Einträge hinzuzufügen
-
-            const lines = data.split('\n');
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (trimmedLine) {
-                    const [label, url] = trimmedLine.split(',').map(part => part.trim());
-
-                    if (label && url) {
-                        const li = document.createElement('li');
-                        const link = document.createElement('a');
-                        link.textContent = label;
-                        link.href = '#'; // Verhindert, dass der Link die Seite neu lädt
-                        link.addEventListener('click', function(event) {
-                            event.preventDefault(); // Verhindert, dass der Link die Seite neu lädt
-                            document.getElementById('stream-url').value = url; // Setzt die URL in das Eingabefeld stream-url
-
-                            // Nach dem Setzen der URL in das Eingabefeld
-                            console.log('Versuche URL abzurufen:', url); // Debugging-Log
-                            fetch(url)
-                                .then(response => {
-                                    if (!response.ok) {
-                                        throw new Error('Netzwerkantwort war nicht ok.');
-                                    }
-                                    return response.text();
-                                })
-                                .then(data => {
-                                    console.log('Daten erfolgreich geladen. Verarbeite M3U-Daten.'); // Debugging-Log
-                                    updateSidebarFromM3U(data);
-                                })
-                                .catch(error => {
-                                    console.error('Fehler beim Laden der Playlist:', error);
-                                    alert('Fehler beim Laden der Playlist. Siehe Konsole für Details.'); // Optional: Benutzer informieren
-                                });
-                        });
-
-                        li.appendChild(link);
-                        playlistList.appendChild(li);
-                    } else {
-                        console.warn('Zeile hat kein Label oder keine URL:', trimmedLine); // Debugging-Log für leere Zeilen
-                    }
-                }
-            });
-        })
-        .catch(error => {
-            console.error('Fehler beim Laden der Playlist URLs:', error);
-            alert('Fehler beim Laden der Playlist-URLs. Siehe Konsole für Details.'); // Optional: Benutzer informieren
-        });
-}
-
-// Event-Listener für den Klick auf den Playlist-URLs-Titel
-document.addEventListener('DOMContentLoaded', function() {
-    const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
-    if (playlistUrlsTitle) {
-        playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
-    } else {
-        console.error('Element für den Klick-Event-Listener wurde nicht gefunden.');
-    }
-});
 
 
 
