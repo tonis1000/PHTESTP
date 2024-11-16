@@ -9,7 +9,7 @@ function loadMyPlaylist() {
 
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
 function loadExternalPlaylist() {
-    fetch('https://raw.githubusercontent.com/tonis1000/Mai/refs/heads/main/playlist.js')
+    fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
         .then(response => response.text())
         .then(data => updateSidebarFromM3U(data))
         .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
@@ -288,12 +288,12 @@ async function updateSidebarFromM3U(data) {
     const sidebarList = document.getElementById('sidebar-list');
     sidebarList.innerHTML = '';
 
-    const extractStreamURLs = async (data) => {
+    const extractStreamURLs = (data) => {
         const urls = {};
         const lines = data.split('\n');
         let currentChannelId = null;
 
-        for (const line of lines) {
+        lines.forEach(line => {
             if (line.startsWith('#EXTINF')) {
                 const idMatch = line.match(/tvg-id="([^"]+)"/);
                 currentChannelId = idMatch ? idMatch[1] : null;
@@ -301,28 +301,15 @@ async function updateSidebarFromM3U(data) {
                     urls[currentChannelId] = [];
                 }
             } else if (currentChannelId && line.startsWith('http')) {
-                if (line.endsWith('.php')) {
-                    try {
-                        const response = await fetch(line.trim());
-                        if (response.ok) {
-                            const phpContent = await response.text();
-                            urls[currentChannelId].push(phpContent.trim());
-                        } else {
-                            console.error(`PHP-Stream konnte nicht geladen werden: ${line}`);
-                        }
-                    } catch (error) {
-                        console.error(`Fehler beim Laden des PHP-Streams: ${line}`, error);
-                    }
-                } else {
-                    urls[currentChannelId].push(line.trim());
-                }
+                urls[currentChannelId].push(line);
                 currentChannelId = null;
             }
-        }
+        });
+
         return urls;
     };
 
-    const streamURLs = await extractStreamURLs(data);
+    const streamURLs = extractStreamURLs(data);
     const lines = data.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
@@ -368,76 +355,6 @@ async function updateSidebarFromM3U(data) {
     checkStreamStatus();
 }
 
-// Funktion zum Laden der Playlist-URLs aus playlist-urls.txt und Aktualisieren der Sidebar
-function loadPlaylistUrls() {
-    fetch('playlist-urls.txt')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Netzwerkantwort war nicht ok.');
-            }
-            return response.text();
-        })
-        .then(data => {
-            const playlistList = document.getElementById('playlist-url-list');
-            playlistList.innerHTML = ''; // Leert die Liste, um neue Einträge hinzuzufügen
-
-            const lines = data.split('\n');
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (trimmedLine) {
-                    const [label, url] = trimmedLine.split(',').map(part => part.trim());
-
-                    if (label && url) {
-                        const li = document.createElement('li');
-                        const link = document.createElement('a');
-                        link.textContent = label;
-                        link.href = '#'; // Verhindert, dass der Link die Seite neu lädt
-                        link.addEventListener('click', function(event) {
-                            event.preventDefault(); // Verhindert, dass der Link die Seite neu lädt
-                            document.getElementById('stream-url').value = url; // Setzt die URL in das Eingabefeld stream-url
-
-                            // Nach dem Setzen der URL in das Eingabefeld
-                            console.log('Versuche URL abzurufen:', url); // Debugging-Log
-                            fetch(url)
-                                .then(response => {
-                                    if (!response.ok) {
-                                        throw new Error('Netzwerkantwort war nicht ok.');
-                                    }
-                                    return response.text();
-                                })
-                                .then(data => {
-                                    console.log('Daten erfolgreich geladen. Verarbeite M3U-Daten.'); // Debugging-Log
-                                    updateSidebarFromM3U(data);
-                                })
-                                .catch(error => {
-                                    console.error('Fehler beim Laden der Playlist:', error);
-                                    alert('Fehler beim Laden der Playlist. Siehe Konsole für Details.'); // Optional: Benutzer informieren
-                                });
-                        });
-
-                        li.appendChild(link);
-                        playlistList.appendChild(li);
-                    } else {
-                        console.warn('Zeile hat kein Label oder keine URL:', trimmedLine); // Debugging-Log für leere Zeilen
-                    }
-                }
-            });
-        })
-        .catch(error => {
-            console.error('Fehler beim Laden der Playlist URLs:', error);
-            alert('Fehler beim Laden der Playlist-URLs. Siehe Konsole für Details.'); // Optional: Benutzer informieren
-        });
-}
-
-// Event-Listener für den Klick auf den Playlist-URLs-Titel
-document.addEventListener('DOMContentLoaded', function() {
-    const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
-    if (playlistUrlsTitle) {
-        playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
-    } else {
-        console.error('Element für den Klick-Event-Listener wurde nicht gefunden.');
-    }
-});
 
 
 
@@ -560,65 +477,85 @@ function updateClock() {
 }
 
 // Funktion zum Abspielen eines Streams im Video-Player
- function playStream(streamURL, subtitleURL) {
-        const videoPlayer = document.getElementById('video-player');
-        const subtitleTrack = document.getElementById('subtitle-track');
-        const iframeContainer = document.getElementById('iframe-container');
+function playStream(streamURL, subtitleURL) {
+    const videoPlayer = document.getElementById('video-player');
+    const subtitleTrack = document.getElementById('subtitle-track');
 
-        // Untertitel-Setup
-        if (subtitleURL) {
-            subtitleTrack.src = subtitleURL;
-            subtitleTrack.track.mode = 'showing'; // Untertitel anzeigen
-        } else {
-            subtitleTrack.src = '';
-            subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
-        }
+    // Untertitel-Setup
+    if (subtitleURL) {
+        subtitleTrack.src = subtitleURL;
+        subtitleTrack.track.mode = 'showing'; // Untertitel anzeigen
+    } else {
+        subtitleTrack.src = '';
+        subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
+    }
 
-        // Überprüfen, ob die URL auf eine HTML-Seite verweist
-        if (streamURL.endsWith('.html')) {
-            // HTML-Seite in einem iframe abspielen
-            iframeContainer.style.display = 'block'; // iframe sichtbar machen
-            const iframe = document.getElementById('streamFrame');
-            iframe.src = streamURL;
-            videoPlayer.style.display = 'none'; // Video-Player ausblenden
-        } else {
-            // HLS.js-Integration
-            if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-                const hls = new Hls();
-                hls.loadSource(streamURL);
-                hls.attachMedia(videoPlayer);
-                hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                    videoPlayer.play();
-                });
-            } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
-                // Direktes HLS für Safari
-                videoPlayer.src = streamURL;
-                videoPlayer.addEventListener('loadedmetadata', function () {
-                    videoPlayer.play();
-                });
-            } else if (typeof dashjs !== 'undefined' && dashjs.MediaPlayer) {
-                const dashPlayer = dashjs.MediaPlayer().create();
-
-                // Überprüfe, ob das DASH-Format unterstützt wird
-                if (dashPlayer.isTypeSupported('application/dash+xml') && streamURL.endsWith('.mpd')) {
-                    // MPEG-DASH für unterstützte Browser
-                    dashPlayer.initialize(videoPlayer, streamURL, true);
-                } else {
-                    console.error('DASH-Format wird vom aktuellen Browser nicht unterstützt oder die URL ist ungültig.');
+    // Dynamische PHP-Logik
+    if (streamURL.endsWith('.php')) {
+        fetch(streamURL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Fehler beim Laden des Streams: ${response.status}`);
                 }
-            } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-                // Direktes MP4- oder WebM-Streaming für andere Browser
-                videoPlayer.src = streamURL;
+                return response.text(); // Stream-Inhalt als Text abrufen
+            })
+            .then(data => {
+                // Prüfen, welches Format die PHP-Datei zurückgibt
+                if (data.includes('#EXTM3U')) {
+                    // HLS-Playlist erkannt
+                    playStreamHLS(streamURL);
+                } else if (data.includes('<MPD')) {
+                    // MPEG-DASH erkannt
+                    playStreamDASH(streamURL);
+                } else {
+                    console.error('Das PHP-Skript liefert ein unbekanntes Format.');
+                }
+            })
+            .catch(error => {
+                console.error('Fehler beim Verarbeiten der PHP-Stream-URL:', error);
+            });
+    } else {
+        // Standard-Logik für bekannte Formate
+        if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+            playStreamHLS(streamURL);
+        } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+            // Direktes HLS für Safari
+            videoPlayer.src = streamURL;
+            videoPlayer.addEventListener('loadedmetadata', function () {
                 videoPlayer.play();
-            } else {
-                console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
-            }
-
-            // iframe ausblenden, wenn kein HTML-Inhalt geladen wird
-            iframeContainer.style.display = 'none';
-            videoPlayer.style.display = 'block'; // Video-Player wieder sichtbar machen
+            });
+        } else if (streamURL.endsWith('.mpd')) {
+            // MPEG-DASH-Streaming mit dash.js
+            playStreamDASH(streamURL);
+        } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+            // Direktes MP4- oder WebM-Streaming
+            videoPlayer.src = streamURL;
+            videoPlayer.play();
+        } else {
+            console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
         }
     }
+}
+
+// Hilfsfunktionen für spezifische Formate
+function playStreamHLS(url) {
+    const videoPlayer = document.getElementById('video-player');
+    const hls = new Hls();
+    hls.loadSource(url);
+    hls.attachMedia(videoPlayer);
+    hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        videoPlayer.play();
+    });
+}
+
+function playStreamDASH(url) {
+    const videoPlayer = document.getElementById('video-player');
+    const dashPlayer = dashjs.MediaPlayer().create();
+    dashPlayer.initialize(videoPlayer, url, true);
+}
+
+
+
 
 
 
@@ -703,6 +640,76 @@ function toggleContent(contentId) {
 
 
 
+// Funktion zum Laden der Playlist-URLs aus playlist-urls.txt und Aktualisieren der Sidebar
+function loadPlaylistUrls() {
+    fetch('playlist-urls.txt')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Netzwerkantwort war nicht ok.');
+            }
+            return response.text();
+        })
+        .then(data => {
+            const playlistList = document.getElementById('playlist-url-list');
+            playlistList.innerHTML = ''; // Leert die Liste, um neue Einträge hinzuzufügen
+
+            const lines = data.split('\n');
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (trimmedLine) {
+                    const [label, url] = trimmedLine.split(',').map(part => part.trim());
+
+                    if (label && url) {
+                        const li = document.createElement('li');
+                        const link = document.createElement('a');
+                        link.textContent = label;
+                        link.href = '#'; // Verhindert, dass der Link die Seite neu lädt
+                        link.addEventListener('click', function(event) {
+                            event.preventDefault(); // Verhindert, dass der Link die Seite neu lädt
+                            document.getElementById('stream-url').value = url; // Setzt die URL in das Eingabefeld stream-url
+
+                            // Nach dem Setzen der URL in das Eingabefeld
+                            console.log('Versuche URL abzurufen:', url); // Debugging-Log
+                            fetch(url)
+                                .then(response => {
+                                    if (!response.ok) {
+                                        throw new Error('Netzwerkantwort war nicht ok.');
+                                    }
+                                    return response.text();
+                                })
+                                .then(data => {
+                                    console.log('Daten erfolgreich geladen. Verarbeite M3U-Daten.'); // Debugging-Log
+                                    updateSidebarFromM3U(data);
+                                })
+                                .catch(error => {
+                                    console.error('Fehler beim Laden der Playlist:', error);
+                                    alert('Fehler beim Laden der Playlist. Siehe Konsole für Details.'); // Optional: Benutzer informieren
+                                });
+                        });
+
+                        li.appendChild(link);
+                        playlistList.appendChild(li);
+                    } else {
+                        console.warn('Zeile hat kein Label oder keine URL:', trimmedLine); // Debugging-Log für leere Zeilen
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der Playlist URLs:', error);
+            alert('Fehler beim Laden der Playlist-URLs. Siehe Konsole für Details.'); // Optional: Benutzer informieren
+        });
+}
+
+// Event-Listener für den Klick auf den Playlist-URLs-Titel
+document.addEventListener('DOMContentLoaded', function() {
+    const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
+    if (playlistUrlsTitle) {
+        playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
+    } else {
+        console.error('Element für den Klick-Event-Listener wurde nicht gefunden.');
+    }
+});
 
 
 
@@ -730,5 +737,44 @@ showAllButton.addEventListener('click', function () {
     const items = document.querySelectorAll('#sidebar-list li');
     items.forEach(item => {
         item.style.display = ''; // Zeige alle Sender an
+    });
+});
+
+
+
+
+// Funktion zum Filtern der Senderliste und Abspielen des ersten sichtbaren Ergebnisses bei Enter
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+
+    // Event-Listener für die Eingabe im Suchfeld
+    searchInput.addEventListener('input', function() {
+        const filter = searchInput.value.toLowerCase();
+        const sidebarList = document.getElementById('sidebar-list');
+        const items = sidebarList.getElementsByTagName('li');
+
+        let firstVisibleItem = null;
+
+        Array.from(items).forEach(item => {
+            const text = item.textContent || item.innerText;
+            if (text.toLowerCase().includes(filter)) {
+                item.style.display = ''; // Zeige den Eintrag
+                if (!firstVisibleItem) {
+                    firstVisibleItem = item; // Setze das erste sichtbare Element
+                }
+            } else {
+                item.style.display = 'none'; // Verstecke den Eintrag
+            }
+        });
+
+        // Event-Listener für die Enter-Taste
+        searchInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                if (firstVisibleItem) {
+                    const streamURL = firstVisibleItem.querySelector('.channel-info').dataset.stream;
+                    playStream(streamURL);
+                }
+            }
+        });
     });
 });
