@@ -476,8 +476,27 @@ function updateClock() {
     document.getElementById('uhrzeit').textContent = uhrzeit;
 }
 
+
+
+
+// Funktion zum Überprüfen, ob ein Stream geoblockt ist
+async function isGeoBlocked(streamURL) {
+    try {
+        const response = await fetch(streamURL, { method: 'HEAD' });
+        if (response.ok) {
+            return false; // Kein Geoblocking
+        } else {
+            console.warn('Stream möglicherweise geoblockt:', response.status);
+            return true; // Möglicherweise geoblockt
+        }
+    } catch (error) {
+        console.error('Fehler beim Überprüfen des Streams:', error);
+        return true; // Fallback: Geoblock vermuten
+    }
+}
+
 // Funktion zum Abspielen eines Streams im Video-Player
-function playStream(streamURL, subtitleURL) {
+async function playStream(streamURL, subtitleURL) {
     const videoPlayer = document.getElementById('video-player');
     const subtitleTrack = document.getElementById('subtitle-track');
 
@@ -490,32 +509,48 @@ function playStream(streamURL, subtitleURL) {
         subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
     }
 
+    // Geoblocking-Check
+    const geoBlocked = await isGeoBlocked(streamURL);
+    const finalStreamURL = geoBlocked
+        ? `https://dein-projekt.glitch.me/proxy?url=${encodeURIComponent(streamURL)}`
+        : streamURL;
+
     // HLS.js-Integration
-    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+    if (Hls.isSupported() && finalStreamURL.endsWith('.m3u8')) {
         const hls = new Hls();
-        hls.loadSource(streamURL);
+        hls.loadSource(finalStreamURL);
         hls.attachMedia(videoPlayer);
         hls.on(Hls.Events.MANIFEST_PARSED, function () {
             videoPlayer.play();
         });
-    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+    } else if (
+        videoPlayer.canPlayType('application/vnd.apple.mpegurl') &&
+        finalStreamURL.endsWith('.m3u8')
+    ) {
         // Direktes HLS für Safari
-        videoPlayer.src = streamURL;
+        videoPlayer.src = finalStreamURL;
         videoPlayer.addEventListener('loadedmetadata', function () {
             videoPlayer.play();
         });
-    } else if (streamURL.endsWith('.mpd')) {
+    } else if (finalStreamURL.endsWith('.mpd')) {
         // MPEG-DASH-Streaming mit dash.js
         const dashPlayer = dashjs.MediaPlayer().create();
-        dashPlayer.initialize(videoPlayer, streamURL, true);
-    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+        dashPlayer.initialize(videoPlayer, finalStreamURL, true);
+    } else if (
+        videoPlayer.canPlayType('video/mp4') ||
+        videoPlayer.canPlayType('video/webm')
+    ) {
         // Direktes MP4- oder WebM-Streaming
-        videoPlayer.src = streamURL;
+        videoPlayer.src = finalStreamURL;
         videoPlayer.play();
     } else {
-        console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
+        console.error(
+            'Stream-Format wird vom aktuellen Browser nicht unterstützt.'
+        );
     }
 }
+
+
 
 
 
