@@ -490,70 +490,32 @@ function playStream(streamURL, subtitleURL) {
         subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
     }
 
-    // Dynamische PHP-Logik
-    if (streamURL.endsWith('.php')) {
-        fetch(streamURL)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Fehler beim Laden des Streams: ${response.status}`);
-                }
-                return response.text(); // Stream-Inhalt als Text abrufen
-            })
-            .then(data => {
-                // Prüfen, welches Format die PHP-Datei zurückgibt
-                if (data.includes('#EXTM3U')) {
-                    // HLS-Playlist erkannt
-                    playStreamHLS(streamURL);
-                } else if (data.includes('<MPD')) {
-                    // MPEG-DASH erkannt
-                    playStreamDASH(streamURL);
-                } else {
-                    console.error('Das PHP-Skript liefert ein unbekanntes Format.');
-                }
-            })
-            .catch(error => {
-                console.error('Fehler beim Verarbeiten der PHP-Stream-URL:', error);
-            });
-    } else {
-        // Standard-Logik für bekannte Formate
-        if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-            playStreamHLS(streamURL);
-        } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
-            // Direktes HLS für Safari
-            videoPlayer.src = streamURL;
-            videoPlayer.addEventListener('loadedmetadata', function () {
-                videoPlayer.play();
-            });
-        } else if (streamURL.endsWith('.mpd')) {
-            // MPEG-DASH-Streaming mit dash.js
-            playStreamDASH(streamURL);
-        } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-            // Direktes MP4- oder WebM-Streaming
-            videoPlayer.src = streamURL;
+    // HLS.js-Integration
+    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+        const hls = new Hls();
+        hls.loadSource(streamURL);
+        hls.attachMedia(videoPlayer);
+        hls.on(Hls.Events.MANIFEST_PARSED, function () {
             videoPlayer.play();
-        } else {
-            console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
-        }
+        });
+    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+        // Direktes HLS für Safari
+        videoPlayer.src = streamURL;
+        videoPlayer.addEventListener('loadedmetadata', function () {
+            videoPlayer.play();
+        });
+    } else if (streamURL.endsWith('.mpd')) {
+        // MPEG-DASH-Streaming mit dash.js
+        const dashPlayer = dashjs.MediaPlayer().create();
+        dashPlayer.initialize(videoPlayer, streamURL, true);
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+        // Direktes MP4- oder WebM-Streaming
+        videoPlayer.src = streamURL;
+        videoPlayer.play();
+    } else {
+        console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
     }
 }
-
-// Hilfsfunktionen für spezifische Formate
-function playStreamHLS(url) {
-    const videoPlayer = document.getElementById('video-player');
-    const hls = new Hls();
-    hls.loadSource(url);
-    hls.attachMedia(videoPlayer);
-    hls.on(Hls.Events.MANIFEST_PARSED, function () {
-        videoPlayer.play();
-    });
-}
-
-function playStreamDASH(url) {
-    const videoPlayer = document.getElementById('video-player');
-    const dashPlayer = dashjs.MediaPlayer().create();
-    dashPlayer.initialize(videoPlayer, url, true);
-}
-
 
 
 
