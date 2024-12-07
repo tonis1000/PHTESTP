@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+
     <title>GitHub TV</title>
     <link rel="stylesheet" type="text/css" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -69,10 +71,6 @@
             <video id="video-player" controls>
                 <track id="subtitle-track" kind="subtitles" srclang="el" label="Griechisch" default>
             </video>
-            <!-- Hier wird das iframe-container eingefügt -->
-            <div id="iframe-container" style="display:none;">
-                <iframe id="streamFrame" width="640" height="360"></iframe>
-            </div>
             <div id="program-info">
                 <h4 id="program-title"></h4>
                 <p id="program-desc"></p>
