@@ -286,116 +286,83 @@ sidebarList.addEventListener('click', function (event) {
 // Funktion zum Aktualisieren der Sidebar von einer M3U-Datei
 async function updateSidebarFromM3U(data) {
     const sidebarList = document.getElementById('sidebar-list');
-    const groupDropdown = document.getElementById('group-dropdown'); // Dropdown für Sendergruppen
+    const groupDropdown = document.getElementById('group-dropdown');
     sidebarList.innerHTML = '';
-    groupDropdown.innerHTML = '<option value="">Alle Gruppen</option>'; // Leere Auswahloption
+    groupDropdown.innerHTML = '<option value="">Alle Gruppen</option>';
 
-    // Funktion zum Extrahieren der Stream-URLs und Gruppeninformationen
-    const extractStreamURLs = (data) => {
-        const urls = {};
+    // Funktion zur Extraktion der Streams und Gruppendaten
+    const extractStreamData = (data) => {
+        const groups = {};
         const lines = data.split('\n');
-        let currentChannelId = null;
         let currentGroupTitle = null;
 
-        lines.forEach(line => {
+        lines.forEach((line, index) => {
             if (line.startsWith('#EXTINF')) {
-                const idMatch = line.match(/tvg-id="([^"]+)"/);
-                currentChannelId = idMatch ? idMatch[1] : null;
-
                 // Extrahiere group-title
                 const groupMatch = line.match(/group-title="([^"]+)"/);
                 currentGroupTitle = groupMatch ? groupMatch[1] : 'Unbekannt';
 
-                if (currentChannelId && !urls[currentChannelId]) {
-                    urls[currentChannelId] = { streamURLs: [], groupTitle: currentGroupTitle };
+                // Stelle sicher, dass die Gruppe initialisiert wird
+                if (!groups[currentGroupTitle]) {
+                    groups[currentGroupTitle] = [];
                 }
-            } else if (currentChannelId && line.startsWith('http')) {
-                urls[currentChannelId].streamURLs.push(line);
-                currentChannelId = null;
+
+                // Extrahiere Stream-URL
+                const streamURL = lines[index + 1]?.startsWith('http') ? lines[index + 1].trim() : null;
+
+                // Falls Stream-URL existiert, füge den Eintrag hinzu
+                if (streamURL) {
+                    groups[currentGroupTitle].push({
+                        streamURL,
+                        extInf: line.trim(), // Ganze Zeile, falls weitere Infos benötigt werden
+                    });
+                }
             }
         });
 
-        return urls;
+        console.log('Extrahierte Gruppen:', groups); // Debug-Ausgabe
+        return groups;
     };
 
-    const streamURLs = extractStreamURLs(data);
-    const lines = data.split('\n');
+    const streamData = extractStreamData(data);
 
-    // Eine Set für die Gruppennamen, um doppelte Einträge zu vermeiden
-    const groups = new Set();
-
-    // Gehe jede Zeile durch und extrahiere die Senderinformationen
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('#EXTINF')) {
-            const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
-            const channelId = idMatch ? idMatch[1] : null;
-            const nameMatch = lines[i].match(/,(.*)$/);
-            const name = nameMatch ? nameMatch[1].trim() : 'Unbekannt';
-
-            const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
-            const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
-
-            const streamURL = lines[i + 1].startsWith('http') ? lines[i + 1].trim() : null;
-
-            const groupTitle = streamURLs[channelId]?.groupTitle || 'Unbekannt';
-
-            // Füge groupTitle zum Set der Gruppen hinzu
-            groups.add(groupTitle);
-
-            if (streamURL) {
-                try {
-                    const programInfo = await getCurrentProgram(channelId);
-
-                    const listItem = document.createElement('li');
-                    listItem.classList.add(groupTitle); // Füge die Gruppe als Klasse hinzu
-                    listItem.innerHTML = `
-                        <div class="channel-info" data-stream="${streamURL}" data-channel-id="${channelId}">
-                            <div class="logo-container">
-                                <img src="${imgURL}" alt="${name} Logo">
-                            </div>
-                            <span class="sender-name">${name}</span>
-                            <span class="epg-channel">
-                                <span>${programInfo.title}</span>
-                                <div class="epg-timeline">
-                                    <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
-                                    <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
-                                </div>
-                            </span>
-                        </div>
-                    `;
-                    sidebarList.appendChild(listItem);
-                } catch (error) {
-                    console.error(`Fehler beim Abrufen der EPG-Daten für Kanal-ID ${channelId}:`, error);
-                }
-            }
-        }
-    }
-
-    // Fülle das Dropdown mit den verfügbaren Gruppen
-    groups.forEach(group => {
+    // Dropdown mit Gruppen füllen
+    Object.keys(streamData).forEach(groupTitle => {
         const option = document.createElement('option');
-        option.value = group;
-        option.textContent = group;
+        option.value = groupTitle;
+        option.textContent = groupTitle;
         groupDropdown.appendChild(option);
     });
 
-    // Event-Listener für die Gruppenwahl im Dropdown
+    // Event-Listener für Dropdown
     groupDropdown.addEventListener('change', (e) => {
         const selectedGroup = e.target.value;
 
-        // Alle Listeneinträge durchlaufen und nur die Kanäle der gewählten Gruppe anzeigen
-        const items = sidebarList.getElementsByTagName('li');
-        for (let i = 0; i < items.length; i++) {
-            if (selectedGroup === '' || items[i].classList.contains(selectedGroup)) {
-                items[i].style.display = ''; // Zeige das Element
-            } else {
-                items[i].style.display = 'none'; // Verberge das Element
-            }
+        // Sidebar aktualisieren
+        sidebarList.innerHTML = '';
+        if (selectedGroup === '') {
+            // Alle Gruppen anzeigen
+            Object.keys(streamData).forEach(group => {
+                streamData[group].forEach(channel => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${group} - ${channel.streamURL}`;
+                    sidebarList.appendChild(listItem);
+                });
+            });
+        } else {
+            // Nur die ausgewählte Gruppe anzeigen
+            streamData[selectedGroup]?.forEach(channel => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `${selectedGroup} - ${channel.streamURL}`;
+                sidebarList.appendChild(listItem);
+            });
         }
     });
 
-    checkStreamStatus();
+    // Standardmäßig alle Gruppen anzeigen
+    groupDropdown.dispatchEvent(new Event('change'));
 }
+
 
 
 
