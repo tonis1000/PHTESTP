@@ -1,8 +1,5 @@
-// Section 1: Playlist Handling
 
-/**
- * Funktion zum Laden der lokalen Playlist und Aktualisieren der Sidebar
- */
+// Funktion zum Laden der Playlist.m3u und Aktualisieren der Sidebar
 function loadMyPlaylist() {
     fetch('playlist.m3u')
         .then(response => response.text())
@@ -10,9 +7,7 @@ function loadMyPlaylist() {
         .catch(error => console.error('Fehler beim Laden der Playlist:', error));
 }
 
-/**
- * Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
- */
+// Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
 function loadExternalPlaylist() {
     fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
         .then(response => response.text())
@@ -20,16 +15,24 @@ function loadExternalPlaylist() {
         .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
 }
 
-/**
- * Funktion zum Laden der Sport-Playlist und Aktualisieren der Sidebar
- */
+// Funktion zum Laden der Sport-Playlist und Aktualisieren der Sidebar
 function loadSportPlaylist() {
     alert("Funktionalität für Sport-Playlist wird implementiert...");
 }
 
-/**
- * Funktion, um die Ressource abzurufen
- */
+
+
+
+
+// Playlist Button
+document.getElementById('playlist-button').addEventListener('click', function() {
+    const playlistURL = document.getElementById('stream-url').value;
+    if (playlistURL) {
+        fetchResource(playlistURL);
+    }
+});
+
+// Funktion, um die Ressource abzurufen
 async function fetchResource(url) {
     let finalUrl = url;
 
@@ -80,77 +83,30 @@ async function fetchResource(url) {
     }
 }
 
-/**
- * Funktion zum Laden der Playlist-URLs aus playlist-urls.txt und Aktualisieren der Sidebar
- */
-function loadPlaylistUrls() {
-    fetch('playlist-urls.txt')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Netzwerkantwort war nicht ok.');
-            }
-            return response.text();
-        })
-        .then(data => {
-            const playlistList = document.getElementById('playlist-url-list');
-            playlistList.innerHTML = ''; // Leert die Liste, um neue Einträge hinzuzufügen
 
-            const lines = data.split('\n');
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (trimmedLine) {
-                    const [label, url] = trimmedLine.split(',').map(part => part.trim());
+// Leeren Button
+document.getElementById('clear-button').addEventListener('click', function() {
+    document.getElementById('stream-url').value = ''; // Setzt den Wert des Eingabefelds auf leer
+});
 
-                    if (label && url) {
-                        const li = document.createElement('li');
-                        const link = document.createElement('a');
-                        link.textContent = label;
-                        link.href = '#'; // Verhindert, dass der Link die Seite neu lädt
-                        link.addEventListener('click', function(event) {
-                            event.preventDefault(); // Verhindert, dass der Link die Seite neu lädt
-                            document.getElementById('stream-url').value = url; // Setzt die URL in das Eingabefeld stream-url
 
-                            // Nach dem Setzen der URL in das Eingabefeld
-                            console.log('Versuche URL abzurufen:', url); // Debugging-Log
-                            fetch(url)
-                                .then(response => {
-                                    if (!response.ok) {
-                                        throw new Error('Netzwerkantwort war nicht ok.');
-                                    }
-                                    return response.text();
-                                })
-                                .then(data => {
-                                    console.log('Daten erfolgreich geladen. Verarbeite M3U-Daten.'); // Debugging-Log
-                                    updateSidebarFromM3U(data);
-                                })
-                                .catch(error => {
-                                    console.error('Fehler beim Laden der Playlist:', error);
-                                    alert('Fehler beim Laden der Playlist. Siehe Konsole für Details.'); // Optional: Benutzer informieren
-                                });
-                        });
 
-                        li.appendChild(link);
-                        playlistList.appendChild(li);
-                    } else {
-                        console.warn('Zeile hat kein Label oder keine URL:', trimmedLine); // Debugging-Log für leere Zeilen
-                    }
-                }
-            });
-        })
-        .catch(error => {
-            console.error('Fehler beim Laden der Playlist URLs:', error);
-            alert('Fehler beim Laden der Playlist-URLs. Siehe Konsole für Details.'); // Optional: Benutzer informieren
-        });
-}
 
-// Section 2
+// Kopieren Button
+document.getElementById('copy-button').addEventListener('click', function() {
+    var streamUrlInput = document.getElementById('stream-url');
+    streamUrlInput.select(); // Markiert den Text im Eingabefeld
+    document.execCommand('copy'); // Kopiert den markierten Text in die Zwischenablage
+});
+
+
+
+
 
 // Globales Objekt für EPG-Daten
 let epgData = {};
 
-/**
- * Funktion zum Laden und Parsen der EPG-Daten
- */
+// Funktion zum Laden und Parsen der EPG-Daten
 function loadEPGData() {
     fetch('https://ext.greektv.app/epg/epg.xml')
         .then(response => response.text())
@@ -182,9 +138,7 @@ function loadEPGData() {
         .catch(error => console.error('Fehler beim Laden der EPG-Daten:', error));
 }
 
-/**
- * Hilfsfunktion zum Umwandeln der EPG-Zeitangaben in Date-Objekte
- */
+// Hilfsfunktion zum Umwandeln der EPG-Zeitangaben in Date-Objekte
 function parseDateTime(epgTime) {
     if (!epgTime || epgTime.length < 19) {
         console.error('Ungültige EPG-Zeitangabe:', epgTime);
@@ -214,9 +168,8 @@ function parseDateTime(epgTime) {
     return date;
 }
 
-/**
- * Funktion zum Finden des aktuellen Programms basierend auf der Uhrzeit
- */
+
+// Funktion zum Finden des aktuellen Programms basierend auf der Uhrzeit
 function getCurrentProgram(channelId) {
     const now = new Date();
     if (epgData[channelId]) {
@@ -246,68 +199,91 @@ function getCurrentProgram(channelId) {
     return { title: 'Keine EPG-Daten verfügbar', description: 'Keine Beschreibung verfügbar', pastPercentage: 0, futurePercentage: 0 };
 }
 
-/**
- * Funktion zum Aktualisieren des Players mit der Programmbeschreibung
- */
+// Funktion zum Aktualisieren des Players mit der Programmbeschreibung
 function updatePlayerDescription(title, description) {
     console.log('Updating player description:', title, description);
     document.getElementById('program-title').textContent = title;
     document.getElementById('program-desc').textContent = description;
 }
 
-/**
- * Funktion zum Aktualisieren der nächsten Programme
- */
-function updateNextPrograms(channelId) {
-    console.log('Updating next programs for channel:', channelId);
-    const nextProgramsContainer = document.getElementById('next-programs');
-    nextProgramsContainer.innerHTML = '';
 
-    if (epgData[channelId]) {
-        const now = new Date();
-        const upcomingPrograms = epgData[channelId]
-            .filter(prog => prog.start > now)
-            .slice(0, 4);
+// Funktion zum Aktualisieren der nächsten Programme
+        function updateNextPrograms(channelId) {
+            console.log('Updating next programs for channel:', channelId);
+            const nextProgramsContainer = document.getElementById('next-programs');
+            nextProgramsContainer.innerHTML = '';
 
-        upcomingPrograms.forEach(program => {
-            const nextProgramDiv = document.createElement('div');
-            nextProgramDiv.classList.add('next-program');
+            if (epgData[channelId]) {
+                const now = new Date();
+                const upcomingPrograms = epgData[channelId]
+                    .filter(prog => prog.start > now)
+                    .slice(0, 4);
 
-            const nextProgramTitle = document.createElement('h4');
-            nextProgramTitle.classList.add('next-program-title');
-            const start = program.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const end = program.stop.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const title = program.title.replace(/\s*\[.*?\]\s*/g, '').replace(/[\[\]]/g, '');
-            nextProgramTitle.textContent = `${title} (${start} - ${end})`;
+                upcomingPrograms.forEach(program => {
+                    const nextProgramDiv = document.createElement('div');
+                    nextProgramDiv.classList.add('next-program');
 
-            const nextProgramDesc = document.createElement('p');
-            nextProgramDesc.classList.add('next-program-desc');
-            nextProgramDesc.textContent = program.desc || 'Keine Beschreibung verfügbar';
-            nextProgramDesc.style.display = 'none'; // Standardmäßig ausgeblendet
+                    const nextProgramTitle = document.createElement('h4');
+                    nextProgramTitle.classList.add('next-program-title');
+                    const start = program.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const end = program.stop.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const title = program.title.replace(/\s*\[.*?\]\s*/g, '').replace(/[\[\]]/g, '');
+                    nextProgramTitle.textContent = `${title} (${start} - ${end})`;
 
-            nextProgramDiv.appendChild(nextProgramTitle);
-            nextProgramDiv.appendChild(nextProgramDesc);
+                    const nextProgramDesc = document.createElement('p');
+                    nextProgramDesc.classList.add('next-program-desc');
+                    nextProgramDesc.textContent = program.desc || 'Keine Beschreibung verfügbar';
+                    nextProgramDesc.style.display = 'none'; // Standardmäßig ausgeblendet
 
-            nextProgramTitle.addEventListener('click', function() {
-                if (nextProgramDesc.style.display === 'none') {
-                    nextProgramDesc.style.display = 'block';
-                    updateProgramInfo(title, nextProgramDesc.textContent);
-                } else {
-                    nextProgramDesc.style.display = 'none';
-                }
-            });
+                    nextProgramDiv.appendChild(nextProgramTitle);
+                    nextProgramDiv.appendChild(nextProgramDesc);
 
-            nextProgramsContainer.appendChild(nextProgramDiv);
-        });
+                    nextProgramTitle.addEventListener('click', function() {
+                        if (nextProgramDesc.style.display === 'none') {
+                            nextProgramDesc.style.display = 'block';
+                            updateProgramInfo(title, nextProgramDesc.textContent);
+                        } else {
+                            nextProgramDesc.style.display = 'none';
+                        }
+                    });
+
+                    nextProgramsContainer.appendChild(nextProgramDiv);
+                });
+            }
+        }
+
+
+
+// Im Event-Handler für den Klick auf einen Sender
+const sidebarList = document.getElementById('sidebar-list');
+sidebarList.addEventListener('click', function (event) {
+    const channelInfo = event.target.closest('.channel-info');
+    if (channelInfo) {
+        const channelId = channelInfo.dataset.channelId;
+        const programInfo = getCurrentProgram(channelId);
+
+        // Aktualisiert den Player mit der aktuellen Sendung
+        setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, channelInfo.dataset.stream);
+        playStream(channelInfo.dataset.stream);
+
+        // Aktualisiert die Programmbeschreibung
+        updatePlayerDescription(programInfo.title, programInfo.description);
+
+        // Aktualisiert die nächsten Programme
+        updateNextPrograms(channelId);
+
+        // Zeigt das Logo des ausgewählten Senders an
+        const logoContainer = document.getElementById('current-channel-logo');
+        const logoImg = channelInfo.querySelector('.logo-container img').src;
+        logoContainer.src = logoImg;
     }
-}
+});
 
 
-// Section 3
 
-/**
- * Funktion zum Aktualisieren der Sidebar von einer M3U-Datei
- */
+
+
+// Funktion zum Aktualisieren der Sidebar von einer M3U-Datei
 async function updateSidebarFromM3U(data) {
     const sidebarList = document.getElementById('sidebar-list');
     sidebarList.innerHTML = '';
@@ -379,9 +355,12 @@ async function updateSidebarFromM3U(data) {
     checkStreamStatus();
 }
 
-/**
- * Funktion zum Überprüfen des Status der Streams
- */
+
+
+
+
+
+// Funktion zum Überprüfen des Status der Streams und Markieren der gesamten Sidebar-Einträge
 function checkStreamStatus() {
     const sidebarChannels = document.querySelectorAll('.channel-info');
     sidebarChannels.forEach(channel => {
@@ -410,25 +389,10 @@ function checkStreamStatus() {
 }
 
 
-// Section 4
-
-/**
- * Event-Handler für den Klick auf den Playlist-URLs-Titel
- */
-document.addEventListener('DOMContentLoaded', function() {
-    const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
-    if (playlistUrlsTitle) {
-        playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
-    } else {
-        console.error('Element für den Klick-Event-Listener wurde nicht gefunden.');
-    }
-});
-
-/**
- * Event-Handler für den Klick auf den Filter-Button
- */
+// filter-online-button
 document.addEventListener('DOMContentLoaded', function () {
     const filterOnlineButton = document.getElementById('filter-online-button');
+
     filterOnlineButton.addEventListener('click', function () {
         const items = document.querySelectorAll('#sidebar-list li');
         items.forEach(item => {
@@ -442,10 +406,300 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-/**
- * Event-Handler für den Klick auf den "Show All" Button
- */
+// Deine bestehende checkStreamStatus-Funktion bleibt unverändert.
+
+
+// Ereignisbehandler für Klicks auf Sender
+document.addEventListener('DOMContentLoaded', function () {
+    loadEPGData();
+    updateClock();
+    setInterval(updateClock, 1000);
+    document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
+    document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
+    document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
+
+    const sidebarList = document.getElementById('sidebar-list');
+    sidebarList.addEventListener('click', function (event) {
+        const channelInfo = event.target.closest('.channel-info');
+        if (channelInfo) {
+            const streamURL = channelInfo.dataset.stream;
+            const channelId = channelInfo.dataset.channelId;
+            const programInfo = getCurrentProgram(channelId);
+
+            setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
+            playStream(streamURL);
+
+            // Aktualisieren der Programmbeschreibung
+            updatePlayerDescription(programInfo.title, programInfo.description);
+        }
+    });
+
+    setInterval(checkStreamStatus, 60000);
+
+    const playButton = document.getElementById('play-button');
+    const streamUrlInput = document.getElementById('stream-url');
+
+    const playStreamFromInput = () => {
+        const streamUrl = streamUrlInput.value;
+        if (streamUrl) {
+            playStream(streamUrl);
+        }
+    };
+
+    playButton.addEventListener('click', playStreamFromInput);
+
+    streamUrlInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            playStreamFromInput();
+        }
+    });
+});
+
+
+
+// Funktion zum Setzen des aktuellen Sendernamens und der URL
+function setCurrentChannel(channelName, streamUrl) {
+    const currentChannelName = document.getElementById('current-channel-name');
+    const streamUrlInput = document.getElementById('stream-url');
+    currentChannelName.textContent = channelName; // Nur der Sendername
+    streamUrlInput.value = streamUrl;
+}
+
+// Aktualisierung der Uhrzeit
+function updateClock() {
+    const now = new Date();
+    const tag = now.toLocaleDateString('de-DE', { weekday: 'long' });
+    const datum = now.toLocaleDateString('de-DE');
+    const uhrzeit = now.toLocaleTimeString('de-DE', { hour12: false });
+    document.getElementById('tag').textContent = tag;
+    document.getElementById('datum').textContent = datum;
+    document.getElementById('uhrzeit').textContent = uhrzeit;
+}
+
+// Funktion zum Abspielen eines Streams im Video-Player
+function playStream(streamURL, subtitleURL) {
+    const videoPlayer = document.getElementById('video-player');
+    const subtitleTrack = document.getElementById('subtitle-track');
+
+    // Untertitel-Setup
+    if (subtitleURL) {
+        subtitleTrack.src = subtitleURL;
+        subtitleTrack.track.mode = 'showing'; // Untertitel anzeigen
+    } else {
+        subtitleTrack.src = '';
+        subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
+    }
+
+    // HLS.js-Integration mit Header-Setup
+    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+        const hls = new Hls({
+            xhrSetup: function (xhr, url) {
+                xhr.setRequestHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+                xhr.setRequestHeader('Referer', 'https://ertflix.gr/');
+            }
+        });
+        hls.loadSource(streamURL);
+        hls.attachMedia(videoPlayer);
+        hls.on(Hls.Events.MANIFEST_PARSED, function () {
+            videoPlayer.play();
+        });
+    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+        // Direktes HLS für Safari
+        videoPlayer.src = streamURL;
+        videoPlayer.addEventListener('loadedmetadata', function () {
+            videoPlayer.play();
+        });
+    } else if (streamURL.endsWith('.mpd')) {
+        // MPEG-DASH-Streaming mit dash.js
+        const dashPlayer = dashjs.MediaPlayer().create();
+        dashPlayer.initialize(videoPlayer, streamURL, true);
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+        // Direktes MP4- oder WebM-Streaming
+        videoPlayer.src = streamURL;
+        videoPlayer.play();
+    } else {
+        console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
+    }
+}
+
+
+
+
+
+// Funktion zum Lesen der SRT-Datei und Anzeigen der griechischen Untertitel
+function handleSubtitleFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const srtContent = event.target.result;
+        const vttContent = convertSrtToVtt(srtContent);
+        const blob = new Blob([vttContent], { type: 'text/vtt' });
+        const url = URL.createObjectURL(blob);
+        const track = document.getElementById('subtitle-track');
+        track.src = url;
+        track.label = 'Griechisch';
+        track.srclang = 'el';
+        track.default = true;
+    };
+    reader.readAsText(file);
+}
+
+// Funktion zum Konvertieren von SRT in VTT
+function convertSrtToVtt(srtContent) {
+    // SRT-Untertitelzeilen in VTT-Format konvertieren
+    const vttContent = 'WEBVTT\n\n' + srtContent
+        // Ersetze Trennzeichen
+        .replace(/\r\n|\r|\n/g, '\n')
+        // Ersetze Zeitformate von SRT in VTT
+        .replace(/(\d{2}):(\d{2}):(\d{2}),(\d{3})/g, '$1:$2:$3.$4');
+
+    return vttContent;
+}
+
+
+
+        // Event-Listener für den Play-Button und Datei-Eingabe
+        document.addEventListener('DOMContentLoaded', function () {
+            const playButton = document.getElementById('play-button');
+            const streamUrlInput = document.getElementById('stream-url');
+            const subtitleFileInput = document.getElementById('subtitle-file');
+
+            const playStreamFromInput = () => {
+                const streamUrl = streamUrlInput.value;
+                const subtitleFile = subtitleFileInput.files[0];
+                if (streamUrl) {
+                    if (subtitleFile) {
+                        handleSubtitleFile(subtitleFile);
+                    }
+                    playStream(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
+                }
+            };
+
+            playButton.addEventListener('click', playStreamFromInput);
+
+            streamUrlInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    playStreamFromInput();
+                }
+            });
+
+            subtitleFileInput.addEventListener('change', (event) => {
+                const subtitleFile = event.target.files[0];
+                if (subtitleFile) {
+                    handleSubtitleFile(subtitleFile);
+                }
+            });
+        });
+
+
+
+
+// foothubhd-Wetter
+function toggleContent(contentId) {
+    const allContents = document.querySelectorAll('.content-body');
+    allContents.forEach(content => {
+        if (content.id === contentId) {
+            content.classList.toggle('expanded');
+        } else {
+            content.classList.remove('expanded');
+        }
+    });
+}
+
+
+
+// Funktion zum Laden der Playlist-URLs aus playlist-urls.txt und Aktualisieren der Sidebar
+function loadPlaylistUrls() {
+    fetch('playlist-urls.txt')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Netzwerkantwort war nicht ok.');
+            }
+            return response.text();
+        })
+        .then(data => {
+            const playlistList = document.getElementById('playlist-url-list');
+            playlistList.innerHTML = ''; // Leert die Liste, um neue Einträge hinzuzufügen
+
+            const lines = data.split('\n');
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (trimmedLine) {
+                    const [label, url] = trimmedLine.split(',').map(part => part.trim());
+
+                    if (label && url) {
+                        const li = document.createElement('li');
+                        const link = document.createElement('a');
+                        link.textContent = label;
+                        link.href = '#'; // Verhindert, dass der Link die Seite neu lädt
+                        link.addEventListener('click', function(event) {
+                            event.preventDefault(); // Verhindert, dass der Link die Seite neu lädt
+                            document.getElementById('stream-url').value = url; // Setzt die URL in das Eingabefeld stream-url
+
+                            // Nach dem Setzen der URL in das Eingabefeld
+                            console.log('Versuche URL abzurufen:', url); // Debugging-Log
+                            fetch(url)
+                                .then(response => {
+                                    if (!response.ok) {
+                                        throw new Error('Netzwerkantwort war nicht ok.');
+                                    }
+                                    return response.text();
+                                })
+                                .then(data => {
+                                    console.log('Daten erfolgreich geladen. Verarbeite M3U-Daten.'); // Debugging-Log
+                                    updateSidebarFromM3U(data);
+                                })
+                                .catch(error => {
+                                    console.error('Fehler beim Laden der Playlist:', error);
+                                    alert('Fehler beim Laden der Playlist. Siehe Konsole für Details.'); // Optional: Benutzer informieren
+                                });
+                        });
+
+                        li.appendChild(link);
+                        playlistList.appendChild(li);
+                    } else {
+                        console.warn('Zeile hat kein Label oder keine URL:', trimmedLine); // Debugging-Log für leere Zeilen
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der Playlist URLs:', error);
+            alert('Fehler beim Laden der Playlist-URLs. Siehe Konsole für Details.'); // Optional: Benutzer informieren
+        });
+}
+
+// Event-Listener für den Klick auf den Playlist-URLs-Titel
+document.addEventListener('DOMContentLoaded', function() {
+    const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
+    if (playlistUrlsTitle) {
+        playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
+    } else {
+        console.error('Element für den Klick-Event-Listener wurde nicht gefunden.');
+    }
+});
+
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    const filterOnlineButton = document.getElementById('filter-online-button');
+
+    // Event-Listener für den Klick auf den Filter-Button
+    filterOnlineButton.addEventListener('click', function () {
+        const items = document.querySelectorAll('#sidebar-list li'); // Alle Listeneinträge in der Sidebar abrufen
+        items.forEach(item => {
+            const channelInfo = item.querySelector('.channel-info'); // Suche nach dem Channel-Info-Element in jedem Listeneintrag
+            if (channelInfo && channelInfo.classList.contains('online')) {
+                item.style.display = ''; // Zeige den Eintrag, wenn der Sender online ist
+            } else {
+                item.style.display = 'none'; // Verstecke den Eintrag, wenn der Sender offline ist
+            }
+        });
+    });
+});
+
+
 const showAllButton = document.getElementById('show-all-button');
+
 showAllButton.addEventListener('click', function () {
     const items = document.querySelectorAll('#sidebar-list li');
     items.forEach(item => {
@@ -453,4 +707,41 @@ showAllButton.addEventListener('click', function () {
     });
 });
 
-/**
+
+
+
+// Funktion zum Filtern der Senderliste und Abspielen des ersten sichtbaren Ergebnisses bei Enter
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+
+    // Event-Listener für die Eingabe im Suchfeld
+    searchInput.addEventListener('input', function() {
+        const filter = searchInput.value.toLowerCase();
+        const sidebarList = document.getElementById('sidebar-list');
+        const items = sidebarList.getElementsByTagName('li');
+
+        let firstVisibleItem = null;
+
+        Array.from(items).forEach(item => {
+            const text = item.textContent || item.innerText;
+            if (text.toLowerCase().includes(filter)) {
+                item.style.display = ''; // Zeige den Eintrag
+                if (!firstVisibleItem) {
+                    firstVisibleItem = item; // Setze das erste sichtbare Element
+                }
+            } else {
+                item.style.display = 'none'; // Verstecke den Eintrag
+            }
+        });
+
+        // Event-Listener für die Enter-Taste
+        searchInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                if (firstVisibleItem) {
+                    const streamURL = firstVisibleItem.querySelector('.channel-info').dataset.stream;
+                    playStream(streamURL);
+                }
+            }
+        });
+    });
+});
