@@ -286,60 +286,52 @@ sidebarList.addEventListener('click', function (event) {
 // Funktion zum Aktualisieren der Sidebar von einer M3U-Datei
 async function updateSidebarFromM3U(data) {
     const sidebarList = document.getElementById('sidebar-list');
-    const groupDropdown = document.getElementById('group-dropdown');
+    const groupDropdown = document.getElementById('group-dropdown'); // Dropdown für Sendergruppen
     sidebarList.innerHTML = '';
-    groupDropdown.innerHTML = '<option value="">Alle Gruppen</option>';
+    groupDropdown.innerHTML = '<option value="">Alle Gruppen</option>'; // Standardoption
 
-    // Funktion zum Extrahieren der Senderinformationen
-    const extractStreamURLs = (data) => {
-        const urls = [];
+    // Funktion zum Extrahieren der Senderdaten, inkl. group-title
+    const extractStreamData = (data) => {
+        const streams = [];
         const lines = data.split('\n');
-        let currentChannel = null;
+        let currentChannel = {};
 
         lines.forEach((line) => {
             if (line.startsWith('#EXTINF')) {
-                const channelInfo = {};
-
-                // Extrahiere Kanal-ID
+                // Extrahiere tvg-id oder tvg-name
                 const idMatch = line.match(/tvg-id="([^"]+)"/);
-                channelInfo.channelId = idMatch ? idMatch[1] : null;
-
-                // Extrahiere Sendernamen
-                const nameMatch = line.match(/,(.*)$/);
-                channelInfo.name = nameMatch ? nameMatch[1].trim() : 'Unbekannt';
-
-                // Extrahiere Senderlogo
-                const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-                channelInfo.logo = logoMatch ? logoMatch[1] : 'default_logo.png';
+                const nameMatch = line.match(/tvg-name="([^"]+)"/);
+                currentChannel.id = idMatch ? idMatch[1] : nameMatch ? nameMatch[1] : null;
 
                 // Extrahiere group-title
                 const groupMatch = line.match(/group-title="([^"]+)"/);
-                channelInfo.group = groupMatch ? groupMatch[1].trim() : 'Unbekannt';
+                currentChannel.group = groupMatch ? groupMatch[1] : 'Unbekannt';
 
-                currentChannel = channelInfo;
+                // Extrahiere Kanalname
+                const nameTextMatch = line.match(/,(.*)$/);
+                currentChannel.name = nameTextMatch ? nameTextMatch[1].trim() : 'Unbekannt';
+
+                // Extrahiere Logo
+                const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+                currentChannel.logo = logoMatch ? logoMatch[1] : 'default_logo.png';
             } else if (line.startsWith('http')) {
-                // Füge Stream-URL hinzu
-                if (currentChannel) {
-                    currentChannel.streamURL = line.trim();
-                    urls.push(currentChannel);
-                    currentChannel = null;
-                }
+                // Speichere Stream-URL und füge den Kanal zur Liste hinzu
+                currentChannel.streamURL = line.trim();
+                streams.push({ ...currentChannel });
+                currentChannel = {}; // Zurücksetzen für den nächsten Kanal
             }
         });
 
-        return urls;
+        return streams;
     };
 
-    // Daten verarbeiten
-    const channels = extractStreamURLs(data);
+    const streams = extractStreamData(data);
 
-    // Gruppen sammeln
+    // Sammle alle Gruppen in einem Set
     const groups = new Set();
-    channels.forEach((channel) => {
-        groups.add(channel.group);
-    });
+    streams.forEach((stream) => groups.add(stream.group));
 
-    // Dropdown mit Gruppen füllen
+    // Fülle das Dropdown mit den Gruppen
     groups.forEach((group) => {
         const option = document.createElement('option');
         option.value = group;
@@ -347,36 +339,52 @@ async function updateSidebarFromM3U(data) {
         groupDropdown.appendChild(option);
     });
 
-    // Sidebar füllen
-    const populateSidebar = (group) => {
-        sidebarList.innerHTML = '';
-        channels.forEach((channel) => {
-            if (group === '' || channel.group === group) {
-                const listItem = document.createElement('li');
-                listItem.innerHTML = `
-                    <div class="channel-info" data-stream="${channel.streamURL}" data-channel-id="${channel.channelId}">
-                        <div class="logo-container">
-                            <img src="${channel.logo}" alt="${channel.name} Logo">
-                        </div>
-                        <span class="sender-name">${channel.name}</span>
+    // Zeige alle Streams in der Sidebar (unveränderte Logik)
+    streams.forEach(async (stream) => {
+        try {
+            const programInfo = await getCurrentProgram(stream.id);
+
+            const listItem = document.createElement('li');
+            listItem.classList.add(stream.group); // Gruppe als Klasse hinzufügen
+            listItem.innerHTML = `
+                <div class="channel-info" data-stream="${stream.streamURL}" data-channel-id="${stream.id}">
+                    <div class="logo-container">
+                        <img src="${stream.logo}" alt="${stream.name} Logo">
                     </div>
-                `;
-                sidebarList.appendChild(listItem);
-            }
-        });
-    };
-
-    // Initial: Alle Kanäle anzeigen
-    populateSidebar('');
-
-    // Event-Listener für Dropdown
-    groupDropdown.addEventListener('change', (e) => {
-        const selectedGroup = e.target.value;
-        populateSidebar(selectedGroup);
+                    <span class="sender-name">${stream.name}</span>
+                    <span class="epg-channel">
+                        <span>${programInfo.title}</span>
+                        <div class="epg-timeline">
+                            <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+                            <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+                        </div>
+                    </span>
+                </div>
+            `;
+            sidebarList.appendChild(listItem);
+        } catch (error) {
+            console.error(`Fehler beim Abrufen der EPG-Daten für Kanal ${stream.id}:`, error);
+        }
     });
 
-    checkStreamStatus();
+    // Event-Listener für die Auswahl im Dropdown
+    groupDropdown.addEventListener('change', (e) => {
+        const selectedGroup = e.target.value;
+
+        // Filtere die Streams basierend auf der ausgewählten Gruppe
+        const items = sidebarList.getElementsByTagName('li');
+        for (let i = 0; i < items.length; i++) {
+            if (selectedGroup === '' || items[i].classList.contains(selectedGroup)) {
+                items[i].style.display = ''; // Zeige das Element
+            } else {
+                items[i].style.display = 'none'; // Verberge das Element
+            }
+        }
+    });
+
+    checkStreamStatus(); // Funktion bleibt wie zuvor
 }
+
 
 
 
