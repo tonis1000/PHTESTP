@@ -283,69 +283,56 @@ sidebarList.addEventListener('click', function (event) {
 
 
 
+// Funktion zum Aktualisieren der Sidebar von einer M3U-Datei
 async function updateSidebarFromM3U(data) {
     const sidebarList = document.getElementById('sidebar-list');
     sidebarList.innerHTML = '';
 
-    // Funktion, um die URLs der Streams und ihre Metadaten zu extrahieren
+    // Funktion zum Extrahieren der Stream-URLs und Gruppeninformationen
     const extractStreamURLs = (data) => {
         const urls = {};
-        const groupTitles = {};
         const lines = data.split('\n');
         let currentChannelId = null;
         let currentGroupTitle = null;
 
         lines.forEach(line => {
-            // Überprüfen, ob die Zeile eine TVG-ID enthält
             if (line.startsWith('#EXTINF')) {
                 const idMatch = line.match(/tvg-id="([^"]+)"/);
                 currentChannelId = idMatch ? idMatch[1] : null;
 
-                // Überprüfen, ob die Zeile ein Gruppen-Title enthält
-                const groupTitleMatch = line.match(/group-title="([^"]+)"/);
-                currentGroupTitle = groupTitleMatch ? groupTitleMatch[1] : null;
+                // Extrahiere group-title
+                const groupMatch = line.match(/group-title="([^"]+)"/);
+                currentGroupTitle = groupMatch ? groupMatch[1] : 'Unbekannt';
 
                 if (currentChannelId && !urls[currentChannelId]) {
-                    urls[currentChannelId] = [];
-                    if (currentGroupTitle && !groupTitles[currentGroupTitle]) {
-                        groupTitles[currentGroupTitle] = [];
-                    }
+                    urls[currentChannelId] = { streamURLs: [], groupTitle: currentGroupTitle };
                 }
             } else if (currentChannelId && line.startsWith('http')) {
-                // Speichern der URLs, zugehörig zu ihrem Kanal
-                urls[currentChannelId].push(line);
-                if (currentGroupTitle) {
-                    groupTitles[currentGroupTitle].push(currentChannelId);
-                }
+                urls[currentChannelId].streamURLs.push(line);
                 currentChannelId = null;
-                currentGroupTitle = null;
             }
         });
 
-        return { urls, groupTitles };
+        return urls;
     };
 
-    // Extrahieren der URLs und Group-Titles
-    const { urls, groupTitles } = extractStreamURLs(data);
+    const streamURLs = extractStreamURLs(data);
     const lines = data.split('\n');
 
-    // Sidebar mit den Streams füllen
-    for (let groupTitle in groupTitles) {
-        const groupItem = document.createElement('li');
-        groupItem.classList.add('group-title');
-        groupItem.textContent = groupTitle;
-        sidebarList.appendChild(groupItem);
-
-        // Füge alle Kanäle der aktuellen Gruppe zur Sidebar hinzu
-        groupTitles[groupTitle].forEach(channelId => {
-            const channelData = lines.find(line => line.includes(`tvg-id="${channelId}"`));
-            const nameMatch = channelData.match(/,(.*)$/);
+    // Gehe jede Zeile durch und erstelle die Sidebar-Elemente
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('#EXTINF')) {
+            const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
+            const channelId = idMatch ? idMatch[1] : null;
+            const nameMatch = lines[i].match(/,(.*)$/);
             const name = nameMatch ? nameMatch[1].trim() : 'Unbekannt';
 
-            const imgMatch = channelData.match(/tvg-logo="([^"]+)"/);
+            const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
             const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
 
-            const streamURL = urls[channelId] ? urls[channelId][0] : null;
+            const streamURL = lines[i + 1].startsWith('http') ? lines[i + 1].trim() : null;
+
+            const groupTitle = streamURLs[channelId]?.groupTitle || 'Unbekannt';
 
             if (streamURL) {
                 try {
@@ -358,6 +345,7 @@ async function updateSidebarFromM3U(data) {
                                 <img src="${imgURL}" alt="${name} Logo">
                             </div>
                             <span class="sender-name">${name}</span>
+                            <span class="group-title">${groupTitle}</span> <!-- Füge group-title hinzu -->
                             <span class="epg-channel">
                                 <span>${programInfo.title}</span>
                                 <div class="epg-timeline">
@@ -372,7 +360,7 @@ async function updateSidebarFromM3U(data) {
                     console.error(`Fehler beim Abrufen der EPG-Daten für Kanal-ID ${channelId}:`, error);
                 }
             }
-        });
+        }
     }
 
     checkStreamStatus();
