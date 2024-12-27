@@ -286,7 +286,9 @@ sidebarList.addEventListener('click', function (event) {
 // Funktion zum Aktualisieren der Sidebar von einer M3U-Datei
 async function updateSidebarFromM3U(data) {
     const sidebarList = document.getElementById('sidebar-list');
+    const groupDropdown = document.getElementById('group-dropdown'); // Dropdown für Sendergruppen
     sidebarList.innerHTML = '';
+    groupDropdown.innerHTML = '<option value="">Alle Gruppen</option>'; // Leere Auswahloption
 
     // Funktion zum Extrahieren der Stream-URLs und Gruppeninformationen
     const extractStreamURLs = (data) => {
@@ -319,7 +321,10 @@ async function updateSidebarFromM3U(data) {
     const streamURLs = extractStreamURLs(data);
     const lines = data.split('\n');
 
-    // Gehe jede Zeile durch und erstelle die Sidebar-Elemente
+    // Eine Set für die Gruppennamen, um doppelte Einträge zu vermeiden
+    const groups = new Set();
+
+    // Gehe jede Zeile durch und extrahiere die Senderinformationen
     for (let i = 0; i < lines.length; i++) {
         if (lines[i].startsWith('#EXTINF')) {
             const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
@@ -334,18 +339,21 @@ async function updateSidebarFromM3U(data) {
 
             const groupTitle = streamURLs[channelId]?.groupTitle || 'Unbekannt';
 
+            // Füge groupTitle zum Set der Gruppen hinzu
+            groups.add(groupTitle);
+
             if (streamURL) {
                 try {
                     const programInfo = await getCurrentProgram(channelId);
 
                     const listItem = document.createElement('li');
+                    listItem.classList.add(groupTitle); // Füge die Gruppe als Klasse hinzu
                     listItem.innerHTML = `
                         <div class="channel-info" data-stream="${streamURL}" data-channel-id="${channelId}">
                             <div class="logo-container">
                                 <img src="${imgURL}" alt="${name} Logo">
                             </div>
                             <span class="sender-name">${name}</span>
-                            <span class="group-title">${groupTitle}</span> <!-- Füge group-title hinzu -->
                             <span class="epg-channel">
                                 <span>${programInfo.title}</span>
                                 <div class="epg-timeline">
@@ -363,8 +371,32 @@ async function updateSidebarFromM3U(data) {
         }
     }
 
+    // Fülle das Dropdown mit den verfügbaren Gruppen
+    groups.forEach(group => {
+        const option = document.createElement('option');
+        option.value = group;
+        option.textContent = group;
+        groupDropdown.appendChild(option);
+    });
+
+    // Event-Listener für die Gruppenwahl im Dropdown
+    groupDropdown.addEventListener('change', (e) => {
+        const selectedGroup = e.target.value;
+
+        // Alle Listeneinträge durchlaufen und nur die Kanäle der gewählten Gruppe anzeigen
+        const items = sidebarList.getElementsByTagName('li');
+        for (let i = 0; i < items.length; i++) {
+            if (selectedGroup === '' || items[i].classList.contains(selectedGroup)) {
+                items[i].style.display = ''; // Zeige das Element
+            } else {
+                items[i].style.display = 'none'; // Verberge das Element
+            }
+        }
+    });
+
     checkStreamStatus();
 }
+
 
 
 
