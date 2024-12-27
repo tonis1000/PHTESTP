@@ -288,140 +288,122 @@ async function updateSidebarFromM3U(data) {
     const sidebarList = document.getElementById('sidebar-list');
     const groupDropdown = document.getElementById('group-dropdown'); // Dropdown für Sendergruppen
     sidebarList.innerHTML = '';
-    groupDropdown.innerHTML = '<option value="">Alle Gruppen</option>'; // Standardoption
+    groupDropdown.innerHTML = '<option value="">Alle Gruppen</option>'; // Leere Auswahloption
 
-    // Funktion zum Extrahieren der Senderdaten, inkl. group-title
-    const extractStreamData = (data) => {
-        const streams = [];
+    const extractStreamURLs = (data) => {
+        const urls = {};
         const lines = data.split('\n');
-        let currentChannel = {};
+        let currentChannelId = null;
+        let currentChannelName = null;
+        let currentGroupTitle = null;
 
-        lines.forEach((line) => {
+        lines.forEach(line => {
             if (line.startsWith('#EXTINF')) {
-                // Extrahiere tvg-id oder tvg-name
                 const idMatch = line.match(/tvg-id="([^"]+)"/);
                 const nameMatch = line.match(/tvg-name="([^"]+)"/);
-                currentChannel.id = idMatch ? idMatch[1] : nameMatch ? nameMatch[1] : null;
+                currentChannelId = idMatch ? idMatch[1] : null;
+                currentChannelName = nameMatch ? nameMatch[1] : currentChannelId;
 
-                // Extrahiere group-title
                 const groupMatch = line.match(/group-title="([^"]+)"/);
-                currentChannel.group = groupMatch ? groupMatch[1] : 'Unbekannt';
+                currentGroupTitle = groupMatch ? groupMatch[1] : 'Unbekannt';
 
-                // Extrahiere Kanalname
-                const nameTextMatch = line.match(/,(.*)$/);
-                currentChannel.name = nameTextMatch ? nameTextMatch[1].trim() : 'Unbekannt';
-
-                // Extrahiere Logo
-                const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-                currentChannel.logo = logoMatch ? logoMatch[1] : 'default_logo.png';
-            } else if (line.startsWith('http')) {
-                // Speichere Stream-URL und füge den Kanal zur Liste hinzu
-                currentChannel.streamURL = line.trim();
-                streams.push({ ...currentChannel });
-                currentChannel = {}; // Zurücksetzen für den nächsten Kanal
+                if (currentChannelName && !urls[currentChannelName]) {
+                    urls[currentChannelName] = { streamURLs: [], groupTitle: currentGroupTitle };
+                }
+            } else if (currentChannelName && line.startsWith('http')) {
+                urls[currentChannelName].streamURLs.push(line.trim());
+                currentChannelName = null;
             }
         });
 
-        return streams;
+        return urls;
     };
 
-    const streams = extractStreamData(data);
+    const streamURLs = extractStreamURLs(data);
+    const lines = data.split('\n');
 
-    // Sammle alle Gruppen in einem Set
     const groups = new Set();
-    streams.forEach((stream) => groups.add(stream.group));
 
-    // Fülle das Dropdown mit den Gruppen
-    groups.forEach((group) => {
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('#EXTINF')) {
+            const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
+            const nameMatch = lines[i].match(/tvg-name="([^"]+)"/);
+            const channelId = idMatch ? idMatch[1] : null;
+            const channelName = nameMatch ? nameMatch[1] : channelId || 'Unbekannt';
+
+            const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
+            const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
+
+            const groupMatch = lines[i].match(/group-title="([^"]+)"/);
+            const groupTitle = groupMatch ? groupMatch[1] : 'Unbekannt';
+            groups.add(groupTitle);
+
+            const streamURL = lines[i + 1]?.startsWith('http') ? lines[i + 1].trim() : null;
+
+            if (streamURL) {
+                const listItem = document.createElement('li');
+                listItem.classList.add(groupTitle); // CSS-Klasse für Gruppe
+                listItem.innerHTML = `
+                    <div class="channel-info" data-stream="${streamURL}" data-channel-id="${channelId}">
+                        <div class="logo-container">
+                            <img src="${imgURL}" alt="${channelName} Logo">
+                        </div>
+                        <span class="sender-name">${channelName}</span>
+                        <span class="status-indicator">Prüfen...</span>
+                    </div>
+                `;
+                sidebarList.appendChild(listItem);
+
+                // Online-Check durchführen
+                checkStreamStatus(streamURL, listItem);
+            }
+        }
+    }
+
+    groups.forEach(group => {
         const option = document.createElement('option');
         option.value = group;
         option.textContent = group;
         groupDropdown.appendChild(option);
     });
 
-    // Zeige alle Streams in der Sidebar (unveränderte Logik)
-    streams.forEach(async (stream) => {
-        try {
-            const programInfo = await getCurrentProgram(stream.id);
-
-            const listItem = document.createElement('li');
-            listItem.classList.add(stream.group); // Gruppe als Klasse hinzufügen
-            listItem.innerHTML = `
-                <div class="channel-info" data-stream="${stream.streamURL}" data-channel-id="${stream.id}">
-                    <div class="logo-container">
-                        <img src="${stream.logo}" alt="${stream.name} Logo">
-                    </div>
-                    <span class="sender-name">${stream.name}</span>
-                    <span class="epg-channel">
-                        <span>${programInfo.title}</span>
-                        <div class="epg-timeline">
-                            <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
-                            <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
-                        </div>
-                    </span>
-                </div>
-            `;
-            sidebarList.appendChild(listItem);
-        } catch (error) {
-            console.error(`Fehler beim Abrufen der EPG-Daten für Kanal ${stream.id}:`, error);
-        }
-    });
-
-    // Event-Listener für die Auswahl im Dropdown
     groupDropdown.addEventListener('change', (e) => {
         const selectedGroup = e.target.value;
-
-        // Filtere die Streams basierend auf der ausgewählten Gruppe
         const items = sidebarList.getElementsByTagName('li');
         for (let i = 0; i < items.length; i++) {
             if (selectedGroup === '' || items[i].classList.contains(selectedGroup)) {
-                items[i].style.display = ''; // Zeige das Element
+                items[i].style.display = ''; // Zeige Element
             } else {
-                items[i].style.display = 'none'; // Verberge das Element
+                items[i].style.display = 'none'; // Verberge Element
             }
         }
     });
-
-    checkStreamStatus(); // Funktion bleibt wie zuvor
 }
 
-
-
-
-
-
-
-
-
-
-
-// Funktion zum Überprüfen des Status der Streams und Markieren der gesamten Sidebar-Einträge
-function checkStreamStatus() {
-    const sidebarChannels = document.querySelectorAll('.channel-info');
-    sidebarChannels.forEach(channel => {
-        const streamURL = channel.dataset.stream;
-        if (streamURL) {
-            fetch(streamURL)
-                .then(response => {
-                    if (response.ok) {
-                        channel.classList.add('online'); // Markiere den gesamten Sidebar-Eintrag
-                        channel.querySelector('.sender-name').style.color = 'lightgreen'; // Ändere die Textfarbe des Sendernamens
-                        channel.querySelector('.sender-name').style.fontWeight = 'bold'; // Ändere die Schriftstärke des Sendernamens
-                    } else {
-                        channel.classList.remove('online'); // Entferne die Markierung
-                        channel.querySelector('.sender-name').style.color = ''; // Setze die Textfarbe des Sendernamens zurück
-                        channel.querySelector('.sender-name').style.fontWeight = ''; // Setze die Schriftstärke des Sendernamens zurück
-                    }
-                })
-                .catch(error => {
-                    console.error('Fehler beim Überprüfen des Stream-Status:', error);
-                    channel.classList.remove('online'); // Entferne die Markierung bei einem Fehler
-                    channel.querySelector('.sender-name').style.color = ''; // Setze die Textfarbe des Sendernamens zurück
-                    channel.querySelector('.sender-name').style.fontWeight = ''; // Setze die Schriftstärke des Sendernamens zurück
-                });
+// Funktion zum Prüfen des Stream-Status
+async function checkStreamStatus(url, listItem) {
+    try {
+        const response = await fetch(url, { method: 'HEAD' });
+        const statusElement = listItem.querySelector('.status-indicator');
+        if (response.ok) {
+            statusElement.textContent = 'Online';
+            statusElement.style.color = 'green';
+        } else {
+            statusElement.textContent = 'Offline';
+            statusElement.style.color = 'red';
         }
-    });
+    } catch (error) {
+        const statusElement = listItem.querySelector('.status-indicator');
+        statusElement.textContent = 'Offline';
+        statusElement.style.color = 'red';
+    }
 }
+
+
+
+
+
+
 
 
 // filter-online-button
