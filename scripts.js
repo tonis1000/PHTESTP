@@ -476,51 +476,82 @@ function updateClock() {
     document.getElementById('uhrzeit').textContent = uhrzeit;
 }
 
-// Funktion zum Abspielen eines Streams im Video-Player
-function playStream(streamURL, subtitleURL) {
+
+
+
+
+function playStream(streamURL) {
+    console.log(`Versuche Stream abzuspielen: ${streamURL}`);
+
+    // Video-Player initialisieren
     const videoPlayer = document.getElementById('video-player');
-    const subtitleTrack = document.getElementById('subtitle-track');
 
-    // Untertitel-Setup
-    if (subtitleURL) {
-        subtitleTrack.src = subtitleURL;
-        subtitleTrack.track.mode = 'showing'; // Untertitel anzeigen
-    } else {
-        subtitleTrack.src = '';
-        subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
-    }
+    // Vorherigen Stream entladen
+    videoPlayer.pause();
+    videoPlayer.src = '';
+    videoPlayer.load();
 
-    // HLS.js-Integration mit Header-Setup
+    // HLS mit HLS.js abspielen
     if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-        const hls = new Hls({
-            xhrSetup: function (xhr, url) {
-                xhr.setRequestHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-                xhr.setRequestHeader('Referer', 'https://ertflix.gr/');
-            }
-        });
+        const hls = new Hls();
         hls.loadSource(streamURL);
         hls.attachMedia(videoPlayer);
+
+        // Event: Stream erfolgreich geladen
         hls.on(Hls.Events.MANIFEST_PARSED, function () {
+            console.log('HLS Stream erfolgreich geladen.');
             videoPlayer.play();
         });
-    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
-        // Direktes HLS für Safari
+
+        // Event: Fehlerbehandlung
+        hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error('HLS.js Fehler:', data);
+        });
+        return;
+    }
+
+    // HLS direkt für Safari
+    if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
         videoPlayer.src = streamURL;
-        videoPlayer.addEventListener('loadedmetadata', function () {
+
+        const onLoadedMetadata = () => {
+            console.log('HLS Stream (Safari) erfolgreich geladen.');
             videoPlayer.play();
-        });
-    } else if (streamURL.endsWith('.mpd')) {
-        // MPEG-DASH-Streaming mit dash.js
+            videoPlayer.removeEventListener('loadedmetadata', onLoadedMetadata);
+        };
+
+        videoPlayer.addEventListener('loadedmetadata', onLoadedMetadata);
+        return;
+    }
+
+    // MPEG-DASH abspielen
+    if (streamURL.endsWith('.mpd')) {
         const dashPlayer = dashjs.MediaPlayer().create();
         dashPlayer.initialize(videoPlayer, streamURL, true);
-    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-        // Direktes MP4- oder WebM-Streaming
-        videoPlayer.src = streamURL;
-        videoPlayer.play();
-    } else {
-        console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
+
+        // Event: Fehlerbehandlung
+        dashPlayer.on('error', (e) => {
+            console.error('DASH.js Fehler:', e);
+        });
+
+        console.log('MPEG-DASH Stream erfolgreich geladen.');
+        return;
     }
+
+    // MP4 oder WebM abspielen
+    if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+        videoPlayer.src = streamURL;
+        videoPlayer.load();
+        videoPlayer.play();
+        console.log('MP4/WebM Stream erfolgreich geladen.');
+        return;
+    }
+
+    // Fallback für nicht unterstützte Formate
+    alert('Dieses Format wird von Ihrem Browser nicht unterstützt.');
+    console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
 }
+
 
 
 
