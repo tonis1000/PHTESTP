@@ -380,24 +380,42 @@ async function updateSidebarFromM3U(data) {
     });
 }
 
-// Funktion zum Prüfen des Stream-Status
-async function checkStreamStatus(url, listItem) {
-    try {
-        const response = await fetch(url, { method: 'HEAD' });
-        const statusElement = listItem.querySelector('.status-indicator');
-        if (response.ok) {
-            statusElement.textContent = 'Online';
-            statusElement.style.color = 'green';
-        } else {
-            statusElement.textContent = 'Offline';
-            statusElement.style.color = 'red';
+
+
+
+
+
+
+// Funktion zum Überprüfen des Status der Streams und Markieren der gesamten Sidebar-Einträge
+function checkStreamStatus() {
+    const sidebarChannels = document.querySelectorAll('.channel-info');
+    sidebarChannels.forEach(channel => {
+        const streamURL = channel.dataset.stream;
+        if (streamURL) {
+            fetch(streamURL)
+                .then(response => {
+                    if (response.ok) {
+                        channel.classList.add('online'); // Markiere den gesamten Sidebar-Eintrag
+                        channel.querySelector('.sender-name').style.color = 'lightgreen'; // Ändere die Textfarbe des Sendernamens
+                        channel.querySelector('.sender-name').style.fontWeight = 'bold'; // Ändere die Schriftstärke des Sendernamens
+                    } else {
+                        channel.classList.remove('online'); // Entferne die Markierung
+                        channel.querySelector('.sender-name').style.color = ''; // Setze die Textfarbe des Sendernamens zurück
+                        channel.querySelector('.sender-name').style.fontWeight = ''; // Setze die Schriftstärke des Sendernamens zurück
+                    }
+                })
+                .catch(error => {
+                    console.error('Fehler beim Überprüfen des Stream-Status:', error);
+                    channel.classList.remove('online'); // Entferne die Markierung bei einem Fehler
+                    channel.querySelector('.sender-name').style.color = ''; // Setze die Textfarbe des Sendernamens zurück
+                    channel.querySelector('.sender-name').style.fontWeight = ''; // Setze die Schriftstärke des Sendernamens zurück
+                });
         }
-    } catch (error) {
-        const statusElement = listItem.querySelector('.status-indicator');
-        statusElement.textContent = 'Offline';
-        statusElement.style.color = 'red';
-    }
+    });
 }
+
+
+
 
 
 
