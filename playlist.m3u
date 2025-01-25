@@ -1,5 +1,8 @@
 #EXTM3U
 
+#EXTINF:-1 tvg-id="ert1" tvg-logo="https://i.imgur.com/slE8U5m.png", tha doume
+https://s2.cystream.net/live/ert1/chunks.m3u8?nimblesessionid=15616650&wmsAuthSign=c2VydmVyX3RpbWU9MS8yNS8yMDI1IDk6NDM6MTQgQU0maGFzaF92YWx1ZT16QVNMbFFFb0N4NG81aFZiblp0QzRnPT0mdmFsaWRtaW51dGVzPTIw
+
 #EXTINF:-1 tvg-id="ert1" tvg-logo="https://i.imgur.com/slE8U5m.png", ERT1
 https://eu5cdn.overotm.com/abr_amd10/ert1/playlist.m3u8
 
