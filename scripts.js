@@ -532,8 +532,15 @@ async function playStream(streamURL, subtitleURL) {
         } else {
             console.warn('Kein m3u8 gefunden, nutze iframe:', streamURL);
             videoPlayer.style.display = 'none';
-            iframePlayer.style.display = 'block';
-            iframePlayer.src = streamURL;
+iframePlayer.style.display = 'block';
+
+// Προσθήκη autoplay παραμέτρου στο URL, αν δεν υπάρχει ήδη
+if (!streamURL.includes('autoplay')) {
+    streamURL += (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+}
+
+iframePlayer.src = streamURL;
+
             return;
         }
     }
@@ -576,8 +583,15 @@ async function playStream(streamURL, subtitleURL) {
     } else {
         console.warn('Nicht unterstütztes Format. Nutze iframe als Fallback.');
         videoPlayer.style.display = 'none';
-        iframePlayer.style.display = 'block';
-        iframePlayer.src = streamURL;
+iframePlayer.style.display = 'block';
+
+// Προσθήκη autoplay παραμέτρου στο URL, αν δεν υπάρχει ήδη
+if (!streamURL.includes('autoplay')) {
+    streamURL += (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+}
+
+iframePlayer.src = streamURL;
+
     }
 }
 
