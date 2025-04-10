@@ -477,6 +477,11 @@ function updateClock() {
 }
 
 // Funktion zum Abspielen eines Streams im Video-Player mit Proxy
+
+const videoPlayer = document.getElementById('video-player');
+const iframePlayer = document.getElementById('iframe-player');
+
+
 const proxyList = [
     '', // direct
   'https://api.allorigins.win/raw?url=',
