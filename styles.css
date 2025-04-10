@@ -1,180 +1,254 @@
-/* --- Βασικά --- */
+/* Grundlegende Farben und Schriftgrößen als wiederverwendbare Klassen */
 body {
-    margin: 0;
-    background-color: #1a1a1a;
-    font-family: Arial, sans-serif;
-    color: #fff;
+    background-color: #333;
 }
 
-h2 {
-    margin: 0;
-    color: #f10d0d;
+.base-background {
+    background-color: #333;  /* Dunkelgrauer Hintergrund für Container und Sidebar */
 }
 
-/* --- Κουμπιά --- */
+/* Stil für den "online" Zustand */
+.online {
+    color: lightgreen;
+    font-weight: bold;
+}
+
+.text-white {
+    color: #ffffff;  /* Weiße Schriftfarbe für übergreifende Textelemente */
+}
+
+/* Hauptcontainer */
+.main-container {
+    float: left;
+    margin-right: 10px;
+}
+
+.container {
+    border-top: 5px solid transparent;
+    font-size: 16px;
+    background-color: #333;
+    border-top-width: 0px;
+    padding-top: 5px;
+}
+
+.info-panel, .button-row {
+    display: flex;
+    padding-left: 15px;
+}
+
+.info-panel {
+    font-style: italic;
+}
+
+.button-row {
+    gap: 10px;
+    margin-top: 10px;
+    padding-bottom: 10px;
+}
+
+.info-group {
+    margin-right: 20px;
+    color: #ffffff;
+}
+
 button {
     background-color: #444;
-    color: white;
-    border: none;
-    padding: 8px 14px;
-    margin: 5px;
+    color: #fff;
+    padding: 10px 20px;
+    border: 1px solid #ccc;
     border-radius: 5px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 14px;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 button:hover {
+    background-color: #555;
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+}
+
+button:active {
     background-color: #666;
-    transform: scale(1.02);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transform: translateY(2px);
+}
+
+button:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.sidebar {
+    height: 740px;
+}
+
+.search-bar {
+    display: flex;
+    gap: 10px;
+}
+
+#search-input {
+    padding-top: 1px;
+    width: 120px;
+    height: 25px;
+}
+
+.sidebar h2 {
+    color: #f10d0d;
+    padding-bottom: 10px;
+    margin-bottom: 1px;
+    margin-top: 1px;
+}
+
+.sidebar-content {
+    overflow-y: auto;
+    height: calc(100% - 40px);
+    background-color: #0f0e0e;
+    padding-right: 5px;
+    padding-left: 5px;
+    margin-top: 0px;
+    border-top-width: 5px;
+    border-top-style: solid;
+}
+
+#sidebar-list {
+    list-style-type: none;
+    padding: 0;
+    margin-top: 0px;
+}
+
+#sidebar-list li {
+    margin-bottom: 5px;
+    padding-left: 5px;
+    padding-top: 5px;
+    background-color: #333;
+}
+
+#sidebar-list li > div > span:nth-child(3) > span:nth-child(1) {
+    padding-right: 10px;
+    padding-left: 10px;
+}
+
+#filter-online-button,
+#show-all-button {
+    padding: 6px 10px;
+    font-size: 12px;
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-bottom: 8px;
+    margin-top: 2px;
 }
 
 #filter-online-button {
     background-color: #4CAF50;
+    color: white;
 }
 
 #filter-online-button:hover {
     background-color: #45a049;
+    transform: translateY(-2px);
 }
 
 #show-all-button {
     background-color: #007BFF;
+    color: white;
 }
 
 #show-all-button:hover {
     background-color: #0056b3;
+    transform: translateY(-2px);
 }
 
-/* --- Δομή --- */
-.main-container {
-    display: flex;
-    margin: 0;
-}
-
-.container {
-    padding: 10px;
-}
-
-.sidebar {
-    width: 250px;
-    background-color: #0f0e0e;
-    height: 90vh;
-    overflow-y: auto;
-    padding: 10px;
-    border-right: 1px solid #333;
-}
-
-.sidebar-content {
-    max-height: calc(100vh - 100px);
-    overflow-y: auto;
-}
-
-.sidebar ul {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-}
-
-.sidebar li {
-    padding: 6px;
-    background-color: #222;
-    margin-bottom: 5px;
-    border-radius: 5px;
-}
-
-.sidebar li:hover {
-    background-color: #333;
-}
-
-/* --- Αναζήτηση --- */
-.search-bar {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 10px;
-}
-
-#search-input {
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid #555;
-    background-color: #222;
-    color: white;
-}
-
-/* --- Sidebar Στοιχεία Καναλιού --- */
 .channel-info {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    background-color: #444;
     cursor: pointer;
-    background-color: #333;
-    border-radius: 4px;
-    padding: 6px;
 }
 
 .logo-container {
-    width: 32px;
-    height: 32px;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
+    width: 30px;
     justify-content: center;
+    align-items: center;
+    overflow: hidden;
 }
 
 .logo-container img {
     width: 100%;
-    height: 100%;
-    object-fit: contain;
+    object-fit: cover;
 }
 
 .sender-name {
-    font-weight: bold;
-    color: white;
-    font-size: 14px;
+    font-size: 18px;
+    color: #ffffff;
+    width: 70px;
 }
 
 .epg-channel {
-    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    margin-left: 10px;
     font-size: 12px;
-    color: #ccc;
+    color: #ffffff;
+    flex: 1;
+    width: 120px;
+}
+
+.epg-channel span {
+    padding-bottom: 5px;
 }
 
 .epg-timeline {
     display: flex;
     height: 5px;
-    margin-top: 3px;
     border-radius: 2px;
-    overflow: hidden;
+    padding-right: 15px;
+}
+
+#sidebar-list li > div > span:nth-child(3) {
+    padding-left: 10px;
 }
 
 .epg-past {
-    background-color: red;
+    flex-grow: 1;
+    background-color: #ff0000;
 }
 
 .epg-future {
-    background-color: green;
+    flex-grow: 1;
+    background-color: #00ff00;
 }
 
-/* --- Player --- */
 .player-container {
-    flex: 1;
-    padding: 10px;
-    min-width: 700px;
+    width: 1000px;
+    display: flex;
+    flex-direction: column;
+    margin-right: 10px;
+    min-width: 1000px;
 }
 
 .player-header {
     display: flex;
-    background-color: #222;
-    padding: 10px;
-    border-bottom: 1px solid #444;
     align-items: flex-start;
+    background-color: #333;
+    color: #fff;
+    border-bottom: 1px solid #ccc;
+    height: auto;
 }
 
 .player-logo-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     width: 100px;
     height: 100px;
-    margin-right: 10px;
 }
 
 .player-logo-container img {
@@ -184,137 +258,245 @@ button:hover {
 }
 
 .player-info-container {
+    display: flex;
+    flex-direction: column;
     flex: 1;
+    margin-left: 10px;
 }
 
 .player-info-top {
     display: flex;
+    gap: 15px;
     align-items: center;
-    gap: 10px;
+    width: 100%;
+    margin-bottom: 5px;
 }
 
 #current-channel-name {
-    font-size: 24px;
-    font-weight: bold;
+    font-size: 35px;
+    color: #ffffff;
+}
+
+label[for="subtitle-file"] {
+    cursor: pointer;
+    background-color: #007bff;
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 5px;
+    margin-left: 10px;
 }
 
 .player-info-bottom {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-top: 10px;
+    margin-top: 15px;
 }
 
 #stream-url {
     flex: 1;
-    padding: 6px;
+    padding: 5px;
+    border: 1px solid #ccc;
     border-radius: 5px;
-    border: 1px solid #555;
-    background-color: #222;
-    color: white;
+    margin-right: 10px;
 }
 
-#playlist-button {
-    background-color: #777;
+#play-button {
+    padding: 5px 10px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
 }
 
-#playlist-button:hover {
-    background-color: #888;
+#play-button:hover {
+    background-color: #0056b3;
 }
 
-/* --- Video / iFrame --- */
-video, iframe {
+.content-wrapper {
+    display: flex;
+}
+
+.additional-content {
+    background-color: #333;
+    border: 1px solid #ccc;
+    border-radius: 5px;
     width: 100%;
-    height: 600px;
-    border-radius: 10px;
-    background-color: black;
-    margin-top: 10px;
+    max-width: 560px;
+    margin-bottom: 20px;
+    color: #ffffff;
 }
 
-/* --- Πρόγραμμα --- */
+.content-title {
+    background-color: #444;
+    padding: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.content-title:hover {
+    background-color: #0056b3;
+}
+
+.content-body {
+    padding: 10px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    max-height: 0;
+}
+
+.expanded {
+    height: 700px !important;
+}
+
 #program-info {
-    margin-top: 10px;
+    color: #ffffff;
 }
 
-#program-title {
-    font-size: 16px;
-    font-weight: bold;
-}
-
-#program-desc {
-    font-size: 14px;
-    color: #ccc;
-}
-
-/* --- Επόμενα Προγράμματα --- */
 .next-program {
-    margin-top: 10px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    color: #ffffff;
+}
+
+div.next-program p {
+    margin-top: 0px;
+}
+
+div.next-program h4 {
+    margin-top: 0px;
 }
 
 .next-program-title {
     font-weight: bold;
+    margin-bottom: 2px;
     cursor: pointer;
 }
 
 .next-program-desc {
-    font-size: 14px;
-    color: #bbb;
+    margin-bottom: 2px;
 }
 
-/* --- Πρόσθετο Περιεχόμενο --- */
-.additional-content {
-    max-width: 400px;
-    margin-left: 20px;
-    background-color: #1f1f1f;
-    padding: 10px;
-    border-radius: 10px;
-}
-
-.content-title {
-    background-color: #333;
-    padding: 8px;
-    font-weight: bold;
-    cursor: pointer;
-    margin-bottom: 5px;
-    border-radius: 4px;
-}
-
-.content-body {
-    display: none;
-    padding: 10px;
-    background-color: #222;
-    margin-bottom: 10px;
-    border-radius: 4px;
-    height: 600px;
+.expandable {
+    max-height: 0;
     overflow: hidden;
+    transition: max-height 0.3s ease-out;
 }
 
-.expanded {
-    display: block;
+.expandable.expanded {
+    max-height: 600px;
 }
 
-/* --- Online --- */
-.online .sender-name {
-    color: lightgreen !important;
+#playlist-urls {
+    background-color: #444;
+    color: #ffffff;
+    padding: 10px;
 }
 
-/* --- Responsive --- */
-@media (max-width: 768px) {
-    .main-container {
+#playlist-url-list {
+    list-style: none;
+    padding: 0;
+}
+
+#playlist-url-list li {
+    background-color: #555;
+    margin-bottom: 5px;
+    padding: 5px;
+    border-radius: 3px;
+}
+
+#seite2-link button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+}
+
+#seite2-link button:hover {
+    background-color: #45a049;
+}
+
+@media only screen and (max-width: 480px) {
+    .player-container {
+        width: 100%;
+    }
+    .content-wrapper {
         flex-direction: column;
     }
+}
 
+@media only screen and (min-width: 481px) and (max-width: 800px) {
     .player-container {
-        min-width: 100%;
-    }
-
-    .sidebar {
         width: 100%;
-        height: auto;
     }
+    .content-wrapper {
+        flex-direction: column;
+    }
+}
 
-    .additional-content {
-        margin-left: 0;
-        margin-top: 20px;
+@media only screen and (min-width: 801px) and (max-width: 1024px) {
+    .player-container {
+        width: 100%;
     }
+    .content-wrapper {
+        flex-direction: column;
+    }
+}
+
+@media only screen and (min-width: 1025px) {
+    .player-container {
+        width: 900px;
+    }
+    .content-wrapper {
+        flex-direction: row;
+    }
+}
+
+.example {
+    -webkit-transform: rotate(30deg);
+    -ms-transform: rotate(30deg);
+    transform: rotate(30deg);
+}
+
+#iframe-player {
+    width: 100%;
+    height: 600px;
+    border: none;
+    display: none;
+    background-color: #000;
+    margin-top: 10px;
+}
+
+#video-player {
+    width: 100%;
+    height: 600px;
+    background-color: #000;
+    margin-top: 10px;
+}
+
+@media screen and (max-width: 768px) {
+    #iframe-player,
+    #video-player {
+        height: 400px;
+    }
+}
+
+.seite2-button {
+    background-color: #4CAF50;
+    padding: 10px 20px;
+    color: white;
+    border-radius: 5px;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin-left: 10px;
+}
+
+.seite2-button:hover {
+    background-color: #45a049;
 }
