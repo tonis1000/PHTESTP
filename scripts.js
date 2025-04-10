@@ -476,44 +476,57 @@ function updateClock() {
     document.getElementById('uhrzeit').textContent = uhrzeit;
 }
 
-// Funktion zum Abspielen eines Streams im Video-Player
+// Funktion zum Abspielen eines Streams im Video- oder iFrame-Player
 function playStream(streamURL, subtitleURL) {
     const videoPlayer = document.getElementById('video-player');
+    const iframePlayer = document.getElementById('iframe-player');
     const subtitleTrack = document.getElementById('subtitle-track');
 
-    // Untertitel-Setup
-    if (subtitleURL) {
-        subtitleTrack.src = subtitleURL;
-        subtitleTrack.track.mode = 'showing'; // Untertitel anzeigen
-    } else {
-        subtitleTrack.src = '';
-        subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
-    }
+    // Bestimmen, ob die URL ein iframe-Link ist
+    const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
 
-    // HLS.js-Integration
-    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-        const hls = new Hls();
-        hls.loadSource(streamURL);
-        hls.attachMedia(videoPlayer);
-        hls.on(Hls.Events.MANIFEST_PARSED, function () {
-            videoPlayer.play();
-        });
-    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
-        // Direktes HLS für Safari
-        videoPlayer.src = streamURL;
-        videoPlayer.addEventListener('loadedmetadata', function () {
-            videoPlayer.play();
-        });
-    } else if (streamURL.endsWith('.mpd')) {
-        // MPEG-DASH-Streaming mit dash.js
-        const dashPlayer = dashjs.MediaPlayer().create();
-        dashPlayer.initialize(videoPlayer, streamURL, true);
-    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-        // Direktes MP4- oder WebM-Streaming
-        videoPlayer.src = streamURL;
-        videoPlayer.play();
+    if (isIframe) {
+        videoPlayer.style.display = 'none';
+        iframePlayer.style.display = 'block';
+        iframePlayer.src = streamURL;
     } else {
-        console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
+        iframePlayer.style.display = 'none';
+        videoPlayer.style.display = 'block';
+
+        // Untertitel-Setup
+        if (subtitleURL) {
+            subtitleTrack.src = subtitleURL;
+            subtitleTrack.track.mode = 'showing';
+        } else {
+            subtitleTrack.src = '';
+            subtitleTrack.track.mode = 'hidden';
+        }
+
+        // HLS.js-Integration
+        if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+            const hls = new Hls();
+            hls.loadSource(streamURL);
+            hls.attachMedia(videoPlayer);
+            hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                videoPlayer.play();
+            });
+        } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+            videoPlayer.src = streamURL;
+            videoPlayer.addEventListener('loadedmetadata', function () {
+                videoPlayer.play();
+            });
+        } else if (streamURL.endsWith('.mpd')) {
+            const dashPlayer = dashjs.MediaPlayer().create();
+            dashPlayer.initialize(videoPlayer, streamURL, true);
+        } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+            videoPlayer.src = streamURL;
+            videoPlayer.play();
+        } else {
+            console.error('Nicht unterstütztes Videoformat. Versuche Fallback auf iframe.');
+            videoPlayer.style.display = 'none';
+            iframePlayer.style.display = 'block';
+            iframePlayer.src = streamURL;
+        }
     }
 }
 
