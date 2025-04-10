@@ -1,28 +1,40 @@
 #EXTM3U
 
-#EXTINF:-1 tvg-id="ert1" tvg-logo="https://i.imgur.com/slE8U5m.png", ERT1
+#EXTINF:-1 tvg-id="ert1" tvg-logo="https://i.imgur.com/slE8U5m.png",ERT1
 https://ertflix.akamaized.net/ertlive/ert1/clrdef24723b/playlist.m3u8
 
-#EXTINF:-1 tvg-id="ert1" tvg-logo="https://i.imgur.com/slE8U5m.png", ERT1
-https://www.anacon.org/app/chans/gr/ert1s2.php
-
-#EXTINF:-1 tvg-id="ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png", ERT2
+#EXTINF:-1 tvg-id="ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png",ERT2
 https://ertflix.akamaized.net/ertlive/ert2/clrdef24828z/playlist.m3u8
 
-#EXTINF:-1 tvg-id="ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png", ERT2
-https://www.anacon.org/app/chans/gr/ert2s2.php
+#EXTINF:-1 tvg-id="ert3" tvg-logo="https://i.imgur.com/f2l9bDR.png",ERT3
+https://cdn1.smart-tv-data.com/vid/ert-3-hbbtv/playlist.m3u8
 
-#EXTINF:-1 tvg-id="ert3" tvg-logo="https://i.imgur.com/f2l9bDR.png", ERT3
-https://ertflix.akamaized.net/ertlive/ert3/clrdef24828n/playlist.m3u8
+#EXTINF:-1 tvg-id="ertnews" tvg-logo="https://i.imgur.com/XwLTzaF.jpg",ERT News
+https://ertflix.akamaized.net/ertlive/ertnews/default/playlist.m3u8
 
-#EXTINF:-1 tvg-id="ert3" tvg-logo="https://i.imgur.com/f2l9bDR.png", ERT3
-https://www.anacon.org/app/chans/gr/ert3s2.php
+#EXTINF:-1 tvg-id="open" tvg-logo="https://i.imgur.com/M6XG03v.png",Open TV
+https://liveopencloud.siliconweb.com/1/ZlRza2R6L2tFRnFJ/eWVLSlQx/hls/live/playlist.m3u8
 
-#EXTINF:-1 tvg-id="mega" tvg-logo="https://i.ibb.co/f2rCKjh/mega.jpg", MEGA
+#EXTINF:-1 tvg-id="mega" tvg-logo="https://i.ibb.co/f2rCKjh/mega.jpg",Mega TV
 https://wow.anixa.tv/live/mega/playlist.m3u8
 
-#EXTINF:-1 tvg-id="mega" tvg-logo="https://i.ibb.co/f2rCKjh/mega.jpg", MEGA
+#EXTINF:-1 tvg-id="star" tvg-logo="https://i.imgur.com/6NUpxhr.png",Star Channel
+https://livestar.siliconweb.com/media/star1/star1mediumhd.m3u8
+
+#EXTINF:-1 tvg-id="iframe-mega" tvg-logo="https://i.ibb.co/f2rCKjh/mega.jpg",Mega TV (Fallback)
 https://lakatamia.tv/app/chans/gr/mega.php
 
-#EXTINF:-1 tvg-id="cs1" tvg-logo="https://i.imgur.com/8fedub5.png", CSpor1
+#EXTINF:-1 tvg-id="iframe-ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png",ERT2 (Fallback)
+https://www.anacon.org/app/chans/gr/ert2s2.php
+
+#EXTINF:-1 tvg-id="iframe-ert3" tvg-logo="https://i.imgur.com/f2l9bDR.png",ERT3 (Fallback)
+https://www.anacon.org/app/chans/gr/ert3s2.php
+
+#EXTINF:-1 tvg-id="iframe-sport1" tvg-logo="https://i.imgur.com/lLxhzy5.png",CSport 1
 https://sportskeeda.vip/embed/stream-622.php
+
+#EXTINF:-1 tvg-id="iframe-sport2" tvg-logo="https://i.imgur.com/lLxhzy5.png",CSport 2
+https://sportskeeda.vip/embed/stream-623.php
+
+#EXTINF:-1 tvg-id="iframe-ant1plus" tvg-logo="https://i.imgur.com/lLxhzy5.png",ANT1 Plus F1
+https://d3r0hoxz2ohm3t.cloudfront.net/out/v1/ff10c34afc0d4a038d0474e51f637649/f1.m3u8
