@@ -476,11 +476,21 @@ function updateClock() {
     document.getElementById('uhrzeit').textContent = uhrzeit;
 }
 
+
+
 // Funktion zum Abspielen eines Streams im Video- oder iFrame-Player
 function playStream(streamURL, subtitleURL) {
     const videoPlayer = document.getElementById('video-player');
     const iframePlayer = document.getElementById('iframe-player');
     const subtitleTrack = document.getElementById('subtitle-track');
+
+    // Beenden vorheriger Video-Wiedergabe
+    videoPlayer.pause();
+    videoPlayer.removeAttribute('src');
+    videoPlayer.load();
+
+    // Reset iframe
+    iframePlayer.src = '';
 
     // Bestimmen, ob die URL ein iframe-Link ist
     const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
@@ -489,44 +499,49 @@ function playStream(streamURL, subtitleURL) {
         videoPlayer.style.display = 'none';
         iframePlayer.style.display = 'block';
         iframePlayer.src = streamURL;
+        return;
+    }
+
+    // Video-Wiedergabe aktivieren
+    iframePlayer.style.display = 'none';
+    videoPlayer.style.display = 'block';
+
+    // Untertitel-Setup
+    if (subtitleURL) {
+        subtitleTrack.src = subtitleURL;
+        subtitleTrack.track.mode = 'showing';
     } else {
-        iframePlayer.style.display = 'none';
-        videoPlayer.style.display = 'block';
+        subtitleTrack.src = '';
+        subtitleTrack.track.mode = 'hidden';
+    }
 
-        // Untertitel-Setup
-        if (subtitleURL) {
-            subtitleTrack.src = subtitleURL;
-            subtitleTrack.track.mode = 'showing';
-        } else {
-            subtitleTrack.src = '';
-            subtitleTrack.track.mode = 'hidden';
-        }
-
-        // HLS.js-Integration
-        if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-            const hls = new Hls();
-            hls.loadSource(streamURL);
-            hls.attachMedia(videoPlayer);
-            hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                videoPlayer.play();
-            });
-        } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
-            videoPlayer.src = streamURL;
-            videoPlayer.addEventListener('loadedmetadata', function () {
-                videoPlayer.play();
-            });
-        } else if (streamURL.endsWith('.mpd')) {
-            const dashPlayer = dashjs.MediaPlayer().create();
-            dashPlayer.initialize(videoPlayer, streamURL, true);
-        } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-            videoPlayer.src = streamURL;
+    // HLS.js-Integration
+    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+        const hls = new Hls();
+        hls.loadSource(streamURL);
+        hls.attachMedia(videoPlayer);
+        hls.on(Hls.Events.MANIFEST_PARSED, function () {
             videoPlayer.play();
-        } else {
-            console.error('Nicht unterstütztes Videoformat. Versuche Fallback auf iframe.');
-            videoPlayer.style.display = 'none';
-            iframePlayer.style.display = 'block';
-            iframePlayer.src = streamURL;
-        }
+        });
+        hls.on(Hls.Events.ERROR, function (event, data) {
+            console.error("HLS.js Fehler:", data);
+        });
+    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+        videoPlayer.src = streamURL;
+        videoPlayer.addEventListener('loadedmetadata', function () {
+            videoPlayer.play();
+        });
+    } else if (streamURL.endsWith('.mpd')) {
+        const dashPlayer = dashjs.MediaPlayer().create();
+        dashPlayer.initialize(videoPlayer, streamURL, true);
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+        videoPlayer.src = streamURL;
+        videoPlayer.play();
+    } else {
+        console.warn('Nicht unterstütztes Format. Versuche iframe als Fallback.');
+        videoPlayer.style.display = 'none';
+        iframePlayer.style.display = 'block';
+        iframePlayer.src = streamURL;
     }
 }
 
