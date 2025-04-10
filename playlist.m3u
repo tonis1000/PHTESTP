@@ -1,61 +1,28 @@
 #EXTM3U
 
-#EXTINF:-1 tvg-id="ert1" tvg-logo="https://i.imgur.com/slE8U5m.png",ERT1
+#EXTINF:-1 tvg-id="ert1" tvg-logo="https://i.imgur.com/slE8U5m.png", ERT1
 https://ertflix.akamaized.net/ertlive/ert1/clrdef24723b/playlist.m3u8
 
-#EXTINF:-1 tvg-id="ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png",ERT2
+#EXTINF:-1 tvg-id="ert1" tvg-logo="https://i.imgur.com/slE8U5m.png", ERT1
+https://www.anacon.org/app/chans/gr/ert1s2.php
+
+#EXTINF:-1 tvg-id="ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png", ERT2
 https://ertflix.akamaized.net/ertlive/ert2/clrdef24828z/playlist.m3u8
 
-#EXTINF:-1 tvg-id="ert3" tvg-logo="https://i.imgur.com/f2l9bDR.png",ERT3
-https://cdn1.smart-tv-data.com/vid/ert-3-hbbtv/playlist.m3u8
-
-#EXTINF:-1 tvg-id="mega" tvg-logo="https://i.ibb.co/f2rCKjh/mega.jpg",MEGA TV
-https://wow.anixa.tv/live/mega/playlist.m3u8
-
-#EXTINF:-1 tvg-id="ant1" tvg-logo="https://i.imgur.com/V1w22Or.png",ANT1
-https://wow.anixa.tv/live/ant1/playlist.m3u8
-
-#EXTINF:-1 tvg-id="open" tvg-logo="https://i.imgur.com/M6XG03v.png",Open TV
-https://liveopencloud.siliconweb.com/1/ZlRza2R6L2tFRnFJ/eWVLSlQx/hls/live/playlist.m3u8
-
-#EXTINF:-1 tvg-id="star" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/STAR_Channel.png/250px-STAR_Channel.png",Star Channel
-https://livestar.siliconweb.com/media/star4/star4newhd.m3u8
-
-#EXTINF:-1 tvg-id="skai" tvg-logo="https://i.imgur.com/mrKRFnf.png",Skai
-https://skai-live-back.siliconweb.com/media/cambria4/index.m3u8
-
-#EXTINF:-1 tvg-id="action24" tvg-logo="https://i.imgur.com/Fsnz8GK.png",Action 24
-https://actionlive.siliconweb.com/actionabr/actiontv/playlist.m3u8
-
-#EXTINF:-1 tvg-id="pronews" tvg-logo="http://greektv.pbworks.com/w/file/fetch/45020116/Vouli.png",ProNews
-https://pro.free.hr:3887/live/pronewslive.m3u8
-
-#EXTINF:-1 tvg-id="naftemporiki" tvg-logo="https://i.imgur.com/ifKWsaY.png",Naftemporiki TV
-https://naftemporiki-live.cdn.vustreams.com/live/a4b4a88a-681c-4a2d-8e74-33daa5f2cb61/live.isml/.m3u8
-
-#EXTINF:-1 tvg-id="tv100" tvg-logo="https://i.imgur.com/fh6ZaGP.png",TV 100
-https://live.fm100.gr/hls/tv100/1_2/index.m3u8
-
-#EXTINF:-1 tvg-id="netmax" tvg-logo="https://i.imgur.com/ObjxuGj.jpg",NetMax TV
-https://live.netmaxtv.com:8081/live/live/chunklist_w1335266248.m3u8
-
-#EXTINF:-1 tvg-id="iframe1" tvg-logo="https://i.imgur.com/lLxhzy5.png",ANT1+ F1
-https://d3r0hoxz2ohm3t.cloudfront.net/out/v1/ff10c34afc0d4a038d0474e51f637649/f1.m3u8
-
-#EXTINF:-1 tvg-id="iframe-sport1" tvg-logo="https://i.imgur.com/8fedub5.png",CSpor 1 (Iframe)
-https://sportskeeda.vip/embed/stream-622.php
-
-#EXTINF:-1 tvg-id="iframe-sport2" tvg-logo="https://i.imgur.com/8fedub5.png",CSpor 2 (Iframe)
-https://sportskeeda.vip/embed/stream-623.php
-
-#EXTINF:-1 tvg-id="iframe-sport3" tvg-logo="https://i.imgur.com/8fedub5.png",ERT2 Alt (Iframe)
+#EXTINF:-1 tvg-id="ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png", ERT2
 https://www.anacon.org/app/chans/gr/ert2s2.php
 
-#EXTINF:-1 tvg-id="iframe-sport4" tvg-logo="https://i.imgur.com/8fedub5.png",ERT3 Alt (Iframe)
+#EXTINF:-1 tvg-id="ert3" tvg-logo="https://i.imgur.com/f2l9bDR.png", ERT3
+https://ertflix.akamaized.net/ertlive/ert3/clrdef24828n/playlist.m3u8
+
+#EXTINF:-1 tvg-id="ert3" tvg-logo="https://i.imgur.com/f2l9bDR.png", ERT3
 https://www.anacon.org/app/chans/gr/ert3s2.php
 
-#EXTINF:-1 tvg-id="iframe-mega" tvg-logo="https://i.imgur.com/f2l9bDR.png",MEGA (Iframe)
+#EXTINF:-1 tvg-id="mega" tvg-logo="https://i.ibb.co/f2rCKjh/mega.jpg", MEGA
+https://wow.anixa.tv/live/mega/playlist.m3u8
+
+#EXTINF:-1 tvg-id="mega" tvg-logo="https://i.ibb.co/f2rCKjh/mega.jpg", MEGA
 https://lakatamia.tv/app/chans/gr/mega.php
 
-#EXTINF:-1 tvg-id="iframe-tennis" tvg-logo="https://tvpmlogopus.samsungcloud.tv/platform/image/sourcelogo/vc/70/01/25/USBC600001QL_20220810T035054.png",Tennis Channel (Iframe)
-https://tennischannel-intl-samsung-uk.amagi.tv/playlist.m3u8
+#EXTINF:-1 tvg-id="cs1" tvg-logo="https://i.imgur.com/8fedub5.png", CSpor1
+https://sportskeeda.vip/embed/stream-622.php
