@@ -1,307 +1,231 @@
-/* Reset */
-* {
-    box-sizing: border-box;
+✅ Ναι, Antonis! Ορίστε πρώτα το **τελικό `styles.css`** με πλήρη εμφάνιση και λειτουργικότητα για την εφαρμογή σου WebTV:
+
+```css
+/* === Βασικά Χρώματα και Στυλ === */
+body {
+    background-color: #222;
+    font-family: Arial, sans-serif;
+    color: #fff;
     margin: 0;
     padding: 0;
 }
 
-body {
-    background-color: #121212;
-    color: #ffffff;
-    font-family: 'Arial', sans-serif;
-    overflow-x: hidden;
-}
-
-/* Haupt-Layout */
-.main-container {
-    float: left;
-    margin-right: 10px;
-}
-
-.container {
-    background-color: #1f1f1f;
-    padding: 10px 15px;
-    border-bottom: 1px solid #444;
-}
-
-.info-panel {
-    display: flex;
-    gap: 20px;
-    font-style: italic;
-    margin-bottom: 10px;
-}
-
-.button-row {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-button {
-    background-color: #444;
-    color: #fff;
-    padding: 8px 16px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-
-button:hover {
-    background-color: #555;
-}
-
-button:active {
-    background-color: #666;
-}
-
-/* Sidebar */
+/* === Sidebar === */
 .sidebar {
-    background-color: #1a1a1a;
-    padding: 10px;
-    width: 280px;
-    height: 740px;
-    overflow-y: auto;
+    width: 300px;
+    background-color: #111;
+    float: left;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar h2 {
     color: #f10d0d;
-    margin-bottom: 10px;
+    padding: 10px;
+    font-size: 18px;
+    margin: 0;
 }
 
 .search-bar {
+    padding: 10px;
     display: flex;
+    flex-direction: column;
     gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 10px;
 }
 
 #search-input {
-    width: 120px;
-    padding: 4px;
-    height: 25px;
+    padding: 5px;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    width: 100%;
 }
 
 #filter-online-button,
 #show-all-button {
-    font-size: 12px;
-    padding: 6px 10px;
+    font-size: 13px;
+    padding: 6px;
+    border: none;
     border-radius: 5px;
+    cursor: pointer;
+    transition: 0.3s;
 }
 
 #filter-online-button {
     background-color: #4CAF50;
-}
-
-#filter-online-button:hover {
-    background-color: #45a049;
+    color: white;
 }
 
 #show-all-button {
     background-color: #007BFF;
+    color: white;
 }
 
-#show-all-button:hover {
-    background-color: #0056b3;
+/* === Sidebar List === */
+.sidebar-content {
+    overflow-y: auto;
+    flex-grow: 1;
+    padding: 10px;
 }
 
-/* Sidebar Sender */
-#sidebar-list {
-    list-style: none;
-    padding: 0;
+#sidebar-list li {
+    background-color: #333;
+    margin-bottom: 5px;
+    padding: 5px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .channel-info {
     display: flex;
-    align-items: center;
     gap: 10px;
-    background-color: #292929;
-    padding: 5px;
-    margin-bottom: 5px;
+    align-items: center;
     cursor: pointer;
-    border-radius: 5px;
-    transition: background 0.2s ease;
+    width: 100%;
 }
 
-.channel-info:hover {
-    background-color: #333;
+.logo-container {
+    width: 40px;
+    height: 40px;
+    overflow: hidden;
 }
 
 .logo-container img {
-    width: 30px;
-    height: auto;
+    width: 100%;
+    object-fit: contain;
 }
 
 .sender-name {
-    font-weight: bold;
+    font-size: 15px;
     color: #fff;
+    flex: 1;
 }
 
 .epg-channel {
-    flex: 1;
-    font-size: 12px;
-    display: flex;
+    font-size: 11px;
     flex-direction: column;
 }
 
 .epg-timeline {
     display: flex;
     height: 4px;
+    margin-top: 3px;
     border-radius: 2px;
     overflow: hidden;
-    margin-top: 3px;
 }
 
 .epg-past {
-    background-color: #f00;
-    height: 100%;
+    background-color: red;
 }
 
 .epg-future {
-    background-color: #0f0;
-    height: 100%;
+    background-color: green;
 }
 
-/* Player */
+.online .sender-name {
+    color: lightgreen;
+    font-weight: bold;
+}
+
+/* === Player === */
 .player-container {
-    width: 1000px;
-    background-color: #212121;
-    padding: 15px;
-    border-radius: 8px;
+    margin-left: 300px;
+    padding: 20px;
+    min-height: 100vh;
+    background-color: #222;
 }
 
 .player-header {
     display: flex;
     gap: 15px;
+    align-items: center;
     margin-bottom: 10px;
 }
 
 .player-logo-container img {
     width: 100px;
-    height: 100px;
-    object-fit: contain;
+    height: auto;
 }
 
-.player-info-container {
-    flex: 1;
+#video-player,
+#iframe-player {
+    width: 100%;
+    height: 600px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background: black;
 }
 
-.player-info-top {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+#program-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 10px 0 5px;
 }
 
-.player-info-bottom {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
+#program-desc {
+    font-size: 14px;
+    color: #ccc;
+    margin: 0;
 }
 
-#stream-url {
-    flex: 1;
+/* === Buttons === */
+.button-row button,
+#play-button,
+#playlist-button,
+#copy-button,
+#clear-button {
+    padding: 6px 12px;
+    font-size: 13px;
+    background-color: #444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    margin-right: 5px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.button-row button:hover,
+#play-button:hover,
+#playlist-button:hover,
+#copy-button:hover,
+#clear-button:hover {
+    background-color: #555;
+}
+
+input[type="text"] {
     padding: 6px;
-    border-radius: 5px;
-    border: 1px solid #444;
+    border-radius: 4px;
+    border: none;
+    width: 250px;
+    margin-right: 5px;
 }
 
-#play-button {
-    background-color: #007bff;
-}
-
-#play-button:hover {
-    background-color: #0056b3;
-}
-
-/* Untertitel */
 label[for="subtitle-file"] {
     background-color: #007bff;
-    padding: 6px 10px;
-    border-radius: 5px;
-}
-
-#subtitle-track {
-    display: none;
-}
-
-/* Video + iframe */
-video, iframe {
-    width: 100%;
-    max-height: 600px;
-    border: none;
-    margin-bottom: 10px;
-}
-
-/* Programminfos */
-#program-info {
-    margin-top: 10px;
-}
-
-.next-program {
-    background-color: #1c1c1c;
-    padding: 8px;
-    border-radius: 6px;
-    margin-bottom: 5px;
-}
-
-.next-program-title {
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.next-program-desc {
-    display: none;
-    margin-top: 5px;
-}
-
-/* Zusatzinhalte */
-.additional-content {
-    max-width: 560px;
-    background-color: #1c1c1c;
-    padding: 10px;
-    margin-left: 20px;
+    padding: 5px 10px;
+    border-radius: 4px;
     color: white;
-    border-radius: 6px;
-}
-
-.content-title {
-    background-color: #2e2e2e;
-    padding: 8px;
     cursor: pointer;
-    border-radius: 4px;
-    margin-bottom: 5px;
 }
 
-.content-title:hover {
-    background-color: #444;
-}
-
-.content-body {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-    background-color: #333;
-    padding: 10px;
-    border-radius: 4px;
-}
-
-.expanded {
-    max-height: 700px !important;
-}
-
-/* Responsive */
-@media only screen and (max-width: 1024px) {
-    .content-wrapper {
-        flex-direction: column;
-    }
-
-    .player-container {
-        width: 100%;
-    }
-
+/* === Responsive === */
+@media only screen and (max-width: 768px) {
     .sidebar {
         width: 100%;
         height: auto;
     }
+    .player-container {
+        margin-left: 0;
+    }
+    .player-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }
+```
+
+✅ Σειρά έχει το `playlist.m3u` με fallback iframe (έρχεται αμέσως!).
