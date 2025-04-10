@@ -286,82 +286,36 @@ sidebarList.addEventListener('click', function (event) {
 // Funktion zum Aktualisieren der Sidebar von einer M3U-Datei
 async function updateSidebarFromM3U(data) {
     const sidebarList = document.getElementById('sidebar-list');
-    const groupDropdown = document.getElementById('group-dropdown');
     sidebarList.innerHTML = '';
 
-    // Funktion zum Extrahieren der Stream-URLs, Gruppeninformationen und TVG-ID oder TVG-Name
     const extractStreamURLs = (data) => {
         const urls = {};
-        const groupTitles = new Set(); // Set für die Gruppentitel
         const lines = data.split('\n');
         let currentChannelId = null;
-        let currentGroupTitle = null;
 
         lines.forEach(line => {
             if (line.startsWith('#EXTINF')) {
                 const idMatch = line.match(/tvg-id="([^"]+)"/);
-                const nameMatch = line.match(/tvg-name="([^"]+)"/); // Für tvg-name
-                const groupMatch = line.match(/group-title="([^"]+)"/);
-
-                // Wenn tvg-id vorhanden ist, wird sie verwendet, andernfalls tvg-name
-                currentChannelId = idMatch ? idMatch[1] : nameMatch ? nameMatch[1] : null;
-                currentGroupTitle = groupMatch ? groupMatch[1] : 'Unbekannt';
-
+                currentChannelId = idMatch ? idMatch[1] : null;
                 if (currentChannelId && !urls[currentChannelId]) {
-                    urls[currentChannelId] = { streamURLs: [], groupTitle: currentGroupTitle };
-                    groupTitles.add(currentGroupTitle); // Gruppentitel zur Set hinzufügen
+                    urls[currentChannelId] = [];
                 }
             } else if (currentChannelId && line.startsWith('http')) {
-                urls[currentChannelId].streamURLs.push(line);
+                urls[currentChannelId].push(line);
                 currentChannelId = null;
             }
         });
 
-        return { urls, groupTitles };
+        return urls;
     };
 
-    const { urls, groupTitles } = extractStreamURLs(data);
-
-    // Füge die Gruppen zum Dropdown hinzu
-    groupDropdown.innerHTML = '<option value="all">Alle Gruppen</option>';
-    groupTitles.forEach(group => {
-        const option = document.createElement('option');
-        option.value = group;
-        option.textContent = group;
-        groupDropdown.appendChild(option);
-    });
-
+    const streamURLs = extractStreamURLs(data);
     const lines = data.split('\n');
-    const addStreamToSidebar = async (channelId, streamURL, name, imgURL, groupTitle) => {
-        try {
-            const programInfo = await getCurrentProgram(channelId);
 
-            const listItem = document.createElement('li');
-            listItem.innerHTML = `
-                <div class="channel-info" data-stream="${streamURL}" data-channel-id="${channelId}">
-                    <div class="logo-container">
-                        <img src="${imgURL}" alt="${name} Logo">
-                    </div>
-                    <span class="sender-name">${name}</span>
-                    <span class="epg-channel">
-                        <span>${programInfo.title}</span>
-                        <div class="epg-timeline">
-                            <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
-                            <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
-                        </div>
-                    </span>
-                </div>
-            `;
-            sidebarList.appendChild(listItem);
-        } catch (error) {
-            console.error(`Fehler beim Abrufen der EPG-Daten für Kanal-ID ${channelId}:`, error);
-        }
-    };
-
-    // Gehe jede Zeile durch und füge die Sender zur Sidebar hinzu
     for (let i = 0; i < lines.length; i++) {
         if (lines[i].startsWith('#EXTINF')) {
             const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
+            const channelId = idMatch ? idMatch[1] : null;
             const nameMatch = lines[i].match(/,(.*)$/);
             const name = nameMatch ? nameMatch[1].trim() : 'Unbekannt';
 
@@ -369,36 +323,37 @@ async function updateSidebarFromM3U(data) {
             const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
 
             const streamURL = lines[i + 1].startsWith('http') ? lines[i + 1].trim() : null;
-            const groupTitle = urls[idMatch ? idMatch[1] : nameMatch ? nameMatch[1] : '']?.groupTitle || 'Unbekannt';
 
             if (streamURL) {
-                await addStreamToSidebar(idMatch ? idMatch[1] : nameMatch ? nameMatch[1] : '', streamURL, name, imgURL, groupTitle);
+                try {
+                    const programInfo = await getCurrentProgram(channelId);
+
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `
+                        <div class="channel-info" data-stream="${streamURL}" data-channel-id="${channelId}">
+                            <div class="logo-container">
+                                <img src="${imgURL}" alt="${name} Logo">
+                            </div>
+                            <span class="sender-name">${name}</span>
+                            <span class="epg-channel">
+                                <span>${programInfo.title}</span>
+                                <div class="epg-timeline">
+                                    <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+                                    <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+                                </div>
+                            </span>
+                        </div>
+                    `;
+                    sidebarList.appendChild(listItem);
+                } catch (error) {
+                    console.error(`Fehler beim Abrufen der EPG-Daten für Kanal-ID ${channelId}:`, error);
+                }
             }
         }
     }
 
-    // Überprüfe den Online-Status der Streams
     checkStreamStatus();
-
-    // Füge Event-Listener zum Dropdown hinzu, um die Sidebar entsprechend zu filtern
-    groupDropdown.addEventListener('change', () => {
-        const selectedGroup = groupDropdown.value;
-        sidebarList.innerHTML = '';
-
-        for (let channelId in urls) {
-            const { streamURLs, groupTitle } = urls[channelId];
-            if (selectedGroup === 'all' || groupTitle === selectedGroup) {
-                const name = lines.find(line => line.includes(`tvg-id="${channelId}"`))?.split(',')[1]?.trim() || 'Unbekannt';
-                const imgURL = lines.find(line => line.includes(`tvg-id="${channelId}"`))?.match(/tvg-logo="([^"]+)"/)?.[1] || 'default_logo.png';
-                const streamURL = streamURLs[0]; // Wir nehmen den ersten Stream (falls mehrere vorhanden sind)
-
-                addStreamToSidebar(channelId, streamURL, name, imgURL, groupTitle);
-            }
-        }
-    });
 }
-
-
 
 
 
@@ -432,15 +387,6 @@ function checkStreamStatus() {
         }
     });
 }
-
-
-
-
-
-
-
-
-
 
 
 // filter-online-button
@@ -530,82 +476,46 @@ function updateClock() {
     document.getElementById('uhrzeit').textContent = uhrzeit;
 }
 
-
-
-
-
-function playStream(streamURL) {
-    console.log(`Versuche Stream abzuspielen: ${streamURL}`);
-
-    // Video-Player initialisieren
+// Funktion zum Abspielen eines Streams im Video-Player
+function playStream(streamURL, subtitleURL) {
     const videoPlayer = document.getElementById('video-player');
+    const subtitleTrack = document.getElementById('subtitle-track');
 
-    // Vorherigen Stream entladen
-    videoPlayer.pause();
-    videoPlayer.src = '';
-    videoPlayer.load();
+    // Untertitel-Setup
+    if (subtitleURL) {
+        subtitleTrack.src = subtitleURL;
+        subtitleTrack.track.mode = 'showing'; // Untertitel anzeigen
+    } else {
+        subtitleTrack.src = '';
+        subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
+    }
 
-    // HLS mit HLS.js abspielen
+    // HLS.js-Integration
     if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
         const hls = new Hls();
         hls.loadSource(streamURL);
         hls.attachMedia(videoPlayer);
-
-        // Event: Stream erfolgreich geladen
         hls.on(Hls.Events.MANIFEST_PARSED, function () {
-            console.log('HLS Stream erfolgreich geladen.');
             videoPlayer.play();
         });
-
-        // Event: Fehlerbehandlung
-        hls.on(Hls.Events.ERROR, (event, data) => {
-            console.error('HLS.js Fehler:', data);
-        });
-        return;
-    }
-
-    // HLS direkt für Safari
-    if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+        // Direktes HLS für Safari
         videoPlayer.src = streamURL;
-
-        const onLoadedMetadata = () => {
-            console.log('HLS Stream (Safari) erfolgreich geladen.');
+        videoPlayer.addEventListener('loadedmetadata', function () {
             videoPlayer.play();
-            videoPlayer.removeEventListener('loadedmetadata', onLoadedMetadata);
-        };
-
-        videoPlayer.addEventListener('loadedmetadata', onLoadedMetadata);
-        return;
-    }
-
-    // MPEG-DASH abspielen
-    if (streamURL.endsWith('.mpd')) {
+        });
+    } else if (streamURL.endsWith('.mpd')) {
+        // MPEG-DASH-Streaming mit dash.js
         const dashPlayer = dashjs.MediaPlayer().create();
         dashPlayer.initialize(videoPlayer, streamURL, true);
-
-        // Event: Fehlerbehandlung
-        dashPlayer.on('error', (e) => {
-            console.error('DASH.js Fehler:', e);
-        });
-
-        console.log('MPEG-DASH Stream erfolgreich geladen.');
-        return;
-    }
-
-    // MP4 oder WebM abspielen
-    if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+        // Direktes MP4- oder WebM-Streaming
         videoPlayer.src = streamURL;
-        videoPlayer.load();
         videoPlayer.play();
-        console.log('MP4/WebM Stream erfolgreich geladen.');
-        return;
+    } else {
+        console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
     }
-
-    // Fallback für nicht unterstützte Formate
-    alert('Dieses Format wird von Ihrem Browser nicht unterstützt.');
-    console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
 }
-
 
 
 
