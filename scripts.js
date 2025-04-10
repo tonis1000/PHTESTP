@@ -476,44 +476,69 @@ function updateClock() {
     document.getElementById('uhrzeit').textContent = uhrzeit;
 }
 
-// Funktion zum Abspielen eines Streams im Video-Player
-function playStream(streamURL, subtitleURL) {
-    const videoPlayer = document.getElementById('video-player');
-    const subtitleTrack = document.getElementById('subtitle-track');
 
-    // Untertitel-Setup
-    if (subtitleURL) {
-        subtitleTrack.src = subtitleURL;
-        subtitleTrack.track.mode = 'showing'; // Untertitel anzeigen
-    } else {
-        subtitleTrack.src = '';
-        subtitleTrack.track.mode = 'hidden'; // Untertitel ausblenden
-    }
+const proxyList = [
+    '', // direct
+  'https://api.allorigins.win/raw?url=',
+  'https://thingproxy.freeboard.io/fetch/',
+  'https://corsproxy.io/?url=',
+  'https://cors-anywhere.herokuapp.com/', // με προειδοποίηση για ενεργοποίηση
+];
 
-    // HLS.js-Integration
-    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-        const hls = new Hls();
-        hls.loadSource(streamURL);
-        hls.attachMedia(videoPlayer);
-        hls.on(Hls.Events.MANIFEST_PARSED, function () {
+async function playStream(url) {
+    stopPlayback();
+
+    if (url.includes('.m3u8')) {
+        // Αν είναι m3u8 παίζει κατευθείαν στον videoPlayer
+        iframePlayer.style.display = 'none';
+        videoPlayer.style.display = '';
+        if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(videoPlayer);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+        } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+            videoPlayer.src = url;
             videoPlayer.play();
-        });
-    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
-        // Direktes HLS für Safari
-        videoPlayer.src = streamURL;
-        videoPlayer.addEventListener('loadedmetadata', function () {
-            videoPlayer.play();
-        });
-    } else if (streamURL.endsWith('.mpd')) {
-        // MPEG-DASH-Streaming mit dash.js
-        const dashPlayer = dashjs.MediaPlayer().create();
-        dashPlayer.initialize(videoPlayer, streamURL, true);
-    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-        // Direktes MP4- oder WebM-Streaming
-        videoPlayer.src = streamURL;
-        videoPlayer.play();
+        }
     } else {
-        console.error('Stream-Format wird vom aktuellen Browser nicht unterstützt.');
+        // Αν είναι iframe, ψάχνει πρώτα για m3u8 μέσω proxies
+        let foundStream = null;
+
+        for (let proxy of proxyList) {
+            let proxiedUrl = proxy ? proxy + encodeURIComponent(url) : url;
+            try {
+                const response = await fetch(proxiedUrl);
+                const text = await response.text();
+                let match = text.match(/(https?:\/\/[^\s'"<>]+\.m3u8?)/);
+                if (match && match[1]) {
+                    foundStream = match[1];
+                    break;
+                }
+            } catch (err) {
+                console.warn('Proxy failed:', proxy);
+            }
+        }
+
+        if (foundStream) {
+            // Αν βρεθεί m3u8 παίζει στο videoPlayer
+            iframePlayer.style.display = 'none';
+            videoPlayer.style.display = '';
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(foundStream);
+                hls.attachMedia(videoPlayer);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+            } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                videoPlayer.src = foundStream;
+                videoPlayer.play();
+            }
+        } else {
+            // Αν όχι, fallback στο iframe
+            videoPlayer.style.display = 'none';
+            iframePlayer.style.display = '';
+            iframePlayer.src = url;
+        }
     }
 }
 
