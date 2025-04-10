@@ -478,8 +478,6 @@ function updateClock() {
 
 // Funktion zum Abspielen eines Streams im Video-Player mit Proxy
 
-const videoPlayer = document.getElementById('video-player');
-const iframePlayer = document.getElementById('iframe-player');
 
 
 const proxyList = [
@@ -490,58 +488,96 @@ const proxyList = [
   'https://cors-anywhere.herokuapp.com/', // με προειδοποίηση για ενεργοποίηση
 ];
 
-async function playStream(url) {
-    if (url.includes('.m3u8')) {
-        // Αν είναι m3u8 παίζει κατευθείαν στον videoPlayer
-        iframePlayer.style.display = 'none';
-        videoPlayer.style.display = '';
-        if (Hls.isSupported()) {
-            const hls = new Hls();
-            hls.loadSource(url);
-            hls.attachMedia(videoPlayer);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-        } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-            videoPlayer.src = url;
-            videoPlayer.play();
-        }
-    } else {
-        // Αν είναι iframe, ψάχνει πρώτα για m3u8 μέσω proxies
+// Funktion zum Abspielen eines Streams im Video- oder iFrame-Player mit Proxy-Fallback
+async function playStream(streamURL, subtitleURL) {
+    const videoPlayer = document.getElementById('video-player');
+    const iframePlayer = document.getElementById('iframe-player');
+    const subtitleTrack = document.getElementById('subtitle-track');
+
+    // Beenden vorheriger Video-Wiedergabe
+    videoPlayer.pause();
+    videoPlayer.removeAttribute('src');
+    videoPlayer.load();
+
+    // Reset iframe
+    iframePlayer.src = '';
+
+    // Bestimmen, ob die URL ein iframe-Link ist
+    const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
+
+    if (isIframe) {
+        // Versuch .m3u8 aus iframe URL über proxies zu finden
         let foundStream = null;
 
         for (let proxy of proxyList) {
-            let proxiedUrl = proxy ? proxy + encodeURIComponent(url) : url;
+            let proxiedUrl = proxy ? proxy + encodeURIComponent(streamURL) : streamURL;
             try {
                 const response = await fetch(proxiedUrl);
-                const text = await response.text();
-                let match = text.match(/(https?:\/\/[^\s'"<>]+\.m3u8?)/);
-                if (match && match[1]) {
-                    foundStream = match[1];
-                    break;
+                if (response.ok) {
+                    const text = await response.text();
+                    let match = text.match(/(https?:\/\/[^\s'"<>]+\.m3u8?)/);
+                    if (match && match[1]) {
+                        foundStream = match[1];
+                        break;
+                    }
                 }
             } catch (err) {
-                console.warn('Proxy failed:', proxy);
+                console.warn('Proxy fehlgeschlagen:', proxy, err);
             }
         }
 
         if (foundStream) {
-            // Αν βρεθεί m3u8 παίζει στο videoPlayer
-            iframePlayer.style.display = 'none';
-            videoPlayer.style.display = '';
-            if (Hls.isSupported()) {
-                const hls = new Hls();
-                hls.loadSource(foundStream);
-                hls.attachMedia(videoPlayer);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-            } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-                videoPlayer.src = foundStream;
-                videoPlayer.play();
-            }
+            console.log('Gefundenes m3u8 über Proxy:', foundStream);
+            streamURL = foundStream; // Nutze gefundenes m3u8
         } else {
-            // Αν όχι, fallback στο iframe
+            console.warn('Kein m3u8 gefunden, nutze iframe:', streamURL);
             videoPlayer.style.display = 'none';
-            iframePlayer.style.display = '';
-            iframePlayer.src = url;
+            iframePlayer.style.display = 'block';
+            iframePlayer.src = streamURL;
+            return;
         }
+    }
+
+    // Video-Wiedergabe aktivieren (nach Prüfung)
+    iframePlayer.style.display = 'none';
+    videoPlayer.style.display = 'block';
+
+    // Untertitel-Setup
+    if (subtitleURL) {
+        subtitleTrack.src = subtitleURL;
+        subtitleTrack.track.mode = 'showing';
+    } else {
+        subtitleTrack.src = '';
+        subtitleTrack.track.mode = 'hidden';
+    }
+
+    // HLS.js-Integration
+    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+        const hls = new Hls();
+        hls.loadSource(streamURL);
+        hls.attachMedia(videoPlayer);
+        hls.on(Hls.Events.MANIFEST_PARSED, function () {
+            videoPlayer.play();
+        });
+        hls.on(Hls.Events.ERROR, function (event, data) {
+            console.error("HLS.js Fehler:", data);
+        });
+    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+        videoPlayer.src = streamURL;
+        videoPlayer.addEventListener('loadedmetadata', function () {
+            videoPlayer.play();
+        });
+    } else if (streamURL.endsWith('.mpd')) {
+        const dashPlayer = dashjs.MediaPlayer().create();
+        dashPlayer.initialize(videoPlayer, streamURL, true);
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+        videoPlayer.src = streamURL;
+        videoPlayer.play();
+    } else {
+        console.warn('Nicht unterstütztes Format. Nutze iframe als Fallback.');
+        videoPlayer.style.display = 'none';
+        iframePlayer.style.display = 'block';
+        iframePlayer.src = streamURL;
     }
 }
 
