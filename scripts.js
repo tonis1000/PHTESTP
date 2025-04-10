@@ -476,7 +476,7 @@ function updateClock() {
     document.getElementById('uhrzeit').textContent = uhrzeit;
 }
 
-
+// Funktion zum Abspielen eines Streams im Video-Player mit Proxy
 const proxyList = [
     '', // direct
   'https://api.allorigins.win/raw?url=',
@@ -486,8 +486,6 @@ const proxyList = [
 ];
 
 async function playStream(url) {
-    stopPlayback();
-
     if (url.includes('.m3u8')) {
         // Αν είναι m3u8 παίζει κατευθείαν στον videoPlayer
         iframePlayer.style.display = 'none';
