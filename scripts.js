@@ -478,90 +478,99 @@ function updateClock() {
 
 
 
+
+// scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
+
 const proxyList = [
-  '', // direct
-  'https://your-proxy-name.herokuapp.com/',
+  'https://cors-anywhere-production-d9b6.up.railway.app/',
+  'https://api.allorigins.win/raw?url=',
+  'https://thingproxy.freeboard.io/fetch/',
+  'https://corsproxy.io/?url=',
+  'https://cors-anywhere.herokuapp.com/',
+  '' // direct fallback
 ];
 
-async function findWorkingProxy(url) {
-  for (let proxy of proxyList) {
-    let proxiedUrl = proxy ? proxy + url : url;
-    try {
-      const response = await fetch(proxiedUrl, { method: 'GET' });
-      if (response.ok) {
-        const contentType = response.headers.get('Content-Type');
-        if (contentType && (
-          contentType.includes('application/vnd.apple.mpegurl') ||
-          contentType.includes('video/mp2t') ||
-          contentType.includes('video/mp4') ||
-          contentType.includes('application/octet-stream')
-        )) {
-          return proxiedUrl;
-        }
-      }
-    } catch (error) {
-      console.warn(`Proxy failed: ${proxy}`, error);
-    }
-  }
-  return null;
-}
-
+let clapprPlayer = null;
 
 async function playStream(streamURL, subtitleURL) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
-  const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
+  const clapprDiv = document.getElementById('clappr-player') || createClapprDiv();
 
+  // Reset players
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
   iframePlayer.src = '';
-  if (clapprPlayer) clapprPlayer.destroy();
+  videoPlayer.style.display = 'none';
+  iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
+  if (clapprPlayer) clapprPlayer.destroy();
 
+  // Detect iframe link
   const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
-
   if (isIframe) {
     let foundStream = null;
     for (let proxy of proxyList) {
-      let proxiedUrl = proxy ? proxy + encodeURIComponent(streamURL) : streamURL;
+      let proxied = proxy.endsWith('/') ? proxy + streamURL : proxy + encodeURIComponent(streamURL);
       try {
-        const response = await fetch(proxiedUrl);
-        if (response.ok) {
-          const text = await response.text();
-          let match = text.match(/(https?:\/\/[^\s'"<>]+\.m3u8?)/);
+        const res = await fetch(proxied);
+        if (res.ok) {
+          const text = await res.text();
+          const match = text.match(/(https?:[^'"<>\s]+\.m3u8)/);
           if (match && match[1]) {
             foundStream = match[1];
             break;
           }
         }
-      } catch (err) {
-        console.warn('Proxy fehlgeschlagen:', proxy, err);
+      } catch (e) {
+        console.warn('Proxy failed:', proxy, e);
       }
     }
-
     if (foundStream) {
       streamURL = foundStream;
     } else {
-      videoPlayer.style.display = 'none';
-      clapprDiv.style.display = 'none';
-      iframePlayer.style.display = 'block';
-      if (!streamURL.includes('autoplay')) {
-        streamURL += (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      }
+      if (!streamURL.includes('autoplay')) streamURL += (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       iframePlayer.src = streamURL;
+      iframePlayer.style.display = 'block';
       return;
     }
   }
 
-  const playableUrl = await findWorkingProxy(streamURL);
-  if (!playableUrl) {
-    console.warn("Kein Proxy gefunden, letzter Versuch mit Clappr.");
-    videoPlayer.style.display = 'none';
-    iframePlayer.style.display = 'none';
-    clapprDiv.style.display = 'block';
+  // Try direct playback first
+  videoPlayer.style.display = 'block';
+  if (subtitleURL && subtitleTrack) {
+    subtitleTrack.src = subtitleURL;
+    subtitleTrack.track.mode = 'showing';
+  } else if (subtitleTrack) {
+    subtitleTrack.src = '';
+    subtitleTrack.track.mode = 'hidden';
+  }
 
+  try {
+    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+      const hls = new Hls();
+      hls.loadSource(streamURL);
+      hls.attachMedia(videoPlayer);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+      hls.on(Hls.Events.ERROR, (event, data) => console.error("HLS.js error:", data));
+    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+      videoPlayer.src = streamURL;
+      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
+    } else if (streamURL.endsWith('.mpd')) {
+      const dashPlayer = dashjs.MediaPlayer().create();
+      dashPlayer.initialize(videoPlayer, streamURL, true);
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+      videoPlayer.src = streamURL;
+      videoPlayer.play();
+    } else {
+      throw new Error('Fallback to Clappr');
+    }
+  } catch (e) {
+    console.warn('Fallback to Clappr:', e);
+    videoPlayer.style.display = 'none';
+    clapprDiv.style.display = 'block';
     clapprPlayer = new Clappr.Player({
       source: streamURL,
       parentId: '#clappr-player',
@@ -569,59 +578,17 @@ async function playStream(streamURL, subtitleURL) {
       width: '100%',
       height: '100%',
     });
-    return;
   }
+}
 
-  streamURL = playableUrl;
-
-  iframePlayer.style.display = 'none';
-  clapprDiv.style.display = 'none';
-  videoPlayer.style.display = 'block';
-
-  if (subtitleURL) {
-    subtitleTrack.src = subtitleURL;
-    subtitleTrack.track.mode = 'showing';
-  } else {
-    subtitleTrack.src = '';
-    subtitleTrack.track.mode = 'hidden';
-  }
-
-  if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-    const hls = new Hls();
-    hls.loadSource(streamURL);
-    hls.attachMedia(videoPlayer);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-    hls.on(Hls.Events.ERROR, (event, data) => {
-      console.error("HLS.js Fehler:", data);
-      fallbackToClappr(streamURL);
-    });
-  } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
-    videoPlayer.src = streamURL;
-    videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
-  } else if (streamURL.endsWith('.mpd')) {
-    const dashPlayer = dashjs.MediaPlayer().create();
-    dashPlayer.initialize(videoPlayer, streamURL, true);
-  } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-    videoPlayer.src = streamURL;
-    videoPlayer.play();
-  } else {
-    fallbackToClappr(streamURL);
-  }
-
-  function fallbackToClappr(src) {
-    console.warn('Fallback auf Clappr Player.');
-    videoPlayer.style.display = 'none';
-    iframePlayer.style.display = 'none';
-    clapprDiv.style.display = 'block';
-
-    clapprPlayer = new Clappr.Player({
-      source: src,
-      parentId: '#clappr-player',
-      autoPlay: true,
-      width: '100%',
-      height: '100%',
-    });
-  }
+function createClapprDiv() {
+  const div = document.createElement('div');
+  div.id = 'clappr-player';
+  div.style.width = '100%';
+  div.style.height = '600px';
+  div.style.display = 'none';
+  document.querySelector('.player-container').appendChild(div);
+  return div;
 }
 
 
