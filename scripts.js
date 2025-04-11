@@ -480,13 +480,13 @@ function updateClock() {
 
 
 // scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
-// scripts.js - Υπερπλήρης έκδοση playStream με Fallback σε VLC Web Plugin
+// SuperTonisPlayer - scripts.js
 const proxyList = [
   '',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
   'https://api.allorigins.win/raw?url=',
   'https://thingproxy.freeboard.io/fetch/',
-  'https://corsproxy.io/?url=',
+  'https://corsproxy.io/?url='
 ];
 
 let clapprPlayer = null;
@@ -496,16 +496,14 @@ async function playStream(streamURL, subtitleURL) {
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
-  let vlcPlayer = document.getElementById('vlc-player');
+  const vlcButton = document.getElementById('vlc-button');
 
-  // Reset all players
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
   iframePlayer.src = '';
   if (clapprPlayer) clapprPlayer.destroy();
   clapprDiv.style.display = 'none';
-  if (vlcPlayer) vlcPlayer.remove();
 
   const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
 
@@ -517,26 +515,24 @@ async function playStream(streamURL, subtitleURL) {
         const res = await fetch(proxied);
         if (res.ok) {
           const html = await res.text();
-          const match = html.match(/(https?:\/\/[^"]+\.m3u8)/);
+          const match = html.match(/(https?:\/\/[^\s"'>]+\.m3u8)/);
           if (match) {
             foundStream = match[1];
             break;
           }
         }
       } catch (e) {
-        console.warn("Proxy failed:", proxy, e);
+        console.warn('Proxy failed:', proxy, e);
       }
     }
+
     if (foundStream) {
       streamURL = foundStream;
     } else {
       videoPlayer.style.display = 'none';
       clapprDiv.style.display = 'none';
       iframePlayer.style.display = 'block';
-      if (!streamURL.includes('autoplay')) {
-        streamURL += (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      }
-      iframePlayer.src = streamURL;
+      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       return;
     }
   }
@@ -553,7 +549,6 @@ async function playStream(streamURL, subtitleURL) {
     subtitleTrack.track.mode = 'hidden';
   }
 
-  // Προσπάθεια με Native / HLS.js
   try {
     if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
       const hls = new Hls();
@@ -569,47 +564,37 @@ async function playStream(streamURL, subtitleURL) {
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
       return;
-    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm') || streamURL.endsWith('.ts')) {
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
       videoPlayer.src = streamURL;
       videoPlayer.play();
       return;
+    } else if (streamURL.endsWith('.ts')) {
+      throw new Error('ts fallback to VLC');
     }
-  } catch (e) {
-    console.warn('VideoPlayer failed:', e);
+  } catch (err) {
+    console.warn('Video Player failed, trying Clappr or VLC:', err);
   }
 
-  // Προσπάθεια με Clappr
-  try {
-    videoPlayer.style.display = 'none';
-    clapprDiv.style.display = 'block';
-    clapprPlayer = new Clappr.Player({
-      source: streamURL,
-      parentId: '#clappr-player',
-      autoPlay: true,
-      width: '100%',
-      height: '100%',
-    });
-    return;
-  } catch (e) {
-    console.warn('Clappr failed:', e);
+  // Clappr fallback
+  videoPlayer.style.display = 'none';
+  iframePlayer.style.display = 'none';
+  clapprDiv.style.display = 'block';
+  clapprPlayer = new Clappr.Player({
+    source: streamURL,
+    parentId: '#clappr-player',
+    autoPlay: true,
+    width: '100%',
+    height: '100%'
+  });
+
+  // VLC button εμφανίζεται μόνο αν όλα αποτύχουν
+  if (vlcButton) {
+    vlcButton.style.display = 'inline-block';
+    vlcButton.onclick = () => {
+      window.open('vlc://' + streamURL);
+    };
   }
-
-  // Τελευταία λύση: VLC Player (μόνο σε παλιούς browser)
-  console.warn('Fallback σε VLC Plugin για:', streamURL);
-  const playerContainer = document.querySelector('.player-container');
-  const vlcObject = document.createElement('object');
-  vlcObject.setAttribute('id', 'vlc-player');
-  vlcObject.setAttribute('type', 'application/x-vlc-plugin');
-  vlcObject.setAttribute('width', '100%');
-  vlcObject.setAttribute('height', '600');
-  vlcObject.setAttribute('autoplay', 'yes');
-  const param = document.createElement('param');
-  param.setAttribute('name', 'movie');
-  param.setAttribute('value', streamURL);
-  vlcObject.appendChild(param);
-  playerContainer.appendChild(vlcObject);
-}
-
+} // τέλος function
 
 
 
