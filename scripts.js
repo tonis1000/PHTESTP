@@ -477,6 +477,7 @@ function updateClock() {
 }
 
 
+
 const proxyList = [
   '', // direct
   'https://api.allorigins.win/raw?url=',
@@ -485,16 +486,25 @@ const proxyList = [
   'https://cors-anywhere.herokuapp.com/',
 ];
 
-let clapprPlayer = null; // Global Clappr instance
+let clapprPlayer = null;
 
-// Βοηθητική συνάρτηση για Proxy δοκιμές
-async function tryProxies(url) {
+async function findWorkingProxy(url) {
   for (let proxy of proxyList) {
     let proxiedUrl = proxy ? proxy + encodeURIComponent(url) : url;
     try {
-      const response = await fetch(proxiedUrl, { method: 'HEAD' });
+      const response = await fetch(proxiedUrl, { method: 'GET' });
+
+      // Check for streaming-compatible headers
       if (response.ok) {
-        return proxiedUrl; // Επιστρέφει τον πρώτο proxy που λειτουργεί
+        const contentType = response.headers.get('Content-Type');
+        if (contentType && (
+          contentType.includes('application/vnd.apple.mpegurl') ||
+          contentType.includes('video/mp2t') ||
+          contentType.includes('video/mp4') ||
+          contentType.includes('application/octet-stream')
+        )) {
+          return proxiedUrl;
+        }
       }
     } catch (error) {
       console.warn(`Proxy failed: ${proxy}`, error);
@@ -509,7 +519,6 @@ async function playStream(streamURL, subtitleURL) {
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  // Reset όλων των players
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
@@ -517,7 +526,6 @@ async function playStream(streamURL, subtitleURL) {
   if (clapprPlayer) clapprPlayer.destroy();
   clapprDiv.style.display = 'none';
 
-  // Έλεγχος αν το URL είναι iframe τύπος
   const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
 
   if (isIframe) {
@@ -553,10 +561,9 @@ async function playStream(streamURL, subtitleURL) {
     }
   }
 
-  // Δοκιμή proxy για κανονικά URLs (όχι iframe)
-  const playableUrl = await tryProxies(streamURL);
+  const playableUrl = await findWorkingProxy(streamURL);
   if (!playableUrl) {
-    console.error("Kein Proxy gefunden, letzter Versuch mit Clappr.");
+    console.warn("Kein Proxy gefunden, letzter Versuch mit Clappr.");
     videoPlayer.style.display = 'none';
     iframePlayer.style.display = 'none';
     clapprDiv.style.display = 'block';
@@ -571,9 +578,8 @@ async function playStream(streamURL, subtitleURL) {
     return;
   }
 
-  streamURL = playableUrl; // Proxy URL που βρέθηκε
+  streamURL = playableUrl;
 
-  // Προσπάθησε να παίξει στο native video player
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
   videoPlayer.style.display = 'block';
@@ -608,7 +614,6 @@ async function playStream(streamURL, subtitleURL) {
     fallbackToClappr(streamURL);
   }
 
-  // Fallback σε Clappr Player
   function fallbackToClappr(src) {
     console.warn('Fallback auf Clappr Player.');
     videoPlayer.style.display = 'none';
