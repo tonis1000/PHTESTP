@@ -480,21 +480,14 @@ function updateClock() {
 
 const proxyList = [
   '', // direct
-  'https://api.allorigins.win/raw?url=',
-  'https://thingproxy.freeboard.io/fetch/',
-  'https://corsproxy.io/?url=',
-  'https://cors-anywhere.herokuapp.com/',
+  'https://your-proxy-name.herokuapp.com/',
 ];
-
-let clapprPlayer = null;
 
 async function findWorkingProxy(url) {
   for (let proxy of proxyList) {
-    let proxiedUrl = proxy ? proxy + encodeURIComponent(url) : url;
+    let proxiedUrl = proxy ? proxy + url : url;
     try {
       const response = await fetch(proxiedUrl, { method: 'GET' });
-
-      // Check for streaming-compatible headers
       if (response.ok) {
         const contentType = response.headers.get('Content-Type');
         if (contentType && (
@@ -512,6 +505,7 @@ async function findWorkingProxy(url) {
   }
   return null;
 }
+
 
 async function playStream(streamURL, subtitleURL) {
   const videoPlayer = document.getElementById('video-player');
