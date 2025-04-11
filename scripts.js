@@ -480,7 +480,8 @@ function updateClock() {
 
 
 // scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
-// Super Player με υποστήριξη για .ts, .flv, rtmp://, HLS, DASH, MP4, WebM και fallback σε Clappr
+// scripts.js - Super Player Edition με υποστήριξη για .ts, .flv, rtmp, m3u8, mpd και fallback Clappr
+
 const proxyList = [
   '',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
@@ -497,6 +498,7 @@ async function playStream(streamURL, subtitleURL) {
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
+  // Reset players
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
@@ -504,6 +506,7 @@ async function playStream(streamURL, subtitleURL) {
   if (clapprPlayer) clapprPlayer.destroy();
   clapprDiv.style.display = 'none';
 
+  // Έλεγχος για iframe URLs
   const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
 
   if (isIframe) {
@@ -514,14 +517,14 @@ async function playStream(streamURL, subtitleURL) {
         const res = await fetch(proxied);
         if (res.ok) {
           const html = await res.text();
-          const match = html.match(/(https?:\/\/[^\s"'>]+\.(m3u8|ts))/);
+          const match = html.match(/(https?:\/\/[^\s"'>]+\.m3u8)/);
           if (match) {
             foundStream = match[1];
             break;
           }
         }
       } catch (e) {
-        console.warn('Proxy failed:', proxy, e);
+        console.warn("Proxy failed:", proxy, e);
       }
     }
 
@@ -539,6 +542,25 @@ async function playStream(streamURL, subtitleURL) {
     }
   }
 
+  // Ανίχνευση format για σωστό player
+  const useClappr = streamURL.endsWith('.ts') || streamURL.endsWith('.flv') || streamURL.startsWith('rtmp') || streamURL.startsWith('rtsp');
+
+  if (useClappr) {
+    videoPlayer.style.display = 'none';
+    iframePlayer.style.display = 'none';
+    clapprDiv.style.display = 'block';
+
+    clapprPlayer = new Clappr.Player({
+      source: streamURL,
+      parentId: '#clappr-player',
+      autoPlay: true,
+      width: '100%',
+      height: '100%',
+    });
+    return;
+  }
+
+  // Video Player
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
   videoPlayer.style.display = 'block';
@@ -557,39 +579,33 @@ async function playStream(streamURL, subtitleURL) {
       hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-      return;
     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
       videoPlayer.src = streamURL;
       videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
-      return;
     } else if (streamURL.endsWith('.mpd')) {
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
-      return;
-    } else if (streamURL.endsWith('.ts') || streamURL.endsWith('.mp4') || streamURL.endsWith('.webm')) {
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
       videoPlayer.src = streamURL;
       videoPlayer.play();
-      return;
+    } else {
+      throw new Error('Unsupported by native video player');
     }
   } catch (e) {
-    console.warn('Standard Player failed:', e);
+    console.warn('Fallback σε Clappr λόγω σφάλματος:', e);
+    videoPlayer.style.display = 'none';
+    clapprDiv.style.display = 'block';
+
+    clapprPlayer = new Clappr.Player({
+      source: streamURL,
+      parentId: '#clappr-player',
+      autoPlay: true,
+      width: '100%',
+      height: '100%',
+    });
   }
-
-  // Fallback σε Clappr, με υποστήριξη RTMP, FLV, MKV κλπ.
-  console.warn('Fallback σε Clappr για:', streamURL);
-  videoPlayer.style.display = 'none';
-  iframePlayer.style.display = 'none';
-  clapprDiv.style.display = 'block';
-
-  clapprPlayer = new Clappr.Player({
-    source: streamURL,
-    parentId: '#clappr-player',
-    autoPlay: true,
-    width: '100%',
-    height: '100%',
-    plugins: [],
-  });
 }
+
 
 
 
