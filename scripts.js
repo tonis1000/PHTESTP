@@ -480,8 +480,7 @@ function updateClock() {
 
 
 // scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
-
-// Proxy list
+// Λίστα proxy servers (ξεκινά με direct, μετά δοκιμάζει proxies)
 const proxyList = [
   '',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
@@ -498,36 +497,36 @@ async function playStream(streamURL, subtitleURL) {
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  // Reset
+  // Reset players
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
   iframePlayer.src = '';
   if (clapprPlayer) clapprPlayer.destroy();
-  clapprDiv.innerHTML = '';
   clapprDiv.style.display = 'none';
 
-  // Detect iframe
+  // Έλεγχος για iframe URL
   const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
 
   if (isIframe) {
     let foundStream = null;
     for (let proxy of proxyList) {
-      let proxiedUrl = proxy ? proxy + encodeURIComponent(streamURL) : streamURL;
+      const proxied = proxy + (proxy.endsWith('=') ? encodeURIComponent(streamURL) : streamURL);
       try {
-        const response = await fetch(proxiedUrl);
-        if (response.ok) {
-          const text = await response.text();
-          let match = text.match(/(https?:\\/\\/[^\"'<>\s]+\.m3u8)/);
-          if (match && match[1]) {
+        const res = await fetch(proxied);
+        if (res.ok) {
+          const html = await res.text();
+          const match = html.match(/(https?:\/\/[^\s"'>]+\.m3u8)/);
+          if (match) {
             foundStream = match[1];
             break;
           }
         }
-      } catch (err) {
-        console.warn('Proxy failed:', proxy, err);
+      } catch (e) {
+        console.warn("Proxy failed:", proxy, e);
       }
     }
+
     if (foundStream) {
       streamURL = foundStream;
     } else {
@@ -542,26 +541,12 @@ async function playStream(streamURL, subtitleURL) {
     }
   }
 
-  // Detect raw .ts ➜ use only Clappr
-  if (streamURL.endsWith('.ts')) {
-    videoPlayer.style.display = 'none';
-    iframePlayer.style.display = 'none';
-    clapprDiv.style.display = 'block';
-    clapprPlayer = new Clappr.Player({
-      source: streamURL,
-      parentId: '#clappr-player',
-      autoPlay: true,
-      width: '100%',
-      height: '100%',
-    });
-    return;
-  }
-
-  // Standard HLS/DASH/MP4 playback
+  // Προβολή Video Player (πρώτη επιλογή)
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
   videoPlayer.style.display = 'block';
 
+  // Υπότιτλοι
   if (subtitleURL) {
     subtitleTrack.src = subtitleURL;
     subtitleTrack.track.mode = 'showing';
@@ -570,37 +555,51 @@ async function playStream(streamURL, subtitleURL) {
     subtitleTrack.track.mode = 'hidden';
   }
 
-  try {
-    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+  // Προσπάθεια με HLS.js
+  if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+    try {
       const hls = new Hls();
       hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
-      videoPlayer.src = streamURL;
-      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
-    } else if (streamURL.endsWith('.mpd')) {
+      return;
+    } catch (e) {
+      console.warn('HLS.js αποτυχία:', e);
+    }
+  } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
+    videoPlayer.src = streamURL;
+    videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
+    return;
+  } else if (streamURL.endsWith('.mpd')) {
+    try {
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
-    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-      videoPlayer.src = streamURL;
-      videoPlayer.play();
-    } else {
-      throw new Error('Nicht unterstütztes Format');
+      return;
+    } catch (e) {
+      console.warn('DASH αποτυχία:', e);
     }
-  } catch (err) {
-    console.warn('Kein direct playback, fallback auf Clappr.', err);
-    videoPlayer.style.display = 'none';
-    clapprDiv.style.display = 'block';
-    clapprPlayer = new Clappr.Player({
-      source: streamURL,
-      parentId: '#clappr-player',
-      autoPlay: true,
-      width: '100%',
-      height: '100%',
-    });
+  } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+    videoPlayer.src = streamURL;
+    videoPlayer.play();
+    return;
   }
+
+  // Clappr ως fallback
+  console.warn('Fallback σε Clappr για:', streamURL);
+  videoPlayer.style.display = 'none';
+  iframePlayer.style.display = 'none';
+  clapprDiv.style.display = 'block';
+
+  clapprPlayer = new Clappr.Player({
+    source: streamURL,
+    parentId: '#clappr-player',
+    autoPlay: true,
+    width: '100%',
+    height: '100%',
+  });
 }
+
+
 
 
 
