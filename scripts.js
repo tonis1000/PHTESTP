@@ -602,6 +602,7 @@ async function playStream(streamURL, subtitleURL = '') {
 
 
 
+
 // Funktion zum Lesen der SRT-Datei und Anzeigen der griechischen Untertitel
 function handleSubtitleFile(file) {
     const reader = new FileReader();
