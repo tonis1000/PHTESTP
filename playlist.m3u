@@ -6,6 +6,9 @@ https://ertflix.akamaized.net/ertlive/ert1/clrdef24723b/playlist.m3u8
 #EXTINF:-1 tvg-id="ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png",ERT2
 https://ertflix.akamaized.net/ertlive/ert2/clrdef24828z/playlist.m3u8
 
+#EXTINF:-1 tvg-id="ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png",ERT2
+http://test.satlok.club/live/AaaMiiiGoooTrrree/eCfAKhYWxrF9u2BE/4816.ts
+
 #EXTINF:-1 tvg-id="ert3" tvg-logo="https://i.imgur.com/f2l9bDR.png",ERT3
 https://cdn1.smart-tv-data.com/vid/ert-3-hbbtv/playlist.m3u8
 
