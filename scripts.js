@@ -477,8 +477,6 @@ function updateClock() {
 }
 
 
-
-// Funktion zum Abspielen eines Streams im Video-Player mit Proxy
 const proxyList = [
   '', // direct
   'https://api.allorigins.win/raw?url=',
@@ -487,7 +485,23 @@ const proxyList = [
   'https://cors-anywhere.herokuapp.com/',
 ];
 
-let clapprPlayer = null; // Ο Clappr player, global instance
+let clapprPlayer = null; // Global Clappr instance
+
+// Βοηθητική συνάρτηση για Proxy δοκιμές
+async function tryProxies(url) {
+  for (let proxy of proxyList) {
+    let proxiedUrl = proxy ? proxy + encodeURIComponent(url) : url;
+    try {
+      const response = await fetch(proxiedUrl, { method: 'HEAD' });
+      if (response.ok) {
+        return proxiedUrl; // Επιστρέφει τον πρώτο proxy που λειτουργεί
+      }
+    } catch (error) {
+      console.warn(`Proxy failed: ${proxy}`, error);
+    }
+  }
+  return null;
+}
 
 async function playStream(streamURL, subtitleURL) {
   const videoPlayer = document.getElementById('video-player');
@@ -495,7 +509,7 @@ async function playStream(streamURL, subtitleURL) {
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  // Reset players
+  // Reset όλων των players
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
@@ -503,7 +517,7 @@ async function playStream(streamURL, subtitleURL) {
   if (clapprPlayer) clapprPlayer.destroy();
   clapprDiv.style.display = 'none';
 
-  // Check iframe
+  // Έλεγχος αν το URL είναι iframe τύπος
   const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
 
   if (isIframe) {
@@ -539,7 +553,27 @@ async function playStream(streamURL, subtitleURL) {
     }
   }
 
-  // Προσπάθησε με Video Player
+  // Δοκιμή proxy για κανονικά URLs (όχι iframe)
+  const playableUrl = await tryProxies(streamURL);
+  if (!playableUrl) {
+    console.error("Kein Proxy gefunden, letzter Versuch mit Clappr.");
+    videoPlayer.style.display = 'none';
+    iframePlayer.style.display = 'none';
+    clapprDiv.style.display = 'block';
+
+    clapprPlayer = new Clappr.Player({
+      source: streamURL,
+      parentId: '#clappr-player',
+      autoPlay: true,
+      width: '100%',
+      height: '100%',
+    });
+    return;
+  }
+
+  streamURL = playableUrl; // Proxy URL που βρέθηκε
+
+  // Προσπάθησε να παίξει στο native video player
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
   videoPlayer.style.display = 'block';
@@ -556,11 +590,10 @@ async function playStream(streamURL, subtitleURL) {
     const hls = new Hls();
     hls.loadSource(streamURL);
     hls.attachMedia(videoPlayer);
-    hls.on(Hls.Events.MANIFEST_PARSED, function () {
-      videoPlayer.play();
-    });
-    hls.on(Hls.Events.ERROR, function (event, data) {
+    hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+    hls.on(Hls.Events.ERROR, (event, data) => {
       console.error("HLS.js Fehler:", data);
+      fallbackToClappr(streamURL);
     });
   } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && streamURL.endsWith('.m3u8')) {
     videoPlayer.src = streamURL;
@@ -572,15 +605,18 @@ async function playStream(streamURL, subtitleURL) {
     videoPlayer.src = streamURL;
     videoPlayer.play();
   } else {
-    // Αν αποτύχει το video, χρησιμοποίησε Clappr player ως τελευταίο fallback
-    console.warn('Direktes Video nicht möglich, versuche mit Clappr.');
+    fallbackToClappr(streamURL);
+  }
 
+  // Fallback σε Clappr Player
+  function fallbackToClappr(src) {
+    console.warn('Fallback auf Clappr Player.');
     videoPlayer.style.display = 'none';
     iframePlayer.style.display = 'none';
     clapprDiv.style.display = 'block';
 
     clapprPlayer = new Clappr.Player({
-      source: streamURL,
+      source: src,
       parentId: '#clappr-player',
       autoPlay: true,
       width: '100%',
@@ -588,6 +624,8 @@ async function playStream(streamURL, subtitleURL) {
     });
   }
 }
+
+
 
 
 
