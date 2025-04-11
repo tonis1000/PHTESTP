@@ -480,7 +480,7 @@ function updateClock() {
 
 
 // scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
-// SuperTonisPlayer - scripts.js
+// scripts.js - Τελική έκδοση με Proxy, Clappr, VLC fallback και EPG
 const proxyList = [
   '',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
@@ -495,16 +495,20 @@ async function playStream(streamURL, subtitleURL) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
+  const vlcDiv = document.getElementById('vlc-container');
+  const vlcPlugin = document.getElementById('vlc-plugin');
   const subtitleTrack = document.getElementById('subtitle-track');
-  const vlcButton = document.getElementById('vlc-button');
 
+  // Reset players
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
   iframePlayer.src = '';
   if (clapprPlayer) clapprPlayer.destroy();
   clapprDiv.style.display = 'none';
+  vlcDiv.style.display = 'none';
 
+  // Έλεγχος για iframe URL
   const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
 
   if (isIframe) {
@@ -522,7 +526,7 @@ async function playStream(streamURL, subtitleURL) {
           }
         }
       } catch (e) {
-        console.warn('Proxy failed:', proxy, e);
+        console.warn("Proxy failed:", proxy, e);
       }
     }
 
@@ -531,14 +535,20 @@ async function playStream(streamURL, subtitleURL) {
     } else {
       videoPlayer.style.display = 'none';
       clapprDiv.style.display = 'none';
+      vlcDiv.style.display = 'none';
       iframePlayer.style.display = 'block';
-      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      if (!streamURL.includes('autoplay')) {
+        streamURL += (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      }
+      iframePlayer.src = streamURL;
       return;
     }
   }
 
+  // Προβολή Video Player (πρώτη επιλογή)
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
+  vlcDiv.style.display = 'none';
   videoPlayer.style.display = 'block';
 
   if (subtitleURL) {
@@ -568,33 +578,35 @@ async function playStream(streamURL, subtitleURL) {
       videoPlayer.src = streamURL;
       videoPlayer.play();
       return;
-    } else if (streamURL.endsWith('.ts')) {
-      throw new Error('ts fallback to VLC');
     }
-  } catch (err) {
-    console.warn('Video Player failed, trying Clappr or VLC:', err);
+  } catch (e) {
+    console.warn("VideoPlayer failed:", e);
   }
 
-  // Clappr fallback
+  // Clappr ως fallback
+  try {
+    videoPlayer.style.display = 'none';
+    clapprDiv.style.display = 'block';
+    clapprPlayer = new Clappr.Player({
+      source: streamURL,
+      parentId: '#clappr-player',
+      autoPlay: true,
+      width: '100%',
+      height: '100%'
+    });
+    return;
+  } catch (e) {
+    console.warn("Clappr failed:", e);
+  }
+
+  // VLC ως τελευταία επιλογή
   videoPlayer.style.display = 'none';
   iframePlayer.style.display = 'none';
-  clapprDiv.style.display = 'block';
-  clapprPlayer = new Clappr.Player({
-    source: streamURL,
-    parentId: '#clappr-player',
-    autoPlay: true,
-    width: '100%',
-    height: '100%'
-  });
+  clapprDiv.style.display = 'none';
+  vlcDiv.style.display = 'block';
+  vlcPlugin.setAttribute('target', streamURL);
+} // END playStream
 
-  // VLC button εμφανίζεται μόνο αν όλα αποτύχουν
-  if (vlcButton) {
-    vlcButton.style.display = 'inline-block';
-    vlcButton.onclick = () => {
-      window.open('vlc://' + streamURL);
-    };
-  }
-} // τέλος function
 
 
 
