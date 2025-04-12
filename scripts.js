@@ -17,95 +17,84 @@ function loadExternalPlaylist() {
 
 
 // Συνάρτηση που διαβάζει το περιεχόμενο και εμφανίζει τα παιχνίδια
-async function loadSportPlaylist() {
-    try {
-        const response = await fetch('https://tonis1000.github.io/PHTESTP/sport-program.txt');
-        const text = await response.text();
-        displaySportSidebar(text);
-    } catch (error) {
-        console.error('Fehler beim Laden der Sport-Playlist:', error);
-    }
-}
+// Παράδειγμα λειτουργίας για το κουμπί "Sport"
+document.getElementById('sportButton').onclick = function() {
+  fetch('sport-program.txt')
+    .then(response => response.text())
+    .then(data => {
+      const lines = data.split('\n');
+      let htmlContent = '';
+      let currentDate = null;  // Θα κρατά την τρέχουσα ημερομηνία από τις γραμμές ημερών
 
-function displaySportSidebar(content) {
-    const sidebar = document.getElementById('sidebar-list');
-    sidebar.innerHTML = '';
+      for (const line of lines) {
+        if (line.trim() === '') continue;  // παράβλεψη κενών γραμμών
 
-    const lines = content.split('\n');
-    let currentDay = null;
+        if (line.startsWith('---')) {
+          // Γραμμή ημέρας (π.χ. --- ΣΑΒΒΑΤΟ 12/4/2025 ---)
+          htmlContent += `<div style="color:red; font-weight:bold;">${line}</div>`;
+          // Απομόνωση της ημερομηνίας (dd/mm/yyyy) για χρήση στους αγώνες αυτής της ημέρας
+          const dateMatch = line.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+          if (dateMatch) {
+            currentDate = dateMatch[1];  // π.χ. "12/4/2025"
+          }
+        } else {
+          // Γραμμή αγώνα (π.χ. "14:30 ΟμάδαΑ - ΟμάδαΒ [Link1] [Link2]")
+          // Διαχωρίζουμε το κομμάτι ώρα/ομάδες από τα links
+          const bracketIndex = line.indexOf('[');
+          let matchInfoText = line;
+          let linksText = '';
+          if (bracketIndex !== -1) {
+            matchInfoText = line.substring(0, bracketIndex).trim();  // π.χ. "14:30 ΟμάδαΑ - ΟμάδαΒ"
+            linksText = line.substring(bracketIndex).trim();         // π.χ. "[Link1] [Link2]"
+          }
 
-    lines.forEach(line => {
-        line = line.trim();
+          // Ξεκινάμε το HTML για τη γραμμή του αγώνα με το μέρος των ομάδων/ώρας σε λευκό
+          let lineHtml = `<span style="color:white;">${matchInfoText}</span>`;
 
-        if (line.startsWith('ΠΡΟΓΡΑΜΜΑ')) {
-            const dateMatch = line.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
-            const dateLabel = line.replace('ΠΡΟΓΡΑΜΜΑ', '').trim();
-            const li = document.createElement('li');
-            li.innerHTML = `<div style="color: red; font-weight: bold;">--- ${dateLabel} ---</div>`;
-            sidebar.appendChild(li);
-        } else if (line && /\d{1,2}:\d{2}/.test(line)) {
-            const matchGames = line.split('/');
-            matchGames.forEach(matchText => {
-                const [time, ...rest] = matchText.trim().split(' ');
-                const matchTitle = rest.join(' ');
-                const timeDate = parseTimeToDate(time);
-
-                const li = document.createElement('li');
-                li.style.color = 'white';
-
-                const gameTitle = document.createElement('div');
-                gameTitle.innerHTML = `<span style="color:white">${time} ${matchTitle}</span>`;
-                li.appendChild(gameTitle);
-
-                sidebar.appendChild(li);
-
-                li.dataset.time = timeDate.getTime();
-                li.dataset.title = `${time} ${matchTitle}`;
-            });
-        } else if (line.startsWith('http')) {
-            const lastLi = sidebar.lastElementChild;
-            if (!lastLi) return;
-
-            const links = line.split('η').map(l => l.trim()).filter(Boolean);
-            const now = new Date();
-
-            const linkContainer = document.createElement('div');
-            links.forEach((url, i) => {
-                const link = document.createElement('a');
-                link.textContent = `[Link${i + 1}]`;
-                link.href = '#';
-                link.style.margin = '0 4px';
-                link.style.textDecoration = 'none';
-                link.style.color = 'lightgray';
-
-                const scheduledTime = new Date(parseInt(lastLi.dataset.time));
-                const diff = Math.abs(now - scheduledTime) / (1000 * 60); // σε λεπτά
-
-                if (diff <= 10) {
-                    link.style.color = 'limegreen';
-                    link.style.fontWeight = 'bold';
+          // Βρίσκουμε όλους τους συνδέσμους [LinkX] στη γραμμή (αν υπάρχουν)
+          const linkPattern = /\[(Link\d+)\]/g;
+          let linkMatch;
+          while ((linkMatch = linkPattern.exec(linksText)) !== null) {
+            const linkLabel = linkMatch[0]; // π.χ. "[Link1]"
+            const linkId = linkMatch[1];    // π.χ. "Link1" (το εσωτερικό ID/όνομα του link)
+            
+            // Υπολογισμός αν ο αγώνας είναι σε εξέλιξη
+            let isRunning = false;
+            if (currentDate) {
+              const timeMatch = matchInfoText.match(/(\d{1,2}:\d{2})/);
+              if (timeMatch) {
+                const matchTime = timeMatch[1];  // π.χ. "14:30"
+                // Δημιουργία αντικειμένου Date για ώρα έναρξης αγώνα
+                const [day, month, year] = currentDate.split('/').map(Number);
+                const [hour, minute] = matchTime.split(':').map(Number);
+                const startDateTime = new Date(year, month - 1, day, hour, minute);
+                const endDateTime = new Date(startDateTime.getTime() + 2 * 60 * 60 * 1000); // +2 ώρες
+                const now = new Date();
+                if (now >= startDateTime && now < endDateTime) {
+                  isRunning = true;
                 }
+              }
+            }
 
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    playStream(url);
-                    setCurrentChannel(lastLi.dataset.title, url);
-                });
+            // Επιλογή χρώματος/στυλ για το link ανάλογα με το αν ο αγώνας τρέχει
+            const linkStyle = isRunning 
+              ? 'color: limegreen; font-weight: bold;'   // πράσινο και bold αν σε εξέλιξη
+              : 'color: #ccc; font-weight: normal;';     // γκρι και κανονικό αν όχι
 
-                linkContainer.appendChild(link);
-            });
+            // Προσθήκη του link στο HTML της γραμμής, διατηρώντας το clickable με playStream()
+            lineHtml += ` <a style="${linkStyle}" href="#" onclick="playStream('${linkId}')">${linkLabel}</a>`;
+          } // τέλος while για links
 
-            lastLi.appendChild(linkContainer);
+          // Κλείνουμε τη γραμμή αγώνα ως div και την προσθέτουμε στο συνολικό περιεχόμενο
+          htmlContent += `<div>${lineHtml}</div>`;
         }
-    });
-}
+      } // τέλος του for σε κάθε γραμμή
 
-function parseTimeToDate(timeStr) {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const now = new Date();
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-    return date;
-}
+      // Τοποθέτηση του παραγόμενου HTML στον κατάλληλο container στην σελίδα
+      document.getElementById('sportContainer').innerHTML = htmlContent;
+    })
+    .catch(err => console.error('Σφάλμα φόρτωσης sport-program.txt:', err));
+};
 
 
 
