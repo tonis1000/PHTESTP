@@ -18,70 +18,56 @@ function loadExternalPlaylist() {
 // Funktion zum Laden der Sport-Playlist und Aktualisieren der Sidebar
 async function loadSportPlaylist() {
     const sidebarList = document.getElementById('sidebar-list');
-    sidebarList.innerHTML = '<li>⏳ Φόρτωση προγράμματος...</li>';
+    sidebarList.innerHTML = ''; // καθαρίζουμε πρώτα
 
     try {
-        const proxyUrl = 'https://corsproxy.io/?';
-        const targetUrl = 'https://foothubhd.online/program.txt';
-        const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
-        if (!response.ok) throw new Error('Πρόβλημα φόρτωσης.');
-
+        const response = await fetch('https://tonis1000.github.io/PHTESTP/sport-program.txt');
+        if (!response.ok) throw new Error('Fehler beim Abrufen der Sport-Playlist');
         const text = await response.text();
         parseSportProgram(text);
     } catch (error) {
-        console.error('Σφάλμα κατά τη φόρτωση του Sport προγράμματος:', error);
-        sidebarList.innerHTML = '<li>⚠️ Αποτυχία φόρτωσης προγράμματος.</li>';
+        console.error('Fehler beim Laden der Sport-Playlist:', error);
     }
 }
 
-
-
 function parseSportProgram(text) {
-    const sidebar = document.getElementById('sidebar-list');
-    sidebar.innerHTML = '';
-
+    const sidebarList = document.getElementById('sidebar-list');
     const lines = text.split('\n');
-
-    let currentDay = null;
+    let currentDate = null;
     let currentGame = null;
 
     lines.forEach(line => {
         line = line.trim();
+        if (line.startsWith('<') || line === '') return;
 
-        if (line.startsWith('ΠΡΟΓΡΑΜΜΑ')) {
-            currentDay = line.replace('ΠΡΟΓΡΑΜΜΑ', '').trim();
-            const daySection = document.createElement('li');
-            daySection.innerHTML = `<strong style="color:orange;">--- ${currentDay} ---</strong>`;
-            sidebar.appendChild(daySection);
-        } else if (/^\d{1,2}:\d{2}/.test(line)) {
-            const parts = line.split('/');
-            const timeAndTitle = parts[0].trim();
-            const match = timeAndTitle.match(/^(\d{1,2}:\d{2})\s+(.+)$/);
-
-            if (match) {
-                const time = match[1];
-                const title = match[2];
-
-                currentGame = document.createElement('li');
-                currentGame.innerHTML = `<span style="font-weight:bold">${time} ${title}</span><br>`;
-                sidebar.appendChild(currentGame);
+        if (line.startsWith('---')) {
+            // ημερομηνία
+            const date = line.replace(/[-<>]/g, '').trim();
+            const dateItem = document.createElement('li');
+            dateItem.innerHTML = `<strong>${date}</strong>`;
+            sidebarList.appendChild(dateItem);
+        } else if (line.match(/^\d{1,2}:\d{2}/)) {
+            // νέα γραμμή παιχνιδιού
+            currentGame = {
+                time: line.split(' ')[0],
+                title: line.substring(line.indexOf(' ') + 1),
+                links: []
+            };
+        } else if (line.startsWith('https')) {
+            // προσθήκη link
+            if (currentGame) {
+                currentGame.links.push(line);
             }
-        } else if (line.includes('http')) {
-            const urls = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
-            urls.forEach((url, index) => {
-                const link = document.createElement('a');
-                link.textContent = `Link${index + 1}`;
-                link.href = '#';
-                link.style.marginRight = '8px';
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    playStream(url);
-                });
-                currentGame.appendChild(link);
-            });
         }
-    });
-}
+
+        if (currentGame && currentGame.links.length > 0) {
+            const gameItem = document.createElement('li');
+            gameItem.innerHTML = `
+                <div style="margin-bottom: 4px;">
+                    <span><strong>${currentGame.time}</strong> ${currentGame.title}</span><br>
+                    ${currentGame.links.map((link, index) => `
+                        <button style="margin:
+
 
 
 
