@@ -16,65 +16,59 @@ function loadExternalPlaylist() {
 }
 
 // Funktion zum Laden der Sport-Playlist und Aktualisieren der Sidebar
-async function loadSportPlaylist() {
-    const sidebar = document.getElementById('sidebar-list');
-    sidebar.innerHTML = ''; // Καθαρίζει το sidebar
-
-    const corsProxy = 'https://api.allorigins.win/raw?url=';
-    const url = corsProxy + encodeURIComponent('https://foothubhd.online/program.txt');
-
-    try {
-        const response = await fetch(url);
-        const text = await response.text();
-        const lines = text.split('\n');
-
-        let currentDay = null;
-        let currentGame = null;
-        let daySection = null;
-
-        lines.forEach(line => {
-            line = line.trim();
-
-            if (line.startsWith('ΠΡΟΓΡΑΜΜΑ')) {
-                currentDay = line.replace('ΠΡΟΓΡΑΜΜΑ', '').trim();
-                daySection = document.createElement('li');
-                daySection.innerHTML = `<strong style="color:orange;">--- ${currentDay} ---</strong>`;
-                sidebar.appendChild(daySection);
-            } else if (/^\d{1,2}:\d{2}/.test(line)) {
-                const parts = line.split('/');
-                const timeAndTitle = parts[0].trim();
-                const match = timeAndTitle.match(/^(\d{1,2}:\d{2})\s+(.+)$/);
-
-                if (match) {
-                    const time = match[1];
-                    const title = match[2];
-
-                    currentGame = document.createElement('li');
-                    currentGame.innerHTML = `<span style="font-weight:bold">${time} ${title}</span><br>`;
-                    sidebar.appendChild(currentGame);
-                }
-            } else if (line.includes('http')) {
-                const urls = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
-                urls.forEach((url, index) => {
-                    const link = document.createElement('a');
-                    link.textContent = `Link${index + 1}`;
-                    link.href = '#';
-                    link.style.marginRight = '8px';
-                    link.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        playStream(url);
-                    });
-                    currentGame.appendChild(link);
-                });
-            }
-        });
-
-    } catch (err) {
-        console.error('Σφάλμα κατά τη φόρτωση του Sport προγράμματος:', err);
-        alert('Αποτυχία φόρτωσης αγώνων. (CORS Blocked)');
-    }
+function loadSportPlaylist() {
+    fetch('sport-program.txt') // Το δικό σου αρχείο στο GitHub repo
+        .then(response => response.text())
+        .then(data => parseSportProgram(data))
+        .catch(error => console.error('Fehler beim Laden der Sport-Playlist:', error));
 }
 
+function parseSportProgram(text) {
+    const sidebar = document.getElementById('sidebar-list');
+    sidebar.innerHTML = '';
+
+    const lines = text.split('\n');
+
+    let currentDay = null;
+    let currentGame = null;
+
+    lines.forEach(line => {
+        line = line.trim();
+
+        if (line.startsWith('ΠΡΟΓΡΑΜΜΑ')) {
+            currentDay = line.replace('ΠΡΟΓΡΑΜΜΑ', '').trim();
+            const daySection = document.createElement('li');
+            daySection.innerHTML = `<strong style="color:orange;">--- ${currentDay} ---</strong>`;
+            sidebar.appendChild(daySection);
+        } else if (/^\d{1,2}:\d{2}/.test(line)) {
+            const parts = line.split('/');
+            const timeAndTitle = parts[0].trim();
+            const match = timeAndTitle.match(/^(\d{1,2}:\d{2})\s+(.+)$/);
+
+            if (match) {
+                const time = match[1];
+                const title = match[2];
+
+                currentGame = document.createElement('li');
+                currentGame.innerHTML = `<span style="font-weight:bold">${time} ${title}</span><br>`;
+                sidebar.appendChild(currentGame);
+            }
+        } else if (line.includes('http')) {
+            const urls = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
+            urls.forEach((url, index) => {
+                const link = document.createElement('a');
+                link.textContent = `Link${index + 1}`;
+                link.href = '#';
+                link.style.marginRight = '8px';
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    playStream(url);
+                });
+                currentGame.appendChild(link);
+            });
+        }
+    });
+}
 
 
 
