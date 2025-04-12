@@ -493,6 +493,9 @@ const proxyList = [
   'https://corsproxy.io/?url=',
 ];
 
+let clapprPlayer = null;
+
+
 function isPlayableFormat(url) {
   return /\.(m3u8|ts|mp4|mpd|webm)$/i.test(url);
 }
