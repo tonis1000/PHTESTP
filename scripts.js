@@ -17,7 +17,6 @@ function loadExternalPlaylist() {
 
 
 // Συνάρτηση που διαβάζει το περιεχόμενο και εμφανίζει τα παιχνίδια
-// Funktion zum Laden und Anzeigen des Sport-Programms mit Sortierung und Hervorhebung
 async function loadSportPlaylist() {
     const sidebarList = document.getElementById('sidebar-list');
     sidebarList.innerHTML = '';
@@ -30,97 +29,91 @@ async function loadSportPlaylist() {
         const lines = text.split('\n');
 
         let currentDate = '';
-        let games = [];
+        const gamesPerDay = {};
 
         for (let line of lines) {
             line = line.trim();
             if (!line) continue;
 
-            // Ανίχνευση τίτλου ημέρας
             const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+\d{1,2}\/\d{1,2}\/\d{4})/);
             if (dateMatch) {
-                currentDate = dateMatch[1];
+                currentDate = dateMatch[1].toUpperCase();
+                if (!gamesPerDay[currentDate]) gamesPerDay[currentDate] = [];
                 continue;
             }
 
-            // Εντοπίζει αγώνες με ώρα και περιγραφή
             const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2}[^/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)].map(m => m[1].trim());
             const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
 
-            if (gameMatches.length && linkMatches.length) {
+            if (gameMatches.length && linkMatches.length && currentDate) {
                 gameMatches.forEach(game => {
-                    games.push({
-                        date: currentDate,
-                        time: game.substring(0, 5),
+                    const timeMatch = game.match(/(\d{1,2}):(\d{2})/);
+                    if (!timeMatch) return;
+                    const [_, hour, minute] = timeMatch;
+                    const now = new Date();
+                    const gameTime = new Date();
+                    gameTime.setHours(parseInt(hour));
+                    gameTime.setMinutes(parseInt(minute));
+                    gameTime.setSeconds(0);
+
+                    gamesPerDay[currentDate].push({
+                        time: gameTime,
                         title: game,
-                        links: linkMatches
+                        links: [...linkMatches]
                     });
                 });
             }
         }
 
-        // Ταξινόμηση αγώνων ανά ώρα
-        games.sort((a, b) => {
-            const [aH, aM] = a.time.split(':').map(Number);
-            const [bH, bM] = b.time.split(':').map(Number);
-            return aH !== bH ? aH - bH : aM - bM;
-        });
-
-        let currentShownDate = '';
         const now = new Date();
 
-        games.forEach(game => {
-            if (game.date !== currentShownDate) {
-                const header = document.createElement('li');
-                header.textContent = `--- ${game.date.toUpperCase()} ---`;
-                header.style.color = 'red';
-                header.style.fontWeight = 'bold';
-                header.style.marginTop = '15px';
-                sidebarList.appendChild(header);
-                currentShownDate = game.date;
-            }
+        for (const [date, games] of Object.entries(gamesPerDay)) {
+            const dateHeader = document.createElement('li');
+            dateHeader.textContent = `--- ${date} ---`;
+            dateHeader.style.color = 'red';
+            dateHeader.style.fontWeight = 'bold';
+            dateHeader.style.marginTop = '15px';
+            sidebarList.appendChild(dateHeader);
 
-            const li = document.createElement('li');
-            li.style.marginTop = '5px';
+            games.sort((a, b) => a.time - b.time);
 
-            const title = document.createElement('div');
-            title.textContent = game.title;
-            title.style.color = 'white';
-            li.appendChild(title);
+            for (const game of games) {
+                const li = document.createElement('li');
+                li.style.marginTop = '8px';
 
-            const linksDiv = document.createElement('div');
-            const [h, m] = game.time.split(':').map(Number);
-            const gameTime = new Date(now);
-            gameTime.setHours(h);
-            gameTime.setMinutes(m);
-            gameTime.setSeconds(0);
+                const title = document.createElement('div');
+                title.textContent = game.title;
+                title.style.color = 'white';
+                title.style.fontWeight = 'normal';
+                li.appendChild(title);
 
-            const diffMin = (now - gameTime) / 60000;
-            const isLive = diffMin >= 0 && diffMin <= 100;
+                const linksDiv = document.createElement('div');
+                const timeDiff = Math.abs(now - game.time) / 60000; // διαφορά σε λεπτά
+                const isLive = now >= game.time && timeDiff <= 100;
 
-            game.links.forEach((link, index) => {
-                const a = document.createElement('a');
-                a.textContent = `[Link${index + 1}]`;
-                a.href = '#';
-                a.style.marginRight = '6px';
-                a.style.color = isLive ? 'lightgreen' : 'lightgray';
-                a.style.fontWeight = isLive ? 'bold' : 'normal';
-                a.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    playStream(link);
+                game.links.forEach((link, index) => {
+                    const a = document.createElement('a');
+                    a.textContent = `[Link${index + 1}]`;
+                    a.href = '#';
+                    a.style.marginRight = '6px';
+                    a.style.color = isLive ? 'lightgreen' : 'gray';
+                    a.style.fontWeight = isLive ? 'bold' : 'normal';
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        playStream(link);
+                    });
+                    linksDiv.appendChild(a);
                 });
-                linksDiv.appendChild(a);
-            });
 
-            li.appendChild(linksDiv);
-            sidebarList.appendChild(li);
-        });
+                li.appendChild(linksDiv);
+                sidebarList.appendChild(li);
+            }
+        }
+
     } catch (error) {
         console.error('Fehler beim Laden der Sport-Playlist:', error);
     }
 }
-
-
 
 
 
