@@ -17,82 +17,95 @@ function loadExternalPlaylist() {
 
 
 // Συνάρτηση που διαβάζει το περιεχόμενο και εμφανίζει τα παιχνίδια
-// Funktion zum Laden und Darstellen der Sport-Playlist mit Stil und Live-Markierung
 async function loadSportPlaylist() {
-  try {
-    const response = await fetch('https://tonis1000.github.io/PHTESTP/sport-program.txt');
-    if (!response.ok) throw new Error('Fehler beim Abrufen der Sport-Playlist');
-    const data = await response.text();
-    parseSportProgram(data);
-  } catch (error) {
-    console.error('Fehler beim Laden der Sport-Playlist:', error);
-  }
+    try {
+        const response = await fetch('https://tonis1000.github.io/PHTESTP/sport-program.txt');
+        const text = await response.text();
+        displaySportSidebar(text);
+    } catch (error) {
+        console.error('Fehler beim Laden der Sport-Playlist:', error);
+    }
 }
 
-function parseSportProgram(data) {
-  const sidebarList = document.getElementById('sidebar-list');
-  sidebarList.innerHTML = '';
-  const lines = data.split('\n');
+function displaySportSidebar(content) {
+    const sidebar = document.getElementById('sidebar-list');
+    sidebar.innerHTML = '';
 
-  const today = new Date();
-  const currentMinutes = today.getHours() * 60 + today.getMinutes();
+    const lines = content.split('\n');
+    let currentDay = null;
 
-  let currentDayHeader = null;
-  let currentGame = null;
+    lines.forEach(line => {
+        line = line.trim();
 
-  lines.forEach(line => {
-    line = line.trim();
-    if (!line) return;
+        if (line.startsWith('ΠΡΟΓΡΑΜΜΑ')) {
+            const dateMatch = line.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+            const dateLabel = line.replace('ΠΡΟΓΡΑΜΜΑ', '').trim();
+            const li = document.createElement('li');
+            li.innerHTML = `<div style="color: red; font-weight: bold;">--- ${dateLabel} ---</div>`;
+            sidebar.appendChild(li);
+        } else if (line && /\d{1,2}:\d{2}/.test(line)) {
+            const matchGames = line.split('/');
+            matchGames.forEach(matchText => {
+                const [time, ...rest] = matchText.trim().split(' ');
+                const matchTitle = rest.join(' ');
+                const timeDate = parseTimeToDate(time);
 
-    // Heder Ημερομηνίας
-    if (line.startsWith('<') && line.endsWith('>')) return;
-    if (line.startsWith('---')) {
-      const header = document.createElement('li');
-      header.innerHTML = `<span style="color:red; font-weight:bold;">${line.replace(/-/g, '').trim()}</span>`;
-      sidebarList.appendChild(header);
-      return;
-    }
+                const li = document.createElement('li');
+                li.style.color = 'white';
 
-    // Αν έχει ώρα και τίτλο
-    const gameMatch = line.match(/^(\d{1,2}:\d{2})\s+(.*)$/);
-    if (gameMatch) {
-      const time = gameMatch[1];
-      const gameText = gameMatch[2];
+                const gameTitle = document.createElement('div');
+                gameTitle.innerHTML = `<span style="color:white">${time} ${matchTitle}</span>`;
+                li.appendChild(gameTitle);
 
-      currentGame = document.createElement('li');
-      currentGame.innerHTML = `<span style="color:white;">${time} ${gameText}</span>`;
-      sidebarList.appendChild(currentGame);
-      return;
-    }
+                sidebar.appendChild(li);
 
-    // Αν είναι γραμμή με links
-    const links = line.split(/\s*η\s*/g).filter(l => l.startsWith('http'));
-    if (currentGame && links.length > 0) {
-      const buttonContainer = document.createElement('div');
+                li.dataset.time = timeDate.getTime();
+                li.dataset.title = `${time} ${matchTitle}`;
+            });
+        } else if (line.startsWith('http')) {
+            const lastLi = sidebar.lastElementChild;
+            if (!lastLi) return;
 
-      const gameTimeMatch = currentGame.innerText.match(/(\d{1,2}):(\d{2})/);
-      const gameHour = parseInt(gameTimeMatch?.[1] || 0);
-      const gameMinute = parseInt(gameTimeMatch?.[2] || 0);
-      const gameTotalMinutes = gameHour * 60 + gameMinute;
-      const isLive = Math.abs(currentMinutes - gameTotalMinutes) <= 10;
+            const links = line.split('η').map(l => l.trim()).filter(Boolean);
+            const now = new Date();
 
-      links.forEach((url, index) => {
-        const btn = document.createElement('button');
-        btn.textContent = `[Link${index + 1}]`;
-        btn.onclick = () => playStream(url);
-        btn.style.marginRight = '5px';
-        btn.style.background = 'transparent';
-        btn.style.border = '1px solid gray';
-        btn.style.color = isLive ? 'lightgreen' : 'white';
-        btn.style.fontWeight = isLive ? 'bold' : 'normal';
-        buttonContainer.appendChild(btn);
-      });
+            const linkContainer = document.createElement('div');
+            links.forEach((url, i) => {
+                const link = document.createElement('a');
+                link.textContent = `[Link${i + 1}]`;
+                link.href = '#';
+                link.style.margin = '0 4px';
+                link.style.textDecoration = 'none';
+                link.style.color = 'lightgray';
 
-      currentGame.appendChild(buttonContainer);
-    }
-  });
+                const scheduledTime = new Date(parseInt(lastLi.dataset.time));
+                const diff = Math.abs(now - scheduledTime) / (1000 * 60); // σε λεπτά
+
+                if (diff <= 10) {
+                    link.style.color = 'limegreen';
+                    link.style.fontWeight = 'bold';
+                }
+
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    playStream(url);
+                    setCurrentChannel(lastLi.dataset.title, url);
+                });
+
+                linkContainer.appendChild(link);
+            });
+
+            lastLi.appendChild(linkContainer);
+        }
+    });
 }
 
+function parseTimeToDate(timeStr) {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const now = new Date();
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+    return date;
+}
 
 
 
