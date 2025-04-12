@@ -66,10 +66,15 @@ function parseSportProgram(text) {
                 <div style="margin-bottom: 4px;">
                     <span><strong>${currentGame.time}</strong> ${currentGame.title}</span><br>
                     ${currentGame.links.map((link, index) => `
-                        <button style="margin:
-
-
-
+                        <button style="margin:2px;" onclick="playStream('${link}')">Link${index + 1}</button>
+                    `).join('')}
+                </div>
+            `;
+            sidebarList.appendChild(gameItem);
+            currentGame = null;
+        }
+    });
+}
 
 
 
