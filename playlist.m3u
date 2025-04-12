@@ -28,7 +28,7 @@ https://wow.anixa.tv/live/mega/playlist.m3u8
 https://livestar.siliconweb.com/media/star1/star1mediumhd.m3u8
 
 #EXTINF:-1 tvg-id="iframe-mega" tvg-logo="https://i.ibb.co/f2rCKjh/mega.jpg",Mega TV (Fallback)
-https://lakatamia.tv/app/chans/gr/mega.php?autoplay=1
+https://lakatamia.tv/app/chans/gr/mega.php
 
 #EXTINF:-1 tvg-id="iframe-ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png",ERT2 (Fallback)
 https://www.anacon.org/app/chans/gr/ert2s2.php
