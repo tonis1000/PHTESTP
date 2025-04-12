@@ -16,9 +16,70 @@ function loadExternalPlaylist() {
 }
 
 // Funktion zum Laden der Sport-Playlist und Aktualisieren der Sidebar
-function loadSportPlaylist() {
-    alert("Funktionalität für Sport-Playlist wird implementiert...");
+async function loadSportPlaylist() {
+    const sidebarList = document.getElementById('sidebar-list');
+    sidebarList.innerHTML = ''; // καθάρισε το sidebar
+
+    try {
+        const response = await fetch('https://foothubhd.online/program.txt');
+        const text = await response.text();
+        const lines = text.split('\n');
+
+        let currentDay = null;
+        let currentMatch = null;
+        let matchLinks = [];
+
+        lines.forEach(line => {
+            line = line.trim();
+
+            if (line.startsWith('ΠΡΟΓΡΑΜΜΑ')) {
+                currentDay = line.replace(/<.*?>/g, '').trim();
+                const dayHeader = document.createElement('li');
+                dayHeader.textContent = `--- ${currentDay} ---`;
+                dayHeader.classList.add('day-header');
+                sidebarList.appendChild(dayHeader);
+            } else if (/^\d{1,2}:\d{2}/.test(line)) {
+                if (currentMatch && matchLinks.length) {
+                    addMatchToSidebar(currentMatch, matchLinks);
+                }
+                const timeMatch = line.match(/^(\d{1,2}:\d{2})\s+(.*)/);
+                if (timeMatch) {
+                    currentMatch = `${timeMatch[1]} ${timeMatch[2].split('http')[0].trim()}`;
+                    matchLinks = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
+                }
+            } else if (line.startsWith('https://')) {
+                matchLinks.push(...line.match(/https?:\/\/[^\s]+/g));
+            }
+        });
+
+        if (currentMatch && matchLinks.length) {
+            addMatchToSidebar(currentMatch, matchLinks);
+        }
+
+    } catch (err) {
+        console.error('Σφάλμα κατά τη φόρτωση του Sport προγράμματος:', err);
+    }
+
+    function addMatchToSidebar(matchTitle, links) {
+        const listItem = document.createElement('li');
+        const matchTitleSpan = document.createElement('strong');
+        matchTitleSpan.textContent = matchTitle;
+        listItem.appendChild(matchTitleSpan);
+
+        const linkContainer = document.createElement('div');
+        links.forEach((link, index) => {
+            const btn = document.createElement('button');
+            btn.textContent = `Link${index + 1}`;
+            btn.classList.add('sport-link-btn');
+            btn.onclick = () => playStream(link);
+            linkContainer.appendChild(btn);
+        });
+
+        listItem.appendChild(linkContainer);
+        sidebarList.appendChild(listItem);
+    }
 }
+
 
 
 
