@@ -17,11 +17,21 @@ function loadExternalPlaylist() {
 
 // Funktion zum Laden der Sport-Playlist und Aktualisieren der Sidebar
 function loadSportPlaylist() {
-    fetch('sport-program.txt') // Το δικό σου αρχείο στο GitHub repo
-        .then(response => response.text())
-        .then(data => parseSportProgram(data))
-        .catch(error => console.error('Fehler beim Laden der Sport-Playlist:', error));
+    fetch('sport-program.txt')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Fehler beim Abrufen der Sport-Playlist');
+            }
+            return response.text();
+        })
+        .then(data => {
+            parseSportProgram(data); // Παίρνει το περιεχόμενο και το περνάει στην parser
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der Sport-Playlist:', error);
+        });
 }
+
 
 function parseSportProgram(text) {
     const sidebar = document.getElementById('sidebar-list');
