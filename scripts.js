@@ -29,56 +29,7 @@ async function loadSportPlaylist() {
         const lines = text.split('\n');
 
         let currentDateHeader = '';
-        let currentGames = [];
-        let currentLinks = [];
-
         const now = new Date();
-
-        function appendGames() {
-            currentGames.sort((a, b) => {
-                const timeA = parseInt(a.time.replace(':', ''));
-                const timeB = parseInt(b.time.replace(':', ''));
-                return timeA - timeB;
-            });
-
-            for (const game of currentGames) {
-                const li = document.createElement('li');
-                li.style.marginBottom = '10px';
-
-                const title = document.createElement('div');
-                title.textContent = game.title;
-                title.style.color = 'white';
-                title.style.fontWeight = 'normal';
-
-                const linksDiv = document.createElement('div');
-                game.links.forEach((link, index) => {
-                    const a = document.createElement('a');
-                    a.textContent = `[Link${index + 1}]`;
-                    a.href = '#';
-                    a.style.marginRight = '8px';
-
-                    const [h, m] = game.time.split(':');
-                    const gameDate = new Date(now);
-                    gameDate.setHours(parseInt(h), parseInt(m), 0, 0);
-                    const diff = Math.abs(now - gameDate);
-                    if (diff <= 5 * 60 * 1000) {
-                        a.style.color = 'lightgreen';
-                        a.style.fontWeight = 'bold';
-                    }
-
-                    a.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        playStream(link);
-                    });
-                    linksDiv.appendChild(a);
-                });
-
-                li.appendChild(title);
-                li.appendChild(linksDiv);
-                sidebarList.appendChild(li);
-            }
-            currentGames = [];
-        }
 
         for (let line of lines) {
             line = line.trim();
@@ -86,33 +37,73 @@ async function loadSportPlaylist() {
 
             const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+\d{1,2}\/\d{1,2}\/\d{4})/);
             if (dateMatch) {
-                appendGames();
                 const headerItem = document.createElement('li');
                 headerItem.textContent = `--- ${dateMatch[1].toUpperCase()} ---`;
-                headerItem.style.fontWeight = 'bold';
                 headerItem.style.color = 'red';
+                headerItem.style.fontWeight = 'bold';
                 headerItem.style.marginTop = '15px';
                 sidebarList.appendChild(headerItem);
                 continue;
             }
 
-            const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^/\n]+?)(?=\s*(?:\/|https?:\/\/|$))/g)];
+            const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2}[^/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)].map(m => m[1].trim());
             const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
 
-            gameMatches.forEach(match => {
-                currentGames.push({
-                    time: match[1],
-                    title: `${match[1]} ${match[2].trim()}`,
-                    links: linkMatches
-                });
-            });
-        }
+            if (gameMatches.length && linkMatches.length) {
+                gameMatches.forEach((game, gameIndex) => {
+                    const li = document.createElement('li');
+                    li.style.marginTop = '8px';
 
-        appendGames();
+                    const title = document.createElement('div');
+                    title.textContent = game;
+                    title.style.color = 'white';
+                    title.style.fontWeight = 'normal';
+
+                    // Προσπάθεια να εντοπίσει ώρα από το κείμενο
+                    const timeMatch = game.match(/^(\d{1,2}):(\d{2})/);
+                    let isLive = false;
+                    if (timeMatch) {
+                        const [_, hourStr, minStr] = timeMatch;
+                        const hour = parseInt(hourStr, 10);
+                        const minute = parseInt(minStr, 10);
+                        const gameTime = new Date(now);
+                        gameTime.setHours(hour, minute, 0, 0);
+
+                        const diffMin = (gameTime - now) / (1000 * 60);
+                        if (diffMin >= -5 && diffMin <= 100) {
+                            isLive = true;
+                        }
+                    }
+
+                    const linksDiv = document.createElement('div');
+                    linkMatches.forEach((link, index) => {
+                        const a = document.createElement('a');
+                        a.textContent = `[Link${index + 1}]`;
+                        a.href = '#';
+                        a.style.marginRight = '6px';
+                        a.style.textDecoration = 'none';
+                        a.style.color = isLive ? 'limegreen' : 'gray';
+                        if (isLive) {
+                            a.style.fontWeight = 'bold';
+                        }
+                        a.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            playStream(link);
+                        });
+                        linksDiv.appendChild(a);
+                    });
+
+                    li.appendChild(title);
+                    li.appendChild(linksDiv);
+                    sidebarList.appendChild(li);
+                });
+            }
+        }
     } catch (error) {
         console.error('Fehler beim Laden der Sport-Playlist:', error);
     }
 }
+
 
 
 
