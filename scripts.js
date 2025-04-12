@@ -17,6 +17,7 @@ function loadExternalPlaylist() {
 
 
 // Συνάρτηση που διαβάζει το περιεχόμενο και εμφανίζει τα παιχνίδια
+// ΝΕΑ ΕΚΔΟΣΗ: Sport Sidebar Formatter
 async function loadSportPlaylist() {
     const sidebarList = document.getElementById('sidebar-list');
     sidebarList.innerHTML = '';
@@ -29,77 +30,48 @@ async function loadSportPlaylist() {
         const lines = text.split('\n');
 
         let currentDateHeader = '';
-        const now = new Date();
 
         for (let line of lines) {
             line = line.trim();
             if (!line) continue;
 
-            // 📅 Εντοπίζει ημερομηνίες τύπου ΠΡΟΓΡΑΜΜΑ ΣΑΒΒΑΤΟ 12/4/2025
+            // Εντοπίζει ημερομηνίες τύπου ΠΡΟΓΡΑΜΜΑ ΣΑΒΒΑΤΟ 12/4/2025
             const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+\d{1,2}\/\d{1,2}\/\d{4})/);
             if (dateMatch) {
                 const headerItem = document.createElement('li');
                 headerItem.textContent = `--- ${dateMatch[1].toUpperCase()} ---`;
                 headerItem.style.fontWeight = 'bold';
-                headerItem.style.color = 'red';
                 headerItem.style.marginTop = '15px';
                 sidebarList.appendChild(headerItem);
                 continue;
             }
 
-            // 🕒 Εντοπίζει ματς
+            // Εντοπίζει αγώνες με πολλαπλά ματς
             const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2}[^/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)].map(m => m[1].trim());
             const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
 
+            // Αν βρήκαμε αγώνες και links
             if (gameMatches.length && linkMatches.length) {
-                let linkIndex = 0;
-
                 gameMatches.forEach(game => {
                     const li = document.createElement('li');
-                    li.style.marginTop = '6px';
+                    li.style.marginTop = '5px';
 
                     const title = document.createElement('div');
                     title.textContent = game;
-                    title.style.color = 'white';
-
-                    const gameTime = game.split(' ')[0];
-                    const gameHour = parseInt(gameTime.split(':')[0]);
-                    const gameMinute = parseInt(gameTime.split(':')[1]);
-
-                    const gameDate = new Date(now);
-                    gameDate.setHours(gameHour);
-                    gameDate.setMinutes(gameMinute);
-                    gameDate.setSeconds(0);
-
-                    const isLive = Math.abs(now - gameDate) <= 10 * 60 * 1000;
+                    title.style.fontWeight = 'normal';
 
                     const linksDiv = document.createElement('div');
-                    linksDiv.style.marginBottom = '6px';
-
-                    for (let i = 0; i < Math.min(linkMatches.length - linkIndex, 6); i++) {
+                    linkMatches.forEach((link, index) => {
                         const a = document.createElement('a');
-                        a.textContent = `[Link${i + 1}]`;
+                        a.textContent = `[Link${index + 1}]`;
                         a.href = '#';
-                        a.style.marginRight = '8px';
-                        a.style.textDecoration = 'none';
-
-                        if (isLive) {
-                            a.style.color = 'limegreen';
-                            a.style.fontWeight = 'bold';
-                        } else {
-                            a.style.color = '';
-                            a.style.fontWeight = '';
-                        }
-
+                        a.style.marginRight = '6px';
                         a.addEventListener('click', (e) => {
                             e.preventDefault();
-                            playStream(linkMatches[linkIndex + i]);
+                            playStream(link);
                         });
-
                         linksDiv.appendChild(a);
-                    }
-
-                    linkIndex += 6;
+                    });
 
                     li.appendChild(title);
                     li.appendChild(linksDiv);
@@ -111,6 +83,7 @@ async function loadSportPlaylist() {
         console.error('Fehler beim Laden der Sport-Playlist:', error);
     }
 }
+
 
 
 
