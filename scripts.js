@@ -17,7 +17,6 @@ function loadExternalPlaylist() {
 
 
 // Συνάρτηση που διαβάζει το περιεχόμενο και εμφανίζει τα παιχνίδια
-// ΝΕΑ ΕΚΔΟΣΗ: Sport Sidebar Formatter
 async function loadSportPlaylist() {
     const sidebarList = document.getElementById('sidebar-list');
     sidebarList.innerHTML = '';
@@ -30,59 +29,91 @@ async function loadSportPlaylist() {
         const lines = text.split('\n');
 
         let currentDateHeader = '';
+        let currentGames = [];
+        let currentLinks = [];
+
+        const now = new Date();
+
+        function appendGames() {
+            currentGames.sort((a, b) => {
+                const timeA = parseInt(a.time.replace(':', ''));
+                const timeB = parseInt(b.time.replace(':', ''));
+                return timeA - timeB;
+            });
+
+            for (const game of currentGames) {
+                const li = document.createElement('li');
+                li.style.marginBottom = '10px';
+
+                const title = document.createElement('div');
+                title.textContent = game.title;
+                title.style.color = 'white';
+                title.style.fontWeight = 'normal';
+
+                const linksDiv = document.createElement('div');
+                game.links.forEach((link, index) => {
+                    const a = document.createElement('a');
+                    a.textContent = `[Link${index + 1}]`;
+                    a.href = '#';
+                    a.style.marginRight = '8px';
+
+                    const [h, m] = game.time.split(':');
+                    const gameDate = new Date(now);
+                    gameDate.setHours(parseInt(h), parseInt(m), 0, 0);
+                    const diff = Math.abs(now - gameDate);
+                    if (diff <= 5 * 60 * 1000) {
+                        a.style.color = 'lightgreen';
+                        a.style.fontWeight = 'bold';
+                    }
+
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        playStream(link);
+                    });
+                    linksDiv.appendChild(a);
+                });
+
+                li.appendChild(title);
+                li.appendChild(linksDiv);
+                sidebarList.appendChild(li);
+            }
+            currentGames = [];
+        }
 
         for (let line of lines) {
             line = line.trim();
             if (!line) continue;
 
-            // Εντοπίζει ημερομηνίες τύπου ΠΡΟΓΡΑΜΜΑ ΣΑΒΒΑΤΟ 12/4/2025
             const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+\d{1,2}\/\d{1,2}\/\d{4})/);
             if (dateMatch) {
+                appendGames();
                 const headerItem = document.createElement('li');
                 headerItem.textContent = `--- ${dateMatch[1].toUpperCase()} ---`;
                 headerItem.style.fontWeight = 'bold';
+                headerItem.style.color = 'red';
                 headerItem.style.marginTop = '15px';
                 sidebarList.appendChild(headerItem);
                 continue;
             }
 
-            // Εντοπίζει αγώνες με πολλαπλά ματς
-            const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2}[^/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)].map(m => m[1].trim());
+            const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^/\n]+?)(?=\s*(?:\/|https?:\/\/|$))/g)];
             const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
 
-            // Αν βρήκαμε αγώνες και links
-            if (gameMatches.length && linkMatches.length) {
-                gameMatches.forEach(game => {
-                    const li = document.createElement('li');
-                    li.style.marginTop = '5px';
-
-                    const title = document.createElement('div');
-                    title.textContent = game;
-                    title.style.fontWeight = 'normal';
-
-                    const linksDiv = document.createElement('div');
-                    linkMatches.forEach((link, index) => {
-                        const a = document.createElement('a');
-                        a.textContent = `[Link${index + 1}]`;
-                        a.href = '#';
-                        a.style.marginRight = '6px';
-                        a.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            playStream(link);
-                        });
-                        linksDiv.appendChild(a);
-                    });
-
-                    li.appendChild(title);
-                    li.appendChild(linksDiv);
-                    sidebarList.appendChild(li);
+            gameMatches.forEach(match => {
+                currentGames.push({
+                    time: match[1],
+                    title: `${match[1]} ${match[2].trim()}`,
+                    links: linkMatches
                 });
-            }
+            });
         }
+
+        appendGames();
     } catch (error) {
         console.error('Fehler beim Laden der Sport-Playlist:', error);
     }
 }
+
 
 
 
