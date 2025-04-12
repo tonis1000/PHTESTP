@@ -16,21 +16,24 @@ function loadExternalPlaylist() {
 }
 
 // Funktion zum Laden der Sport-Playlist und Aktualisieren der Sidebar
-function loadSportPlaylist() {
-    fetch('sport-program.txt')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Fehler beim Abrufen der Sport-Playlist');
-            }
-            return response.text();
-        })
-        .then(data => {
-            parseSportProgram(data); // Παίρνει το περιεχόμενο και το περνάει στην parser
-        })
-        .catch(error => {
-            console.error('Fehler beim Laden der Sport-Playlist:', error);
-        });
+async function loadSportPlaylist() {
+    const sidebarList = document.getElementById('sidebar-list');
+    sidebarList.innerHTML = '<li>⏳ Φόρτωση προγράμματος...</li>';
+
+    try {
+        const proxyUrl = 'https://corsproxy.io/?';
+        const targetUrl = 'https://foothubhd.online/program.txt';
+        const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
+        if (!response.ok) throw new Error('Πρόβλημα φόρτωσης.');
+
+        const text = await response.text();
+        parseSportProgram(text);
+    } catch (error) {
+        console.error('Σφάλμα κατά τη φόρτωση του Sport προγράμματος:', error);
+        sidebarList.innerHTML = '<li>⚠️ Αποτυχία φόρτωσης προγράμματος.</li>';
+    }
 }
+
 
 
 function parseSportProgram(text) {
