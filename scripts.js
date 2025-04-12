@@ -484,17 +484,18 @@ function updateClock() {
 
 
 // scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
+// scripts.js - Τελική έκδοση με βελτιωμένο autoProxyFetch για ERT fallback
+
 const proxyList = [
   '', // direct
   'https://tonis-proxy.onrender.com/',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
-  'https://api.allorigins.win/raw?url=',
   'https://thingproxy.freeboard.io/fetch/',
   'https://corsproxy.io/?url=',
+  'https://api.allorigins.win/raw?url=', // τελευταίος fallback
 ];
 
 let clapprPlayer = null;
-
 
 function isPlayableFormat(url) {
   return /\.(m3u8|ts|mp4|mpd|webm)$/i.test(url);
@@ -504,7 +505,13 @@ async function autoProxyFetch(url) {
   for (let proxy of proxyList) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
     try {
-      const res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
+      // Πρώτα δοκιμάζουμε HEAD
+      let res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
+      if (res.status === 403) {
+        // Αν το HEAD μπλοκάρεται, δοκίμασε με GET
+        console.warn('HEAD 403 - trying GET for:', testUrl);
+        res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+      }
       if (res.ok) return testUrl;
     } catch (e) {
       console.warn('Proxy failed:', proxy);
@@ -613,6 +620,7 @@ async function playStream(streamURL, subtitleURL) {
     height: '100%',
   });
 }
+
 
 
 
