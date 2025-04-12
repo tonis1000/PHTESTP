@@ -17,72 +17,96 @@ function loadExternalPlaylist() {
 
 
 // Συνάρτηση που διαβάζει το περιεχόμενο και εμφανίζει τα παιχνίδια
-// ΝΕΑ ΕΚΔΟΣΗ: Sport Sidebar Formatter
 async function loadSportPlaylist() {
-    const sidebarList = document.getElementById('sidebar-list');
-    sidebarList.innerHTML = '';
-
     try {
         const response = await fetch('https://tonis1000.github.io/PHTESTP/sport-program.txt');
-        if (!response.ok) throw new Error('Fehler beim Abrufen der Sport-Playlist');
-
         const text = await response.text();
-        const lines = text.split('\n');
-
-        let currentDateHeader = '';
-
-        for (let line of lines) {
-            line = line.trim();
-            if (!line) continue;
-
-            // Εντοπίζει ημερομηνίες τύπου ΠΡΟΓΡΑΜΜΑ ΣΑΒΒΑΤΟ 12/4/2025
-            const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+\d{1,2}\/\d{1,2}\/\d{4})/);
-            if (dateMatch) {
-                const headerItem = document.createElement('li');
-                headerItem.textContent = `--- ${dateMatch[1].toUpperCase()} ---`;
-                headerItem.style.fontWeight = 'bold';
-                headerItem.style.marginTop = '15px';
-                sidebarList.appendChild(headerItem);
-                continue;
-            }
-
-            // Εντοπίζει αγώνες με πολλαπλά ματς
-            const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2}[^/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)].map(m => m[1].trim());
-            const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
-
-            // Αν βρήκαμε αγώνες και links
-            if (gameMatches.length && linkMatches.length) {
-                gameMatches.forEach(game => {
-                    const li = document.createElement('li');
-                    li.style.marginTop = '5px';
-
-                    const title = document.createElement('div');
-                    title.textContent = game;
-                    title.style.fontWeight = 'normal';
-
-                    const linksDiv = document.createElement('div');
-                    linkMatches.forEach((link, index) => {
-                        const a = document.createElement('a');
-                        a.textContent = `[Link${index + 1}]`;
-                        a.href = '#';
-                        a.style.marginRight = '6px';
-                        a.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            playStream(link);
-                        });
-                        linksDiv.appendChild(a);
-                    });
-
-                    li.appendChild(title);
-                    li.appendChild(linksDiv);
-                    sidebarList.appendChild(li);
-                });
-            }
-        }
+        displaySportSidebar(text);
     } catch (error) {
         console.error('Fehler beim Laden der Sport-Playlist:', error);
     }
 }
+
+function displaySportSidebar(content) {
+    const sidebar = document.getElementById('sidebar-list');
+    sidebar.innerHTML = '';
+
+    const lines = content.split('\n');
+    let currentDay = null;
+
+    lines.forEach(line => {
+        line = line.trim();
+
+        if (line.startsWith('ΠΡΟΓΡΑΜΜΑ')) {
+            const dateMatch = line.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+            const dateLabel = line.replace('ΠΡΟΓΡΑΜΜΑ', '').trim();
+            const li = document.createElement('li');
+            li.innerHTML = `<div style="color: red; font-weight: bold;">--- ${dateLabel} ---</div>`;
+            sidebar.appendChild(li);
+        } else if (line && /\d{1,2}:\d{2}/.test(line)) {
+            const matchGames = line.split('/');
+            matchGames.forEach(matchText => {
+                const [time, ...rest] = matchText.trim().split(' ');
+                const matchTitle = rest.join(' ');
+                const timeDate = parseTimeToDate(time);
+
+                const li = document.createElement('li');
+                li.style.color = 'white';
+
+                const gameTitle = document.createElement('div');
+                gameTitle.innerHTML = `<span style="color:white">${time} ${matchTitle}</span>`;
+                li.appendChild(gameTitle);
+
+                sidebar.appendChild(li);
+
+                li.dataset.time = timeDate.getTime();
+                li.dataset.title = `${time} ${matchTitle}`;
+            });
+        } else if (line.startsWith('http')) {
+            const lastLi = sidebar.lastElementChild;
+            if (!lastLi) return;
+
+            const links = line.split('η').map(l => l.trim()).filter(Boolean);
+            const now = new Date();
+
+            const linkContainer = document.createElement('div');
+            links.forEach((url, i) => {
+                const link = document.createElement('a');
+                link.textContent = `[Link${i + 1}]`;
+                link.href = '#';
+                link.style.margin = '0 4px';
+                link.style.textDecoration = 'none';
+                link.style.color = 'lightgray';
+
+                const scheduledTime = new Date(parseInt(lastLi.dataset.time));
+                const diff = Math.abs(now - scheduledTime) / (1000 * 60); // σε λεπτά
+
+                if (diff <= 10) {
+                    link.style.color = 'limegreen';
+                    link.style.fontWeight = 'bold';
+                }
+
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    playStream(url);
+                    setCurrentChannel(lastLi.dataset.title, url);
+                });
+
+                linkContainer.appendChild(link);
+            });
+
+            lastLi.appendChild(linkContainer);
+        }
+    });
+}
+
+function parseTimeToDate(timeStr) {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const now = new Date();
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+    return date;
+}
+
 
 
 
