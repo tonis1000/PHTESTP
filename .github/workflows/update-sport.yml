@@ -1,0 +1,26 @@
+name: Update sport-program.txt
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"  # Κάθε 30 λεπτά
+  workflow_dispatch:
+
+jobs:
+  update-sport-program:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Fetch program.txt from foothubhd
+        run: |
+          curl -sL https://foothubhd.online/program.txt -o sport-program.txt
+
+      - name: Commit and Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add sport-program.txt
+          git commit -m "Update sport-program.txt"
+          git push
