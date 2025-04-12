@@ -479,6 +479,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
     document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
 
+
     const sidebarList = document.getElementById('sidebar-list');
     sidebarList.addEventListener('click', function (event) {
         const channelInfo = event.target.closest('.channel-info');
