@@ -16,10 +16,8 @@ function loadExternalPlaylist() {
 }
 
 // Funktion zum Laden der Sport-Playlist und Aktualisieren der Sidebar
+// Συνάρτηση για φόρτωση Sport προγράμματος
 async function loadSportPlaylist() {
-    const sidebarList = document.getElementById('sidebar-list');
-    sidebarList.innerHTML = ''; // καθαρίζουμε πρώτα
-
     try {
         const response = await fetch('https://tonis1000.github.io/PHTESTP/sport-program.txt');
         if (!response.ok) throw new Error('Fehler beim Abrufen der Sport-Playlist');
@@ -30,48 +28,56 @@ async function loadSportPlaylist() {
     }
 }
 
+// Συνάρτηση που διαβάζει το περιεχόμενο και εμφανίζει τα παιχνίδια
 function parseSportProgram(text) {
     const sidebarList = document.getElementById('sidebar-list');
+    sidebarList.innerHTML = '';
+
     const lines = text.split('\n');
-    let currentDate = null;
+    let currentDayTitle = null;
     let currentGame = null;
 
     lines.forEach(line => {
         line = line.trim();
-        if (line.startsWith('<') || line === '') return;
 
-        if (line.startsWith('---')) {
-            // ημερομηνία
-            const date = line.replace(/[-<>]/g, '').trim();
-            const dateItem = document.createElement('li');
-            dateItem.innerHTML = `<strong>${date}</strong>`;
-            sidebarList.appendChild(dateItem);
-        } else if (line.match(/^\d{1,2}:\d{2}/)) {
-            // νέα γραμμή παιχνιδιού
-            currentGame = {
-                time: line.split(' ')[0],
-                title: line.substring(line.indexOf(' ') + 1),
-                links: []
-            };
-        } else if (line.startsWith('https')) {
-            // προσθήκη link
-            if (currentGame) {
-                currentGame.links.push(line);
-            }
+        // Αν είναι τίτλος ημέρας
+        if (line.startsWith('---') && line.endsWith('---')) {
+            currentDayTitle = line.replace(/---/g, '').trim();
+            const header = document.createElement('li');
+            header.innerHTML = `<strong style="font-size: 1.1em;">${currentDayTitle}</strong>`;
+            sidebarList.appendChild(header);
         }
 
-        if (currentGame && currentGame.links.length > 0) {
-            const gameItem = document.createElement('li');
-            gameItem.innerHTML = `
-                <div style="margin-bottom: 4px;">
-                    <span><strong>${currentGame.time}</strong> ${currentGame.title}</span><br>
-                    ${currentGame.links.map((link, index) => `
-                        <button style="margin:2px;" onclick="playStream('${link}')">Link${index + 1}</button>
-                    `).join('')}
-                </div>
-            `;
-            sidebarList.appendChild(gameItem);
-            currentGame = null;
+        // Αν είναι ώρα + τίτλος αγώνα
+        else if (/^\d{1,2}:\d{2}\s+/.test(line)) {
+            const matchTime = line.slice(0, 5).trim();
+            const matchTitle = line.slice(6).trim();
+            currentGame = {
+                time: matchTime,
+                title: matchTitle,
+                links: []
+            };
+
+            const gameLi = document.createElement('li');
+            gameLi.innerHTML = `<div><strong>${matchTime} ${matchTitle}</strong><br><div class="links"></div></div>`;
+            sidebarList.appendChild(gameLi);
+            currentGame.element = gameLi.querySelector('.links');
+        }
+
+        // Αν είναι URL link
+        else if (line.startsWith('http') && currentGame) {
+            const linkIndex = currentGame.links.length + 1;
+            const linkEl = document.createElement('a');
+            linkEl.href = '#';
+            linkEl.textContent = `Link${linkIndex}`;
+            linkEl.style.marginRight = '10px';
+            linkEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                playStream(line);
+            });
+
+            currentGame.element.appendChild(linkEl);
+            currentGame.links.push(line);
         }
     });
 }
