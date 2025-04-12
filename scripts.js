@@ -17,97 +17,97 @@ function loadExternalPlaylist() {
 
 
 // Συνάρτηση που διαβάζει το περιεχόμενο και εμφανίζει τα παιχνίδια
+// Funktion zum Laden der Sport-Playlist und Aktualisieren der Sidebar
 async function loadSportPlaylist() {
     try {
         const response = await fetch('https://tonis1000.github.io/PHTESTP/sport-program.txt');
+        if (!response.ok) throw new Error('Fehler beim Abrufen der Sport-Playlist');
         const text = await response.text();
-        displaySportSidebar(text);
+        parseSportProgram(text);
     } catch (error) {
         console.error('Fehler beim Laden der Sport-Playlist:', error);
     }
 }
 
-function displaySportSidebar(content) {
+// Funktion zum Parsen und Anzeigen des Sport-Programms
+function parseSportProgram(text) {
     const sidebar = document.getElementById('sidebar-list');
     sidebar.innerHTML = '';
 
-    const lines = content.split('\n');
-    let currentDay = null;
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+    let currentDateHeader = null;
+    let currentGame = null;
 
-    lines.forEach(line => {
-        line = line.trim();
+    for (let line of lines) {
+        if (line.startsWith('<---')) {
+            continue;
+        }
 
-        if (line.startsWith('ΠΡΟΓΡΑΜΜΑ')) {
-            const dateMatch = line.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
-            const dateLabel = line.replace('ΠΡΟΓΡΑΜΜΑ', '').trim();
+        if (line.toUpperCase().startsWith('ΠΡΟΓΡΑΜΜΑ')) {
+            const date = line.replace('ΠΡΟΓΡΑΜΜΑ', '').trim();
+            const headerItem = document.createElement('li');
+            headerItem.textContent = `--- ${date} ---`;
+            headerItem.style.fontWeight = 'bold';
+            headerItem.style.marginTop = '10px';
+            sidebar.appendChild(headerItem);
+            continue;
+        }
+
+        const urlRegex = /(https?:\/\/[^\s]+\.php)/g;
+        const links = [...line.matchAll(urlRegex)].map(m => m[0]);
+        const textOnly = line.replace(urlRegex, '').replace(/\s+η\s+/g, ' ').trim();
+
+        const timeTitleRegex = /^(\d{1,2}:\d{2})\s+(.*)/;
+        const match = timeTitleRegex.exec(textOnly);
+
+        if (match) {
+            if (currentGame) {
+                sidebar.appendChild(currentGame);
+            }
+
             const li = document.createElement('li');
-            li.innerHTML = `<div style="color: red; font-weight: bold;">--- ${dateLabel} ---</div>`;
-            sidebar.appendChild(li);
-        } else if (line && /\d{1,2}:\d{2}/.test(line)) {
-            const matchGames = line.split('/');
-            matchGames.forEach(matchText => {
-                const [time, ...rest] = matchText.trim().split(' ');
-                const matchTitle = rest.join(' ');
-                const timeDate = parseTimeToDate(time);
-
-                const li = document.createElement('li');
-                li.style.color = 'white';
-
-                const gameTitle = document.createElement('div');
-                gameTitle.innerHTML = `<span style="color:white">${time} ${matchTitle}</span>`;
-                li.appendChild(gameTitle);
-
-                sidebar.appendChild(li);
-
-                li.dataset.time = timeDate.getTime();
-                li.dataset.title = `${time} ${matchTitle}`;
-            });
-        } else if (line.startsWith('http')) {
-            const lastLi = sidebar.lastElementChild;
-            if (!lastLi) return;
-
-            const links = line.split('η').map(l => l.trim()).filter(Boolean);
-            const now = new Date();
+            const time = match[1];
+            const title = match[2];
+            const gameTitle = document.createElement('div');
+            gameTitle.textContent = `${time} ${title}`;
+            gameTitle.style.marginTop = '5px';
+            li.appendChild(gameTitle);
 
             const linkContainer = document.createElement('div');
-            links.forEach((url, i) => {
-                const link = document.createElement('a');
-                link.textContent = `[Link${i + 1}]`;
-                link.href = '#';
-                link.style.margin = '0 4px';
-                link.style.textDecoration = 'none';
-                link.style.color = 'lightgray';
-
-                const scheduledTime = new Date(parseInt(lastLi.dataset.time));
-                const diff = Math.abs(now - scheduledTime) / (1000 * 60); // σε λεπτά
-
-                if (diff <= 10) {
-                    link.style.color = 'limegreen';
-                    link.style.fontWeight = 'bold';
-                }
-
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
+            links.forEach((url, index) => {
+                const btn = document.createElement('button');
+                btn.textContent = `[Link${index + 1}]`;
+                btn.style.marginRight = '5px';
+                btn.classList.add('sport-link-btn');
+                btn.addEventListener('click', () => {
                     playStream(url);
-                    setCurrentChannel(lastLi.dataset.title, url);
                 });
-
-                linkContainer.appendChild(link);
+                linkContainer.appendChild(btn);
             });
-
-            lastLi.appendChild(linkContainer);
+            li.appendChild(linkContainer);
+            currentGame = li;
+        } else {
+            // Αν είναι απλά συνέχεια προηγούμενου
+            if (currentGame && links.length) {
+                const linkContainer = currentGame.querySelector('div:last-child');
+                links.forEach((url, index) => {
+                    const btn = document.createElement('button');
+                    btn.textContent = `[Link${linkContainer.children.length + 1}]`;
+                    btn.style.marginRight = '5px';
+                    btn.classList.add('sport-link-btn');
+                    btn.addEventListener('click', () => {
+                        playStream(url);
+                    });
+                    linkContainer.appendChild(btn);
+                });
+            }
         }
-    });
+    }
+
+    if (currentGame) {
+        sidebar.appendChild(currentGame);
+    }
 }
-
-function parseTimeToDate(timeStr) {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const now = new Date();
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-    return date;
-}
-
-
 
 
 
