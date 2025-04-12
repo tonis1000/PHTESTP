@@ -17,66 +17,61 @@ function loadExternalPlaylist() {
 
 // Funktion zum Laden der Sport-Playlist und Aktualisieren der Sidebar
 async function loadSportPlaylist() {
-    const sidebarList = document.getElementById('sidebar-list');
-    sidebarList.innerHTML = ''; // καθάρισε το sidebar
+    const sidebar = document.getElementById('sidebar-list');
+    sidebar.innerHTML = ''; // Καθαρίζει το sidebar
+
+    const corsProxy = 'https://api.allorigins.win/raw?url=';
+    const url = corsProxy + encodeURIComponent('https://foothubhd.online/program.txt');
 
     try {
-        const response = await fetch('https://foothubhd.online/program.txt');
+        const response = await fetch(url);
         const text = await response.text();
         const lines = text.split('\n');
 
         let currentDay = null;
-        let currentMatch = null;
-        let matchLinks = [];
+        let currentGame = null;
+        let daySection = null;
 
         lines.forEach(line => {
             line = line.trim();
 
             if (line.startsWith('ΠΡΟΓΡΑΜΜΑ')) {
-                currentDay = line.replace(/<.*?>/g, '').trim();
-                const dayHeader = document.createElement('li');
-                dayHeader.textContent = `--- ${currentDay} ---`;
-                dayHeader.classList.add('day-header');
-                sidebarList.appendChild(dayHeader);
+                currentDay = line.replace('ΠΡΟΓΡΑΜΜΑ', '').trim();
+                daySection = document.createElement('li');
+                daySection.innerHTML = `<strong style="color:orange;">--- ${currentDay} ---</strong>`;
+                sidebar.appendChild(daySection);
             } else if (/^\d{1,2}:\d{2}/.test(line)) {
-                if (currentMatch && matchLinks.length) {
-                    addMatchToSidebar(currentMatch, matchLinks);
+                const parts = line.split('/');
+                const timeAndTitle = parts[0].trim();
+                const match = timeAndTitle.match(/^(\d{1,2}:\d{2})\s+(.+)$/);
+
+                if (match) {
+                    const time = match[1];
+                    const title = match[2];
+
+                    currentGame = document.createElement('li');
+                    currentGame.innerHTML = `<span style="font-weight:bold">${time} ${title}</span><br>`;
+                    sidebar.appendChild(currentGame);
                 }
-                const timeMatch = line.match(/^(\d{1,2}:\d{2})\s+(.*)/);
-                if (timeMatch) {
-                    currentMatch = `${timeMatch[1]} ${timeMatch[2].split('http')[0].trim()}`;
-                    matchLinks = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
-                }
-            } else if (line.startsWith('https://')) {
-                matchLinks.push(...line.match(/https?:\/\/[^\s]+/g));
+            } else if (line.includes('http')) {
+                const urls = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
+                urls.forEach((url, index) => {
+                    const link = document.createElement('a');
+                    link.textContent = `Link${index + 1}`;
+                    link.href = '#';
+                    link.style.marginRight = '8px';
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        playStream(url);
+                    });
+                    currentGame.appendChild(link);
+                });
             }
         });
 
-        if (currentMatch && matchLinks.length) {
-            addMatchToSidebar(currentMatch, matchLinks);
-        }
-
     } catch (err) {
         console.error('Σφάλμα κατά τη φόρτωση του Sport προγράμματος:', err);
-    }
-
-    function addMatchToSidebar(matchTitle, links) {
-        const listItem = document.createElement('li');
-        const matchTitleSpan = document.createElement('strong');
-        matchTitleSpan.textContent = matchTitle;
-        listItem.appendChild(matchTitleSpan);
-
-        const linkContainer = document.createElement('div');
-        links.forEach((link, index) => {
-            const btn = document.createElement('button');
-            btn.textContent = `Link${index + 1}`;
-            btn.classList.add('sport-link-btn');
-            btn.onclick = () => playStream(link);
-            linkContainer.appendChild(btn);
-        });
-
-        listItem.appendChild(linkContainer);
-        sidebarList.appendChild(listItem);
+        alert('Αποτυχία φόρτωσης αγώνων. (CORS Blocked)');
     }
 }
 
