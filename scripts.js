@@ -480,7 +480,8 @@ function updateClock() {
 
 
 // scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
-// scripts.js - Super Player με έξυπνο proxy, fallback σε iframe, Clappr και υποστήριξη CORS
+// scripts.js - Super Player με Proxy, Clappr, VLC και έξυπνη αναγνώριση stream
+
 const proxyList = [
   '',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
@@ -491,51 +492,50 @@ const proxyList = [
 
 let clapprPlayer = null;
 
-async function fetchWithProxy(url) {
-  for (let proxy of proxyList) {
-    const fullUrl = proxy + (proxy.endsWith('=') ? encodeURIComponent(url) : url);
-    try {
-      const res = await fetch(fullUrl, {
-        headers: {
-          'Origin': 'https://tonis1000.github.io',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
-      if (res.ok) return await res.text();
-    } catch (err) {
-      console.warn("Proxy failed:", proxy, err);
-    }
-  }
-  return null;
-}
-
 async function playStream(streamURL, subtitleURL) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
-  const vlcDiv = document.getElementById('vlc-container');
-  const vlcPlugin = document.getElementById('vlc-plugin');
+  const vlcEmbed = document.getElementById('vlc-plugin');
+  const vlcContainer = document.getElementById('vlc-container');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  // Reset all players
+  // Reset
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
   iframePlayer.src = '';
   if (clapprPlayer) clapprPlayer.destroy();
   clapprDiv.style.display = 'none';
-  vlcDiv.style.display = 'none';
+  vlcContainer.style.display = 'none';
 
   const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
 
   if (isIframe) {
-    const result = await fetchWithProxy(streamURL);
-    const match = result?.match(/(https?:\/\/[\S]+\.m3u8)/);
-    if (match) {
-      streamURL = match[1];
+    let foundStream = null;
+    for (let proxy of proxyList) {
+      const proxied = proxy + (proxy.endsWith('=') ? encodeURIComponent(streamURL) : streamURL);
+      try {
+        const res = await fetch(proxied);
+        if (res.ok) {
+          const html = await res.text();
+          const match = html.match(/(https?:\/\/[^\s"'>]+\.m3u8)/);
+          if (match) {
+            foundStream = match[1];
+            break;
+          }
+        }
+      } catch (e) {
+        console.warn('Proxy failed:', proxy);
+      }
+    }
+
+    if (foundStream) {
+      streamURL = foundStream;
     } else {
       videoPlayer.style.display = 'none';
       clapprDiv.style.display = 'none';
+      vlcContainer.style.display = 'none';
       iframePlayer.style.display = 'block';
       if (!streamURL.includes('autoplay')) {
         streamURL += (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
@@ -545,9 +545,51 @@ async function playStream(streamURL, subtitleURL) {
     }
   }
 
-  iframePlayer.style.display = 'none';
-  clapprDiv.style.display = 'none';
-  videoPlayer.style.display = 'block';
+  // Check format
+  const isStream = (url) => url.match(/\.(m3u8|mp4|mpd|webm|ts)(\?.*)?$/);
+
+  let playable = false;
+  for (let proxy of proxyList) {
+    let tryURL = proxy + (proxy.endsWith('=') ? encodeURIComponent(streamURL) : streamURL);
+    if (Hls.isSupported() && tryURL.endsWith('.m3u8')) {
+      try {
+        const hls = new Hls();
+        hls.loadSource(tryURL);
+        hls.attachMedia(videoPlayer);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+        videoPlayer.style.display = 'block';
+        iframePlayer.style.display = 'none';
+        clapprDiv.style.display = 'none';
+        vlcContainer.style.display = 'none';
+        playable = true;
+        break;
+      } catch (e) {
+        console.warn('HLS.js proxy failed:', proxy);
+      }
+    } else if (tryURL.endsWith('.mpd')) {
+      try {
+        const dash = dashjs.MediaPlayer().create();
+        dash.initialize(videoPlayer, tryURL, true);
+        videoPlayer.style.display = 'block';
+        playable = true;
+        break;
+      } catch (e) {
+        console.warn('DASH proxy failed:', proxy);
+      }
+    } else if (videoPlayer.canPlayType('video/mp4') && tryURL.endsWith('.mp4')) {
+      videoPlayer.src = tryURL;
+      videoPlayer.play();
+      videoPlayer.style.display = 'block';
+      playable = true;
+      break;
+    } else if (tryURL.endsWith('.ts')) {
+      // Πιθανώς VLC plugin (μόνο τοπικά)
+      vlcEmbed.setAttribute('target', tryURL);
+      vlcContainer.style.display = 'block';
+      playable = true;
+      break;
+    }
+  }
 
   if (subtitleURL) {
     subtitleTrack.src = subtitleURL;
@@ -557,51 +599,23 @@ async function playStream(streamURL, subtitleURL) {
     subtitleTrack.track.mode = 'hidden';
   }
 
-  try {
-    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-      const hls = new Hls();
-      hls.loadSource(streamURL);
-      hls.attachMedia(videoPlayer);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-      return;
-    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-      videoPlayer.src = streamURL;
-      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
-      return;
-    } else if (streamURL.endsWith('.mpd')) {
-      const dashPlayer = dashjs.MediaPlayer().create();
-      dashPlayer.initialize(videoPlayer, streamURL, true);
-      return;
-    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-      videoPlayer.src = streamURL;
-      videoPlayer.play();
-      return;
-    }
-  } catch (err) {
-    console.warn("Standard players failed:", err);
-  }
-
-  if (streamURL.includes('.ts') || streamURL.includes('.mkv') || streamURL.includes('.avi')) {
+  if (!playable) {
+    console.warn('Fallback σε Clappr:', streamURL);
     videoPlayer.style.display = 'none';
     iframePlayer.style.display = 'none';
-    clapprDiv.style.display = 'none';
-    vlcDiv.style.display = 'block';
-    vlcPlugin.setAttribute('target', streamURL);
-    return;
+    clapprDiv.style.display = 'block';
+    vlcContainer.style.display = 'none';
+
+    clapprPlayer = new Clappr.Player({
+      source: streamURL,
+      parentId: '#clappr-player',
+      autoPlay: true,
+      width: '100%',
+      height: '100%',
+    });
   }
-
-  videoPlayer.style.display = 'none';
-  iframePlayer.style.display = 'none';
-  clapprDiv.style.display = 'block';
-
-  clapprPlayer = new Clappr.Player({
-    source: streamURL,
-    parentId: '#clappr-player',
-    autoPlay: true,
-    width: '100%',
-    height: '100%',
-  });
 }
+
 
 
 
