@@ -671,11 +671,20 @@ async function playStream(streamURL, subtitleURL = null) {
         }
       } catch (e) {}
     }
-    if (!foundStream) {
-      iframePlayer.style.display = 'block';
-      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      return;
-    }
+if (!foundStream) {
+  // ✅ Ενημέρωση UI για iframe fallback stream
+  const logoEl = document.getElementById('current-channel-logo');
+  const nameEl = document.getElementById('current-channel-name');
+
+  if (logoEl) logoEl.src = ''; // Απόκρυψη λογοτύπου
+  if (nameEl) nameEl.textContent = 'Αγώνας (Iframe Fallback)'; // Τίτλος καναλιού για iframe
+
+  // ✅ Εμφάνιση iframe player
+  iframePlayer.style.display = 'block';
+  iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+  return;
+}
+
     streamURL = foundStream;
   }
 
