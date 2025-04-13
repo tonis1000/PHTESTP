@@ -1,3 +1,4 @@
+το δικο μου,https://raw.githubusercontent.com/tonis1000/mai/refs/heads/main/playlist.m3u
 German,https://raw.githubusercontent.com/embreq/iptv/main/senderliste.m3u
 Greece POLLA,https://raw.githubusercontent.com/gdiolitsis/greek-iptv/97a831afe2ce5b6104b465d94533125f518fa423/ForestRock_GR
 Greece,https://raw.githubusercontent.com/And73Smi/IPTV-M3U/9638d418f74f662ab62525ca67697829f1c650a8/iptv.m3u
