@@ -29,94 +29,78 @@ async function loadSportPlaylist() {
         const lines = text.split('\n');
 
         let currentDate = '';
-        let currentMatches = [];
+        let matchesForDay = [];
 
         const flushDay = () => {
-            if (!currentDate || currentMatches.length === 0) return;
+            if (currentDate && matchesForDay.length) {
+                // Sort by hour
+                matchesForDay.sort((a, b) => a.time.localeCompare(b.time));
+                const dateHeader = document.createElement('li');
+                dateHeader.textContent = `--- ${currentDate.toUpperCase()} ---`;
+                dateHeader.style.fontWeight = 'bold';
+                dateHeader.style.color = '#ff4d4d';
+                dateHeader.style.margin = '10px 0';
+                sidebarList.appendChild(dateHeader);
 
-            // Δημιουργία και εμφάνιση τίτλου ημέρας
-            const dateLi = document.createElement('li');
-            dateLi.textContent = `--- ${currentDate} ---`;
-            dateLi.style.color = '#ff4d4d';
-            dateLi.style.fontWeight = 'bold';
-            dateLi.style.marginTop = '20px';
-            sidebarList.appendChild(dateLi);
+                matchesForDay.forEach(match => {
+                    const li = document.createElement('li');
+                    li.style.marginBottom = '8px';
 
-            // Ταξινόμηση αγώνων με βάση την ώρα
-            currentMatches.sort((a, b) => a.time - b.time);
+                    const title = document.createElement('div');
+                    title.textContent = `${match.time} ${match.title}`;
+                    title.style.color = 'white';
+                    title.style.marginBottom = '3px';
 
-            currentMatches.forEach(match => {
-                const matchLi = document.createElement('li');
-                matchLi.style.marginBottom = '10px';
+                    const linksDiv = document.createElement('div');
+                    match.links.forEach((link, idx) => {
+                        const a = document.createElement('a');
+                        a.textContent = `[Link${idx + 1}]`;
+                        a.href = '#';
+                        a.style.marginRight = '6px';
 
-                // Εμφάνιση τίτλου αγώνα
-                const title = document.createElement('div');
-                title.textContent = match.title;
-                title.style.color = 'white';
-                title.style.marginBottom = '4px';
+                        // Highlight active match links
+                        if (isLiveGame(match.time)) {
+                            a.style.color = 'limegreen';
+                            a.style.fontWeight = 'bold';
+                        }
 
-                // Container για τα links
-                const linksDiv = document.createElement('div');
-                match.links.forEach((link, idx) => {
-                    const a = document.createElement('a');
-                    a.textContent = `[Link${idx + 1}]`;
-                    a.href = '#';
-                    a.style.marginRight = '6px';
+                        a.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            document.getElementById('stream-url').value = link;
+                            playStream(link);
+                        });
 
-                    // Αν είναι σε εξέλιξη
-                    const now = new Date();
-                    if (Math.abs(now - match.time) / 60000 <= 100) {
-                        a.style.color = 'lightgreen';
-                        a.style.fontWeight = 'bold';
-                        a.innerHTML = `🔴 ${a.textContent}`;
-                    }
-
-                    a.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        playStream(link);
-                        document.getElementById('stream-url').value = link;
+                        linksDiv.appendChild(a);
                     });
 
-                    linksDiv.appendChild(a);
+                    li.appendChild(title);
+                    li.appendChild(linksDiv);
+                    sidebarList.appendChild(li);
                 });
 
-                matchLi.appendChild(title);
-                matchLi.appendChild(linksDiv);
-                sidebarList.appendChild(matchLi);
-            });
-
-            // Reset για την επόμενη ημέρα
-            currentMatches = [];
+                matchesForDay = [];
+            }
         };
 
         for (let line of lines) {
             line = line.trim();
             if (!line) continue;
 
-            // Νέα ημερομηνία
-            const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+(.+)/i);
+            const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+\d{1,2}\/\d{1,2}\/\d{4})/);
             if (dateMatch) {
                 flushDay();
-                currentDate = dateMatch[1].toUpperCase();
+                currentDate = dateMatch[1];
                 continue;
             }
 
-            // Αν περιέχει ώρα και αγώνα
-            const timeMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^/]+?)(?=\s*(\/|$))/g)];
+            const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^\/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)];
             const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
 
-            if (timeMatches.length && linkMatches.length) {
-                timeMatches.forEach(() => {
-                    const { 0: full, 1: hourMin, 2: team } = timeMatches.shift();
-
-                    // Εύρεση ώρας ως Date αντικείμενο (με -1 για Γερμανία)
-                    const [hour, minute] = hourMin.split(':').map(Number);
-                    const matchTime = new Date();
-                    matchTime.setHours(hour - 1, minute, 0, 0); // Ελλάδας ➜ Γερμανίας
-
-                    currentMatches.push({
-                        title: `${hourMin} ${team.trim()}`,
-                        time: matchTime,
+            if (gameMatches.length && linkMatches.length) {
+                gameMatches.forEach(game => {
+                    matchesForDay.push({
+                        time: adjustHourForGermany(game[1]),
+                        title: game[2].trim(),
                         links: linkMatches
                     });
                 });
@@ -129,6 +113,22 @@ async function loadSportPlaylist() {
     }
 }
 
+// Υπολογίζει αν ο αγώνας είναι live τώρα
+function isLiveGame(timeStr) {
+    const now = new Date();
+    const [h, m] = timeStr.split(':').map(Number);
+    const gameTime = new Date(now);
+    gameTime.setHours(h, m, 0, 0);
+    const diffMin = Math.abs((now - gameTime) / 60000);
+    return diffMin <= 100;
+}
+
+// -1 ώρα από Ελλάδα ➜ Γερμανία
+function adjustHourForGermany(timeStr) {
+    let [h, m] = timeStr.split(':').map(Number);
+    h = (h - 1 + 24) % 24;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
 
 
 
