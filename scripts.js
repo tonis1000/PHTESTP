@@ -633,29 +633,28 @@ async function autoProxyFetch(url) {
 
 
 
-// ΝΕΑ ΕΚΔΟΣΗ playStream() με σταθερό χώρο player και σωστό visibility
-async function playStream(streamURL, subtitleURL) {
+// ✅ Αναπαραγωγή Stream με έξυπνη ανίχνευση format, proxy και υπότιτλων
+async function playStream(streamURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  // Καθαρισμός όλων των players
+  // 🔁 Reset player UI
+  if (clapprPlayer) clapprPlayer.destroy();
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
   iframePlayer.src = '';
-  if (clapprPlayer) clapprPlayer.destroy();
+  subtitleTrack.src = '';
+  subtitleTrack.track.mode = 'hidden';
 
-  // Απόκρυψη όλων των players αλλά διατήρηση χώρου
-  [videoPlayer, iframePlayer, clapprDiv].forEach(el => {
-    el.style.visibility = 'hidden';
-    el.style.position = 'absolute';
-    el.style.zIndex = '0';
-  });
+  videoPlayer.style.display = 'none';
+  iframePlayer.style.display = 'none';
+  clapprDiv.style.display = 'none';
 
-  const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
-
+  // ⚙️ Ανίχνευση αν είναι iframe-based link
+  const isIframe = /embed|\.php$|\.html$/i.test(streamURL);
   if (isIframe) {
     let foundStream = null;
     for (let proxy of proxyList) {
@@ -672,81 +671,66 @@ async function playStream(streamURL, subtitleURL) {
         }
       } catch (e) {}
     }
-
-    if (foundStream) {
-      streamURL = foundStream;
-    } else {
-      if (!streamURL.includes('autoplay')) {
-        streamURL += (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      }
-      iframePlayer.src = streamURL;
-      iframePlayer.style.visibility = 'visible';
-      iframePlayer.style.position = 'relative';
-      iframePlayer.style.zIndex = '1';
+    if (!foundStream) {
+      iframePlayer.style.display = 'block';
+      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       return;
     }
+    streamURL = foundStream;
   }
 
+  // 🎯 Αν είναι playable format, δοκίμασε autoProxy
   if (isPlayableFormat(streamURL)) {
     const workingUrl = await autoProxyFetch(streamURL);
     if (!workingUrl) console.warn('No proxy succeeded. Fallback to Clappr:', streamURL);
     streamURL = workingUrl || streamURL;
   }
 
-  if (subtitleURL) {
-    subtitleTrack.src = subtitleURL;
-    subtitleTrack.track.mode = 'showing';
-  } else {
-    subtitleTrack.src = '';
-    subtitleTrack.track.mode = 'hidden';
-  }
+  // 🎯 Προτεραιότητα: HLS.js > Native Video > DASH > Clappr fallback
+  const showVideoPlayer = () => {
+    videoPlayer.style.display = 'block';
+    if (subtitleURL) {
+      subtitleTrack.src = subtitleURL;
+      subtitleTrack.track.mode = 'showing';
+    }
+  };
 
-  if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-    try {
+  try {
+    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
       const hls = new Hls();
       hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-      videoPlayer.style.visibility = 'visible';
-      videoPlayer.style.position = 'relative';
-      videoPlayer.style.zIndex = '1';
+      showVideoPlayer();
       return;
-    } catch (e) {}
-  } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-    videoPlayer.src = streamURL;
-    videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
-    videoPlayer.style.visibility = 'visible';
-    videoPlayer.style.position = 'relative';
-    videoPlayer.style.zIndex = '1';
-    return;
-  } else if (streamURL.endsWith('.mpd')) {
-    try {
+    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+      videoPlayer.src = streamURL;
+      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
+      showVideoPlayer();
+      return;
+    } else if (streamURL.endsWith('.mpd')) {
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
-      videoPlayer.style.visibility = 'visible';
-      videoPlayer.style.position = 'relative';
-      videoPlayer.style.zIndex = '1';
+      showVideoPlayer();
       return;
-    } catch (e) {}
-  } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-    videoPlayer.src = streamURL;
-    videoPlayer.play();
-    videoPlayer.style.visibility = 'visible';
-    videoPlayer.style.position = 'relative';
-    videoPlayer.style.zIndex = '1';
-    return;
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+      videoPlayer.src = streamURL;
+      videoPlayer.play();
+      showVideoPlayer();
+      return;
+    }
+  } catch (e) {
+    console.warn('Fallback to Clappr due to error:', e);
   }
 
-  clapprDiv.style.visibility = 'visible';
-  clapprDiv.style.position = 'relative';
-  clapprDiv.style.zIndex = '1';
-
+  // 🆘 Αν όλα αποτύχουν ➜ Clappr fallback
+  clapprDiv.style.display = 'block';
   clapprPlayer = new Clappr.Player({
     source: streamURL,
     parentId: '#clappr-player',
     autoPlay: true,
     width: '100%',
-    height: '100%',
+    height: '100%'
   });
 }
 
