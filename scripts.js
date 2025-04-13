@@ -674,19 +674,27 @@ async function playStream(streamURL, subtitleURL = null) {
         }
       } catch (e) {}
     }
-if (!foundStream) {
-  // ✅ Ενημέρωση UI για iframe fallback stream
-  const logoEl = document.getElementById('current-channel-logo');
-  const nameEl = document.getElementById('current-channel-name');
 
-  if (logoEl) logoEl.src = ''; // Απόκρυψη λογοτύπου
-  if (nameEl) nameEl.textContent = 'Αγώνας (Iframe Fallback)'; // Τίτλος καναλιού για iframe
+    if (!foundStream) {
+      const logoEl = document.getElementById('current-channel-logo');
+      const nameEl = document.getElementById('current-channel-name');
 
-  // ✅ Εμφάνιση iframe player
-  iframePlayer.style.display = 'block';
-  iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-  return;
-}
+      if (logoEl) logoEl.src = '';
+
+      // ✅ Μην ξαναγράφεις τον τίτλο αν έχει ήδη τιμή από sport αγώνα
+      if (
+        nameEl &&
+        (!nameEl.textContent ||
+         nameEl.textContent.trim() === 'ERT3 (Fallback)' ||
+         nameEl.textContent.trim() === 'Αγώνας (Iframe Fallback)')
+      ) {
+        nameEl.textContent = 'Αγώνας (Iframe Fallback)';
+      }
+
+      iframePlayer.style.display = 'block';
+      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      return;
+    }
 
     streamURL = foundStream;
   }
@@ -745,6 +753,7 @@ if (!foundStream) {
     height: '100%'
   });
 }
+
 
 
 
