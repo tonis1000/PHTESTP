@@ -1,56 +1,49 @@
-/* Grundlegende Farben und Schriftgrößen als wiederverwendbare Klassen */
+/* === ΒΑΣΙΚΑ ΧΡΩΜΑΤΑ ΚΑΙ ΣΤΥΛ === */
 body {
     background-color: #333;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
 }
 
+/* === ΕΠΑΝΑΧΡΗΣΙΜΟΠΟΙΗΣΙΜΕΣ ΚΛΑΣΕΙΣ === */
 .base-background {
-    background-color: #333;  /* Dunkelgrauer Hintergrund für Container und Sidebar */
+    background-color: #333;
 }
-
-/* Stil für den "online" Zustand */
+.text-white {
+    color: #fff;
+}
 .online {
     color: lightgreen;
     font-weight: bold;
 }
 
-.text-white {
-    color: #ffffff;  /* Weiße Schriftfarbe für übergreifende Textelemente */
-}
-
-/* Hauptcontainer */
+/* === ΚΥΡΙΟ CONTAINER === */
 .main-container {
     float: left;
     margin-right: 10px;
 }
 
 .container {
-    border-top: 5px solid transparent;
     font-size: 16px;
-    background-color: #333;
-    border-top-width: 0px;
     padding-top: 5px;
+    background-color: #333;
 }
 
+/* === ΠΑΝΩ ΠΛΗΡΟΦΟΡΙΕΣ === */
 .info-panel, .button-row {
     display: flex;
     padding-left: 15px;
 }
 
-.info-panel {
+.info-group {
+    margin-right: 20px;
+    color: #fff;
     font-style: italic;
 }
 
-.button-row {
-    gap: 10px;
-    margin-top: 10px;
-    padding-bottom: 10px;
-}
-
-.info-group {
-    margin-right: 20px;
-    color: #ffffff;
-}
-
+/* === ΚΟΥΜΠΙΑ === */
 button {
     background-color: #444;
     color: #fff;
@@ -58,28 +51,27 @@ button {
     border: 1px solid #ccc;
     border-radius: 5px;
     cursor: pointer;
-    transition: background-color 0.3s ease, box-shadow 0.3s ease;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s, box-shadow 0.3s;
 }
 
 button:hover {
     background-color: #555;
-    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 6px 8px rgba(0,0,0,0.2);
 }
 
 button:active {
     background-color: #666;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     transform: translateY(2px);
 }
 
 button:disabled {
-    background-color: #cccccc;
-    color: #666666;
+    background-color: #ccc;
+    color: #666;
     cursor: not-allowed;
-    box-shadow: none;
 }
 
+/* === SIDEBAR === */
 .sidebar {
     height: 740px;
 }
@@ -90,64 +82,48 @@ button:disabled {
 }
 
 #search-input {
-    padding-top: 1px;
     width: 120px;
     height: 25px;
 }
 
 .sidebar h2 {
-    color: #f10d0d;
+    color: #ff4d4d;
+    margin: 4px 0;
     padding-bottom: 10px;
-    margin-bottom: 1px;
-    margin-top: 1px;
 }
 
 .sidebar-content {
     overflow-y: auto;
     height: calc(100% - 40px);
     background-color: #0f0e0e;
-    padding-right: 5px;
-    padding-left: 5px;
-    margin-top: 0px;
-    border-top-width: 5px;
-    border-top-style: solid;
+    padding: 5px;
 }
 
 #sidebar-list {
-    list-style-type: none;
+    list-style: none;
     padding: 0;
-    margin-top: 0px;
+    margin: 0;
 }
 
 #sidebar-list li {
     margin-bottom: 5px;
-    padding-left: 5px;
-    padding-top: 5px;
     background-color: #333;
+    padding: 5px;
 }
 
-#sidebar-list li > div > span:nth-child(3) > span:nth-child(1) {
-    padding-right: 10px;
-    padding-left: 10px;
-}
-
-#filter-online-button,
-#show-all-button {
+/* === ΕΙΔΙΚΑ ΚΟΥΜΠΙΑ ΦΙΛΤΡΩΝ === */
+#filter-online-button, #show-all-button {
     padding: 6px 10px;
     font-size: 12px;
     border: none;
     border-radius: 5px;
-    background-color: #4CAF50;
     color: white;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    margin-bottom: 8px;
     margin-top: 2px;
+    margin-bottom: 8px;
 }
 
 #filter-online-button {
     background-color: #4CAF50;
-    color: white;
 }
 
 #filter-online-button:hover {
@@ -157,7 +133,6 @@ button:disabled {
 
 #show-all-button {
     background-color: #007BFF;
-    color: white;
 }
 
 #show-all-button:hover {
@@ -165,19 +140,19 @@ button:disabled {
     transform: translateY(-2px);
 }
 
+/* === CHANNEL BOX === */
 .channel-info {
     display: flex;
     align-items: center;
     gap: 10px;
     background-color: #444;
     cursor: pointer;
+    padding: 5px;
+    border-radius: 5px;
 }
 
 .logo-container {
     width: 30px;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
 }
 
 .logo-container img {
@@ -187,33 +162,22 @@ button:disabled {
 
 .sender-name {
     font-size: 18px;
-    color: #ffffff;
+    color: #fff;
     width: 70px;
 }
 
 .epg-channel {
     display: flex;
     flex-direction: column;
-    margin-left: 10px;
-    font-size: 12px;
-    color: #ffffff;
     flex: 1;
-    width: 120px;
-}
-
-.epg-channel span {
-    padding-bottom: 5px;
+    font-size: 12px;
+    color: #fff;
 }
 
 .epg-timeline {
     display: flex;
     height: 5px;
     border-radius: 2px;
-    padding-right: 15px;
-}
-
-#sidebar-list li > div > span:nth-child(3) {
-    padding-left: 10px;
 }
 
 .epg-past {
@@ -226,93 +190,68 @@ button:disabled {
     background-color: #00ff00;
 }
 
+/* === PLAYER === */
 .player-container {
     width: 1000px;
     display: flex;
     flex-direction: column;
-    margin-right: 10px;
-    min-width: 1000px;
+}
+
+#video-player, #iframe-player, #clappr-player, #vlc-container {
+    width: 100%;
+    height: 600px;
+    background-color: #000;
+    margin-top: 10px;
 }
 
 .player-header {
     display: flex;
-    align-items: flex-start;
     background-color: #333;
     color: #fff;
     border-bottom: 1px solid #ccc;
-    height: auto;
-}
-
-.player-logo-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100px;
-    height: 100px;
 }
 
 .player-logo-container img {
-    width: 100%;
-    height: 100%;
+    width: 100px;
+    height: 100px;
     object-fit: contain;
-}
-
-.player-info-container {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    margin-left: 10px;
-}
-
-.player-info-top {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    width: 100%;
-    margin-bottom: 5px;
 }
 
 #current-channel-name {
     font-size: 35px;
-    color: #ffffff;
+    color: #fff;
 }
 
+/* === SRT / STREAM ΕΛΕΓΧΟΣ === */
 label[for="subtitle-file"] {
-    cursor: pointer;
     background-color: #007bff;
     color: #fff;
     padding: 5px 10px;
     border-radius: 5px;
     margin-left: 10px;
-}
-
-.player-info-bottom {
-    display: flex;
-    align-items: center;
-    margin-top: 15px;
-}
-
-#stream-url {
-    flex: 1;
-    padding: 5px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    margin-right: 10px;
-}
-
-#play-button {
-    padding: 5px 10px;
-    background-color: #007bff;
-    color: #fff;
-    border: none;
-    border-radius: 5px;
     cursor: pointer;
 }
 
-#play-button:hover {
-    background-color: #0056b3;
+/* === ΠΛΗΡΟΦΟΡΙΕΣ ΠΡΟΓΡΑΜΜΑΤΟΣ === */
+#program-info {
+    color: #fff;
 }
 
+.next-program {
+    margin: 2px 0;
+    color: #fff;
+}
+
+.next-program-title {
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.next-program-desc {
+    display: none;
+}
+
+/* === ΤΟΓΚΛΑΡΙΣΜΕΝΟ ΠΕΡΙΕΧΟΜΕΝΟ === */
 .content-wrapper {
     display: flex;
 }
@@ -323,15 +262,15 @@ label[for="subtitle-file"] {
     border-radius: 5px;
     width: 100%;
     max-width: 560px;
+    color: #fff;
+    margin-left: 10px;
     margin-bottom: 20px;
-    color: #ffffff;
 }
 
 .content-title {
     background-color: #444;
     padding: 10px;
     cursor: pointer;
-    user-select: none;
 }
 
 .content-title:hover {
@@ -341,61 +280,19 @@ label[for="subtitle-file"] {
 .content-body {
     padding: 10px;
     overflow: hidden;
+    max-height: 0;
     transition: max-height 0.3s ease;
-    max-height: 0;
 }
 
-.expanded {
-    height: 700px !important;
+.content-body.expanded {
+    max-height: 700px;
 }
 
-#program-info {
-    color: #ffffff;
-}
-
-.next-program {
-    margin-top: 2px;
-    margin-bottom: 2px;
-    color: #ffffff;
-}
-
-div.next-program p {
-    margin-top: 0px;
-}
-
-div.next-program h4 {
-    margin-top: 0px;
-}
-
-.next-program-title {
-    font-weight: bold;
-    margin-bottom: 2px;
-    cursor: pointer;
-}
-
-.next-program-desc {
-    margin-bottom: 2px;
-}
-
-.expandable {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease-out;
-}
-
-.expandable.expanded {
-    max-height: 600px;
-}
-
+/* === Playlist URLs === */
 #playlist-urls {
     background-color: #444;
-    color: #ffffff;
     padding: 10px;
-}
-
-#playlist-url-list {
-    list-style: none;
-    padding: 0;
+    color: #fff;
 }
 
 #playlist-url-list li {
@@ -405,98 +302,13 @@ div.next-program h4 {
     border-radius: 3px;
 }
 
-#seite2-link button {
-    background-color: #4CAF50;
-    color: white;
-    padding: 10px 20px;
-    text-align: center;
+#playlist-url-list li a {
+    color: yellow;
+    font-weight: bold;
     text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    border: none;
-    cursor: pointer;
 }
 
-#seite2-link button:hover {
-    background-color: #45a049;
-}
-
-@media only screen and (max-width: 480px) {
-    .player-container {
-        width: 100%;
-    }
-    .content-wrapper {
-        flex-direction: column;
-    }
-}
-
-@media only screen and (min-width: 481px) and (max-width: 800px) {
-    .player-container {
-        width: 100%;
-    }
-    .content-wrapper {
-        flex-direction: column;
-    }
-}
-
-@media only screen and (min-width: 801px) and (max-width: 1024px) {
-    .player-container {
-        width: 100%;
-    }
-    .content-wrapper {
-        flex-direction: column;
-    }
-}
-
-@media only screen and (min-width: 1025px) {
-    .player-container {
-        width: 900px;
-    }
-    .content-wrapper {
-        flex-direction: row;
-    }
-}
-
-.example {
-    -webkit-transform: rotate(30deg);
-    -ms-transform: rotate(30deg);
-    transform: rotate(30deg);
-}
-
-#iframe-player {
-    width: 100%;
-    height: 600px;
-    border: none;
-    display: none;
-    background-color: #000;
-    margin-top: 10px;
-}
-
-#video-player {
-    width: 100%;
-    height: 600px;
-    background-color: #000;
-    margin-top: 10px;
-}
-
-@media screen and (max-width: 768px) {
-    #iframe-player,
-    #video-player {
-        height: 400px;
-    }
-}
-
-.seite2-button {
-    background-color: #4CAF50;
-    padding: 10px 20px;
-    color: white;
-    border-radius: 5px;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    margin-left: 10px;
-}
-
-.seite2-button:hover {
-    background-color: #45a049;
+#playlist-url-list li a:hover {
+    color: #ffff00;
+    text-shadow: 0 0 5px #ffff00;
 }
