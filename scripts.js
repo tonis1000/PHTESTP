@@ -634,135 +634,130 @@ async function autoProxyFetch(url) {
 
 
 // ✅ Αναπαραγωγή Stream με έξυπνη ανίχνευση format, proxy και υπότιτλων
+async function playStream(streamURL, subtitleURL = null) {
+    const videoPlayer = document.getElementById('video-player');
+    const iframePlayer = document.getElementById('iframe-player');
+    const clapprDiv = document.getElementById('clappr-player');
+    const subtitleTrack = document.getElementById('subtitle-track');
 
-// Funktion zum Laden der Playlist.m3u und Aktualisieren der Sidebar
-function loadMyPlaylist() {
-    fetch('playlist.m3u')
-        .then(response => response.text())
-        .then(data => updateSidebarFromM3U(data))
-        .catch(error => console.error('Fehler beim Laden der Playlist:', error));
-}
+    // Αρχικό καθάρισμα όλων των players
+    videoPlayer.pause();
+    videoPlayer.removeAttribute('src');
+    videoPlayer.load();
+    iframePlayer.src = '';
+    if (clapprPlayer) clapprPlayer.destroy();
+    clapprDiv.style.display = 'none';
 
-// Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
-function loadExternalPlaylist() {
-    fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
-        .then(response => response.text())
-        .then(data => updateSidebarFromM3U(data))
-        .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
-}
+    // Αν είναι iframe stream (php, html, embed)
+    const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
 
+    if (isIframe) {
+        let foundStream = null;
 
-// Συνάρτηση που διαβάζει το περιεχόμενο και εμφανίζει τα παιχνίδια
-async function loadSportPlaylist() {
-    const sidebarList = document.getElementById('sidebar-list');
-    sidebarList.innerHTML = '';
-
-    try {
-        const response = await fetch('https://tonis1000.github.io/PHTESTP/sport-program.txt');
-        if (!response.ok) throw new Error('Fehler beim Abrufen der Sport-Playlist');
-
-        const text = await response.text();
-        const lines = text.split('\n');
-
-        let currentDate = '';
-        let matchesForDay = [];
-
-        const flushDay = () => {
-            if (currentDate && matchesForDay.length) {
-                // Sort by hour
-                matchesForDay.sort((a, b) => a.time.localeCompare(b.time));
-                const dateHeader = document.createElement('li');
-                dateHeader.textContent = `--- ${currentDate.toUpperCase()} ---`;
-                dateHeader.style.fontWeight = 'bold';
-                dateHeader.style.color = '#ff4d4d';
-                dateHeader.style.margin = '10px 0';
-                sidebarList.appendChild(dateHeader);
-
-                matchesForDay.forEach(match => {
-                    const li = document.createElement('li');
-                    li.style.marginBottom = '8px';
-
-                    const title = document.createElement('div');
-                    title.textContent = `${match.time} ${match.title}`;
-                    title.style.color = 'white';
-                    title.style.marginBottom = '3px';
-
-                    const linksDiv = document.createElement('div');
-                    match.links.forEach((link, idx) => {
-                        const a = document.createElement('a');
-                        a.textContent = `[Link${idx + 1}]`;
-                        a.href = '#';
-                        a.style.marginRight = '6px';
-
-                        // Highlight active match links if within ±10 to +130 minutes
-                        if (isLiveGame(match.time)) {
-                            a.style.color = 'limegreen';
-                            a.style.fontWeight = 'bold';
-                        }
-
-                        a.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            document.getElementById('stream-url').value = link;
-                            playStream(link);
-                        });
-
-                        linksDiv.appendChild(a);
-                    });
-
-                    li.appendChild(title);
-                    li.appendChild(linksDiv);
-                    sidebarList.appendChild(li);
-                });
-
-                matchesForDay = [];
-            }
-        };
-
-        for (let line of lines) {
-            line = line.trim();
-            if (!line) continue;
-
-            const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+\d{1,2}\/\d{1,2}\/\d{4})/);
-            if (dateMatch) {
-                flushDay();
-                currentDate = dateMatch[1];
-                continue;
-            }
-
-            const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^\/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)];
-            const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
-
-            if (gameMatches.length && linkMatches.length) {
-                gameMatches.forEach(game => {
-                    matchesForDay.push({
-                        time: adjustHourForGermany(game[1]),
-                        title: game[2].trim(),
-                        links: linkMatches
-                    });
-                });
+        for (let proxy of proxyList) {
+            const proxied = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
+            try {
+                const res = await fetch(proxied);
+                if (res.ok) {
+                    const html = await res.text();
+                    const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/);
+                    if (match) {
+                        foundStream = match[1];
+                        break;
+                    }
+                }
+            } catch (e) {
+                console.warn('Iframe proxy failed:', e);
             }
         }
 
-        flushDay();
-    } catch (error) {
-        console.error('Fehler beim Laden der Sport-Playlist:', error);
+        if (foundStream) {
+            streamURL = foundStream; // Παίξε το .m3u8 αντί iframe
+        } else {
+            // Αν δεν βρεθεί m3u8, παίξε σε iframe
+            videoPlayer.style.display = 'none';
+            clapprDiv.style.display = 'none';
+            iframePlayer.style.display = 'block';
+            if (!streamURL.includes('autoplay')) {
+                streamURL += (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+            }
+            iframePlayer.src = streamURL;
+            return;
+        }
     }
+
+    // Αν είναι playable format, χρησιμοποίησε autoProxyFetch
+    if (isPlayableFormat(streamURL)) {
+        const workingUrl = await autoProxyFetch(streamURL);
+        streamURL = workingUrl || streamURL;
+    }
+
+    // Ορισμός υπότιτλων (αν υπάρχουν)
+    if (subtitleURL) {
+        subtitleTrack.src = subtitleURL;
+        subtitleTrack.track.mode = 'showing';
+    } else {
+        subtitleTrack.src = '';
+        subtitleTrack.track.mode = 'hidden';
+    }
+
+    // Ενεργοποίηση video player
+    iframePlayer.style.display = 'none';
+    clapprDiv.style.display = 'none';
+    videoPlayer.style.display = 'block';
+
+    // Παίξε HLS (.m3u8) με HLS.js
+    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+        try {
+            const hls = new Hls();
+            hls.loadSource(streamURL);
+            hls.attachMedia(videoPlayer);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+            return;
+        } catch (e) {
+            console.warn('HLS.js failed:', e);
+        }
+    }
+
+    // Native HLS (Safari, SmartTVs, LG WebOS)
+    if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+        videoPlayer.src = streamURL;
+        videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
+        return;
+    }
+
+    // MPEG-DASH
+    if (streamURL.endsWith('.mpd')) {
+        try {
+            const dashPlayer = dashjs.MediaPlayer().create();
+            dashPlayer.initialize(videoPlayer, streamURL, true);
+            return;
+        } catch (e) {
+            console.warn('DASH.js failed:', e);
+        }
+    }
+
+    // MP4 / WebM / .ts fallback
+    if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm') || streamURL.endsWith('.ts')) {
+        videoPlayer.src = streamURL;
+        videoPlayer.play();
+        return;
+    }
+
+    // Αν όλα αποτύχουν ➜ Clappr fallback
+    videoPlayer.style.display = 'none';
+    iframePlayer.style.display = 'none';
+    clapprDiv.style.display = 'block';
+
+    clapprPlayer = new Clappr.Player({
+        source: streamURL,
+        parentId: '#clappr-player',
+        autoPlay: true,
+        width: '100%',
+        height: '100%',
+    });
 }
 
-function isLiveGame(timeStr) {
-    const now = new Date();
-    const [h, m] = timeStr.split(':').map(Number);
-    const gameTime = new Date(now);
-    gameTime.setHours(h, m, 0, 0);
-    const diffMin = (now - gameTime) / 60000;
-    return diffMin >= -10 && diffMin <= 130;
-}
-
-function adjustHourForGermany(timeStr) {
-    let [h, m] = timeStr.split(':').map(Number);
-    h = (h - 1 + 24) % 24;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-}
 
 
 
