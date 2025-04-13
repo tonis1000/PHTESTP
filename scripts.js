@@ -634,57 +634,27 @@ async function autoProxyFetch(url) {
 
 
 // ✅ Αναπαραγωγή Stream με έξυπνη ανίχνευση format, proxy και υπότιτλων
-// playStream.js - Βελτιστοποιημένη έκδοση με αυτόματη ανίχνευση proxy, υποστήριξη HLS, DASH, iframe, Clappr και VLC
-
-const proxyList = [
-  '',
-  'https://tonis-proxy.onrender.com/',
-  'https://cors-anywhere-production-d9b6.up.railway.app/',
-  'https://thingproxy.freeboard.io/fetch/',
-  'https://corsproxy.io/?url=',
-  'https://api.allorigins.win/raw?url='
-];
-
-let clapprPlayer = null;
-
-function isPlayableFormat(url) {
-  return /\.(m3u8|ts|mp4|mpd|webm)$/i.test(url);
-}
-
-async function autoProxyFetch(url) {
-  for (let proxy of proxyList) {
-    const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
-    try {
-      let res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
-      if (res.status === 403) res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
-      if (res.ok) return testUrl;
-    } catch (e) {}
-  }
-  return null;
-}
-
-async function playStream(streamURL, subtitleURL) {
+async function playStream(streamURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
-  const vlcContainer = document.getElementById('vlc-container');
-  const vlcPlugin = document.getElementById('vlc-plugin');
 
+  // 🔁 Reset player UI
+  if (clapprPlayer) clapprPlayer.destroy();
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
   iframePlayer.src = '';
-  vlcPlugin.setAttribute('target', '');
-  if (clapprPlayer) clapprPlayer.destroy();
+  subtitleTrack.src = '';
+  subtitleTrack.track.mode = 'hidden';
 
   videoPlayer.style.display = 'none';
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
-  vlcContainer.style.display = 'none';
 
-  const isIframe = streamURL.includes('embed') || streamURL.endsWith('.php') || streamURL.endsWith('.html');
-
+  // ⚙️ Ανίχνευση αν είναι iframe-based link
+  const isIframe = /embed|\.php$|\.html$/i.test(streamURL);
   if (isIframe) {
     let foundStream = null;
     for (let proxy of proxyList) {
@@ -701,67 +671,68 @@ async function playStream(streamURL, subtitleURL) {
         }
       } catch (e) {}
     }
-    if (foundStream) {
-      streamURL = foundStream;
-    } else {
+    if (!foundStream) {
       iframePlayer.style.display = 'block';
-      if (!streamURL.includes('autoplay')) streamURL += (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      iframePlayer.src = streamURL;
+      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       return;
     }
+    streamURL = foundStream;
   }
 
+  // 🎯 Αν είναι playable format, δοκίμασε autoProxy
   if (isPlayableFormat(streamURL)) {
     const workingUrl = await autoProxyFetch(streamURL);
+    if (!workingUrl) console.warn('No proxy succeeded. Fallback to Clappr:', streamURL);
     streamURL = workingUrl || streamURL;
   }
 
-  if (subtitleURL) {
-    subtitleTrack.src = subtitleURL;
-    subtitleTrack.track.mode = 'showing';
-  } else {
-    subtitleTrack.src = '';
-    subtitleTrack.track.mode = 'hidden';
-  }
+  // 🎯 Προτεραιότητα: HLS.js > Native Video > DASH > Clappr fallback
+  const showVideoPlayer = () => {
+    videoPlayer.style.display = 'block';
+    if (subtitleURL) {
+      subtitleTrack.src = subtitleURL;
+      subtitleTrack.track.mode = 'showing';
+    }
+  };
 
-  if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-    try {
+  try {
+    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
       const hls = new Hls();
       hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-      videoPlayer.style.display = 'block';
+      showVideoPlayer();
       return;
-    } catch (e) {}
-  } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-    videoPlayer.src = streamURL;
-    videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
-    videoPlayer.style.display = 'block';
-    return;
-  } else if (streamURL.endsWith('.mpd')) {
-    try {
+    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+      videoPlayer.src = streamURL;
+      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
+      showVideoPlayer();
+      return;
+    } else if (streamURL.endsWith('.mpd')) {
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
-      videoPlayer.style.display = 'block';
+      showVideoPlayer();
       return;
-    } catch (e) {}
-  } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-    videoPlayer.src = streamURL;
-    videoPlayer.play();
-    videoPlayer.style.display = 'block';
-    return;
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+      videoPlayer.src = streamURL;
+      videoPlayer.play();
+      showVideoPlayer();
+      return;
+    }
+  } catch (e) {
+    console.warn('Fallback to Clappr due to error:', e);
   }
 
+  // 🆘 Αν όλα αποτύχουν ➜ Clappr fallback
   clapprDiv.style.display = 'block';
   clapprPlayer = new Clappr.Player({
     source: streamURL,
     parentId: '#clappr-player',
     autoPlay: true,
     width: '100%',
-    height: '100%',
+    height: '100%'
   });
 }
-
 
 
 
