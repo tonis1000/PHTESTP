@@ -119,6 +119,36 @@ function isLiveGame(timeStr) {
     return diffMin >= -10 && diffMin <= 130;
 }
 
+
+
+async function updateSidebarFromM3U(data) {
+  const sidebarList = document.getElementById('sidebar-list');
+  sidebarList.innerHTML = '';
+
+  const lines = data.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('#EXTINF')) {
+      const nameMatch = lines[i].match(/,(.*)$/);
+      const name = nameMatch ? nameMatch[1].trim() : 'Χωρίς όνομα';
+      const url = lines[i + 1] && lines[i + 1].startsWith('http') ? lines[i + 1].trim() : null;
+
+      if (url) {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <div class="channel-info" data-stream="${url}" data-channel-id="${name}">
+            <div class="logo-container">
+              <img src="default_logo.png" alt="logo">
+            </div>
+            <span class="sender-name">${name}</span>
+          </div>
+        `;
+        sidebarList.appendChild(li);
+      }
+    }
+  }
+}
+
+
 // =========================================================
 // 2. ΑΝΑΠΑΡΑΓΩΓΗ ΡΟΗΣ (Streams) + Proxy Υποστήριξη
 // =========================================================
