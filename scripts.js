@@ -67,7 +67,10 @@ async function loadSportPlaylist() {
                         a.addEventListener('click', (e) => {
                             e.preventDefault();
                             document.getElementById('stream-url').value = link;
-                            playStream(link);
+document.getElementById('current-channel-name').textContent = match.title;
+document.getElementById('current-channel-logo').src = ''; // Καθαρίζει logo
+playStream(link);
+
                         });
 
                         linksDiv.appendChild(a);
