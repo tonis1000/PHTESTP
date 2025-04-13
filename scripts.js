@@ -29,91 +29,106 @@ async function loadSportPlaylist() {
         const lines = text.split('\n');
 
         let currentDate = '';
-        const gamesPerDay = {};
+        let currentMatches = [];
+
+        const flushDay = () => {
+            if (!currentDate || currentMatches.length === 0) return;
+
+            // Δημιουργία και εμφάνιση τίτλου ημέρας
+            const dateLi = document.createElement('li');
+            dateLi.textContent = `--- ${currentDate} ---`;
+            dateLi.style.color = '#ff4d4d';
+            dateLi.style.fontWeight = 'bold';
+            dateLi.style.marginTop = '20px';
+            sidebarList.appendChild(dateLi);
+
+            // Ταξινόμηση αγώνων με βάση την ώρα
+            currentMatches.sort((a, b) => a.time - b.time);
+
+            currentMatches.forEach(match => {
+                const matchLi = document.createElement('li');
+                matchLi.style.marginBottom = '10px';
+
+                // Εμφάνιση τίτλου αγώνα
+                const title = document.createElement('div');
+                title.textContent = match.title;
+                title.style.color = 'white';
+                title.style.marginBottom = '4px';
+
+                // Container για τα links
+                const linksDiv = document.createElement('div');
+                match.links.forEach((link, idx) => {
+                    const a = document.createElement('a');
+                    a.textContent = `[Link${idx + 1}]`;
+                    a.href = '#';
+                    a.style.marginRight = '6px';
+
+                    // Αν είναι σε εξέλιξη
+                    const now = new Date();
+                    if (Math.abs(now - match.time) / 60000 <= 100) {
+                        a.style.color = 'lightgreen';
+                        a.style.fontWeight = 'bold';
+                        a.innerHTML = `🔴 ${a.textContent}`;
+                    }
+
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        playStream(link);
+                        document.getElementById('stream-url').value = link;
+                    });
+
+                    linksDiv.appendChild(a);
+                });
+
+                matchLi.appendChild(title);
+                matchLi.appendChild(linksDiv);
+                sidebarList.appendChild(matchLi);
+            });
+
+            // Reset για την επόμενη ημέρα
+            currentMatches = [];
+        };
 
         for (let line of lines) {
             line = line.trim();
             if (!line) continue;
 
-            const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+\d{1,2}\/\d{1,2}\/\d{4})/);
+            // Νέα ημερομηνία
+            const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+(.+)/i);
             if (dateMatch) {
+                flushDay();
                 currentDate = dateMatch[1].toUpperCase();
-                if (!gamesPerDay[currentDate]) gamesPerDay[currentDate] = [];
                 continue;
             }
 
-            const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2}[^/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)].map(m => m[1].trim());
+            // Αν περιέχει ώρα και αγώνα
+            const timeMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^/]+?)(?=\s*(\/|$))/g)];
             const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
 
-            if (gameMatches.length && linkMatches.length && currentDate) {
-                gameMatches.forEach(game => {
-                    const timeMatch = game.match(/(\d{1,2}):(\d{2})/);
-                    if (!timeMatch) return;
-                    const [_, hour, minute] = timeMatch;
-                    const now = new Date();
-                    const gameTime = new Date();
-                    gameTime.setHours(parseInt(hour));
-                    gameTime.setMinutes(parseInt(minute));
-                    gameTime.setSeconds(0);
+            if (timeMatches.length && linkMatches.length) {
+                timeMatches.forEach(() => {
+                    const { 0: full, 1: hourMin, 2: team } = timeMatches.shift();
 
-                    gamesPerDay[currentDate].push({
-                        time: gameTime,
-                        title: game,
-                        links: [...linkMatches]
+                    // Εύρεση ώρας ως Date αντικείμενο (με -1 για Γερμανία)
+                    const [hour, minute] = hourMin.split(':').map(Number);
+                    const matchTime = new Date();
+                    matchTime.setHours(hour - 1, minute, 0, 0); // Ελλάδας ➜ Γερμανίας
+
+                    currentMatches.push({
+                        title: `${hourMin} ${team.trim()}`,
+                        time: matchTime,
+                        links: linkMatches
                     });
                 });
             }
         }
 
-        const now = new Date();
-
-        for (const [date, games] of Object.entries(gamesPerDay)) {
-            const dateHeader = document.createElement('li');
-            dateHeader.textContent = `--- ${date} ---`;
-            dateHeader.style.color = 'red';
-            dateHeader.style.fontWeight = 'bold';
-            dateHeader.style.marginTop = '15px';
-            sidebarList.appendChild(dateHeader);
-
-            games.sort((a, b) => a.time - b.time);
-
-            for (const game of games) {
-                const li = document.createElement('li');
-                li.style.marginTop = '8px';
-
-                const title = document.createElement('div');
-                title.textContent = game.title;
-                title.style.color = 'white';
-                title.style.fontWeight = 'normal';
-                li.appendChild(title);
-
-                const linksDiv = document.createElement('div');
-                const timeDiff = Math.abs(now - game.time) / 60000; // διαφορά σε λεπτά
-                const isLive = now >= game.time && timeDiff <= 100;
-
-                game.links.forEach((link, index) => {
-                    const a = document.createElement('a');
-                    a.textContent = `[Link${index + 1}]`;
-                    a.href = '#';
-                    a.style.marginRight = '6px';
-                    a.style.color = isLive ? 'lightgreen' : 'gray';
-                    a.style.fontWeight = isLive ? 'bold' : 'normal';
-                    a.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        playStream(link);
-                    });
-                    linksDiv.appendChild(a);
-                });
-
-                li.appendChild(linksDiv);
-                sidebarList.appendChild(li);
-            }
-        }
-
+        flushDay(); // Τελευταία ημέρα
     } catch (error) {
         console.error('Fehler beim Laden der Sport-Playlist:', error);
     }
 }
+
 
 
 
