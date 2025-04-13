@@ -58,7 +58,7 @@ async function loadSportPlaylist() {
                         a.href = '#';
                         a.style.marginRight = '6px';
 
-                        // Highlight active match links
+                        // Highlight active match links if within ±10 to +130 minutes
                         if (isLiveGame(match.time)) {
                             a.style.color = 'limegreen';
                             a.style.fontWeight = 'bold';
@@ -107,28 +107,27 @@ async function loadSportPlaylist() {
             }
         }
 
-        flushDay(); // Τελευταία ημέρα
+        flushDay();
     } catch (error) {
         console.error('Fehler beim Laden der Sport-Playlist:', error);
     }
 }
 
-// Υπολογίζει αν ο αγώνας είναι live τώρα
 function isLiveGame(timeStr) {
     const now = new Date();
     const [h, m] = timeStr.split(':').map(Number);
     const gameTime = new Date(now);
     gameTime.setHours(h, m, 0, 0);
-    const diffMin = Math.abs((now - gameTime) / 60000);
-    return diffMin <= 100;
+    const diffMin = (now - gameTime) / 60000;
+    return diffMin >= -10 && diffMin <= 130;
 }
 
-// -1 ώρα από Ελλάδα ➜ Γερμανία
 function adjustHourForGermany(timeStr) {
     let [h, m] = timeStr.split(':').map(Number);
     h = (h - 1 + 24) % 24;
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 }
+
 
 
 
