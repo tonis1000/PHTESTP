@@ -635,13 +635,15 @@ async function resolveSTRM(url) {
     if (!res.ok) throw new Error('Failed to fetch .strm');
     const text = await res.text();
     const lines = text.trim().split('\n');
-    const stream = lines.find(line => line.startsWith('http'));
+    // Look for the first valid URL after ignoring metadata lines
+    const stream = lines.find(line => line.trim().startsWith('http') && !line.trim().startsWith('#'));
     return stream || null;
   } catch (e) {
     console.error('STRM Resolve Error:', e);
     return null;
   }
 }
+
 
 async function playStreamAuto(rawURL, subtitleURL = null) {
   let streamURL = rawURL.trim();
