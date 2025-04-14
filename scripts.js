@@ -599,15 +599,16 @@ function updateClock() {
 
 // scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
 // scripts.js - Τελική έκδοση με βελτιωμένο autoProxyFetch για ERT fallback
+// scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
 
 const proxyList = [
   '', // direct
-  'https://water-instinctive-peach.glitch.me/',  
   'https://tonis-proxy.onrender.com/',
+  'https://water-instinctive-peach.glitch.me/',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
   'https://thingproxy.freeboard.io/fetch/',
   'https://corsproxy.io/?url=',
-  'https://api.allorigins.win/raw?url=', // τελευταίος fallback
+  'https://api.allorigins.win/raw?url=' // fallback
 ];
 
 let clapprPlayer = null;
@@ -617,14 +618,17 @@ function isPlayableFormat(url) {
 }
 
 async function autoProxyFetch(url) {
-  for (let proxy of proxyList) {
+  const preferGlitch = url.startsWith('http://');
+  const sortedProxies = preferGlitch
+    ? ['https://tonis-proxy.onrender.com/', 'https://water-instinctive-peach.glitch.me/', ...proxyList]
+    : proxyList;
+
+  for (let proxy of sortedProxies) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
     try {
-      // Πρώτα δοκιμάζουμε HEAD
       let res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
-      if (res.status === 403) {
-        // Αν το HEAD μπλοκάρεται, δοκίμασε με GET
-        console.warn('HEAD 403 - trying GET for:', testUrl);
+      if (res.status === 403 || res.type === 'opaque') {
+        console.warn('HEAD failed or opaque, trying GET for:', testUrl);
         res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
       }
       if (res.ok) return testUrl;
@@ -635,16 +639,12 @@ async function autoProxyFetch(url) {
   return null;
 }
 
-
-
-// ✅ Αναπαραγωγή Stream με έξυπνη ανίχνευση format, proxy και υπότιτλων
 async function playStream(streamURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  // 🔁 Reset player UI
   if (clapprPlayer) clapprPlayer.destroy();
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
@@ -657,7 +657,6 @@ async function playStream(streamURL, subtitleURL = null) {
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
 
-  // ⚙️ Ανίχνευση αν είναι iframe-based link
   const isIframe = /embed|\.php$|\.html$/i.test(streamURL);
   if (isIframe) {
     let foundStream = null;
@@ -681,14 +680,7 @@ async function playStream(streamURL, subtitleURL = null) {
       const nameEl = document.getElementById('current-channel-name');
 
       if (logoEl) logoEl.src = '';
-
-      // ✅ Μην ξαναγράφεις τον τίτλο αν έχει ήδη τιμή από sport αγώνα
-      if (
-        nameEl &&
-        (!nameEl.textContent ||
-         nameEl.textContent.trim() === 'ERT3 (Fallback)' ||
-         nameEl.textContent.trim() === 'Αγώνας (Iframe Fallback)')
-      ) {
+      if (nameEl && (!nameEl.textContent || nameEl.textContent.trim() === 'ERT3 (Fallback)' || nameEl.textContent.trim() === 'Αγώνας (Iframe Fallback)')) {
         nameEl.textContent = 'Αγώνας (Iframe Fallback)';
       }
 
@@ -700,14 +692,12 @@ async function playStream(streamURL, subtitleURL = null) {
     streamURL = foundStream;
   }
 
-  // 🎯 Αν είναι playable format, δοκίμασε autoProxy
   if (isPlayableFormat(streamURL)) {
     const workingUrl = await autoProxyFetch(streamURL);
     if (!workingUrl) console.warn('No proxy succeeded. Fallback to Clappr:', streamURL);
     streamURL = workingUrl || streamURL;
   }
 
-  // 🎯 Προτεραιότητα: HLS.js > Native Video > DASH > Clappr fallback
   const showVideoPlayer = () => {
     videoPlayer.style.display = 'block';
     if (subtitleURL) {
@@ -744,7 +734,6 @@ async function playStream(streamURL, subtitleURL = null) {
     console.warn('Fallback to Clappr due to error:', e);
   }
 
-  // 🆘 Αν όλα αποτύχουν ➜ Clappr fallback
   clapprDiv.style.display = 'block';
   clapprPlayer = new Clappr.Player({
     source: streamURL,
