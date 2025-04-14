@@ -24,6 +24,9 @@ https://liveopencloud.siliconweb.com/1/ZlRza2R6L2tFRnFJ/eWVLSlQx/hls/live/playli
 #EXTINF:-1 tvg-id="mega" tvg-logo="https://i.ibb.co/f2rCKjh/mega.jpg",Mega TV
 https://wow.anixa.tv/live/mega/playlist.m3u8
 
+#EXTINF:-1 tvg-id="star" tvg-logo="https://i.imgur.com/6NUpxhr.png", Star TV2
+https://s2.cystream.net/galanos/star/chunks.m3u8?nimblesessiontvg-id=783489&wmsAuthSign=c2VydmVyX3RpbWU9MTEvMjAvMjAyMyAxMDoyNTozOCBQTSZoYXNoX3ZhbHVlPWNrMUg2TjRVWlZGR0t4V1k2QXVhWFE9PSZ2YWxpZG1pbnV0ZXM9MjA=
+
 #EXTINF:-1 tvg-id="star" tvg-logo="https://i.imgur.com/6NUpxhr.png",Star Channel
 https://livestar.siliconweb.com/media/star1/star1mediumhd.m3u8
 
