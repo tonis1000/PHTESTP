@@ -678,17 +678,23 @@ async function playStream(streamURL, subtitleURL = null) {
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  if (clapprPlayer) clapprPlayer.destroy();
+  // ✅ STOP προηγούμενου stream
+  if (clapprPlayer) {
+    clapprPlayer.destroy();
+    clapprPlayer = null;
+  }
   videoPlayer.pause();
-  videoPlayer.removeAttribute('src');
+  videoPlayer.src = '';
   videoPlayer.load();
   iframePlayer.src = '';
   subtitleTrack.src = '';
   subtitleTrack.track.mode = 'hidden';
 
+  // ✅ Απόκρυψη όλων
   videoPlayer.style.display = 'none';
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
+
 
   if (/embed|\.php$|\.html$/i.test(streamURL)) {
     let foundStream = null;
