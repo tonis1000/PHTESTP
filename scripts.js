@@ -556,7 +556,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const playStreamFromInput = () => {
         const streamUrl = streamUrlInput.value;
         if (streamUrl) {
-            playStream(streamUrl);
+            playStreamAuto(streamUrl);
+
         }
     };
 
@@ -829,7 +830,7 @@ function convertSrtToVtt(srtContent) {
                     if (subtitleFile) {
                         handleSubtitleFile(subtitleFile);
                     }
-                    playStream(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
+                   playStreamAuto(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
                 }
             };
 
