@@ -656,6 +656,30 @@ function needsProxy(url) {
   return window.location.protocol === 'https:' && url.startsWith('http://');
 }
 
+// Αν το URL είναι .strm, πρώτα κάνε fetch και πάρε το .m3u8
+if (streamURL.endsWith('.strm')) {
+  try {
+    const res = await fetch(streamURL);
+    if (res.ok) {
+      const strmText = await res.text();
+      const realUrl = strmText
+        .split('\n')
+        .find(line => line.trim().startsWith('http'));
+
+      if (realUrl) {
+        streamURL = realUrl.trim(); // Χρησιμοποιεί την m3u8
+      } else {
+        console.warn('Δεν βρέθηκε έγκυρο stream μέσα στο .strm');
+        return;
+      }
+    }
+  } catch (err) {
+    console.error('Σφάλμα κατά το fetch του .strm:', err);
+    return;
+  }
+}
+
+
 async function playStreamAuto(rawURL, subtitleURL = null) {
   let streamURL = rawURL.trim();
   if (streamURL.endsWith('.strm')) {
