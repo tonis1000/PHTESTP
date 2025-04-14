@@ -602,6 +602,7 @@ function updateClock() {
 
 const proxyList = [
   '', // direct
+  'https://water-instinctive-peach.glitch.me/',  
   'https://tonis-proxy.onrender.com/',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
   'https://thingproxy.freeboard.io/fetch/',
