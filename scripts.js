@@ -634,7 +634,7 @@ async function resolveSTRM(url) {
     const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch .strm');
     const text = await res.text();
-    const lines = text.trim().split('\n');
+    const lines = text.trim().split('\\n');
     const stream = lines.find(line => line.trim().startsWith('http'));
     return stream || null;
   } catch (e) {
@@ -643,8 +643,8 @@ async function resolveSTRM(url) {
   }
 }
 
-
-async function playStreamAuto(rawURL, subtitleURL = null) {
+// 🧠 Η νέα playStream αντικαθιστά την παλιά και είναι "έξυπνη"
+async function playStream(rawURL, subtitleURL = null) {
   let streamURL = rawURL.trim();
 
   if (streamURL.endsWith('.strm')) {
@@ -657,10 +657,11 @@ async function playStreamAuto(rawURL, subtitleURL = null) {
     }
   }
 
-  playStream(streamURL, subtitleURL);
+  playStreamCore(streamURL, subtitleURL);
 }
 
-async function playStream(streamURL, subtitleURL = null) {
+// ➤ Το βασικό playStream με όλες τις fallback επιλογές (ήταν η παλιά playStream)
+async function playStreamCore(streamURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
@@ -678,7 +679,7 @@ async function playStream(streamURL, subtitleURL = null) {
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
 
-  if (/embed|\.php$|\.html$/i.test(streamURL)) {
+  if (/embed|\\.php$|\\.html$/i.test(streamURL)) {
     let foundStream = null;
     for (let proxy of proxyList) {
       const proxied = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
@@ -686,7 +687,7 @@ async function playStream(streamURL, subtitleURL = null) {
         const res = await fetch(proxied);
         if (res.ok) {
           const html = await res.text();
-          const match = html.match(/(https?:\/\/[^\s\"'<>]+\.m3u8)/);
+          const match = html.match(/(https?:\\/\\/[^\\s"'<>]+\\.m3u8)/);
           if (match) {
             foundStream = match[1];
             break;
