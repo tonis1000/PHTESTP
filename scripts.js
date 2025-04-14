@@ -635,7 +635,6 @@ async function resolveSTRM(url) {
     if (!res.ok) throw new Error('Failed to fetch .strm');
     const text = await res.text();
     const lines = text.trim().split('\n');
-    // Look for the first valid URL after ignoring metadata lines
     const stream = lines.find(line => line.trim().startsWith('http') && !line.trim().startsWith('#'));
     return stream || null;
   } catch (e) {
@@ -644,11 +643,9 @@ async function resolveSTRM(url) {
   }
 }
 
-
 async function playStreamAuto(rawURL, subtitleURL = null) {
   let streamURL = rawURL.trim();
 
-  // ➤ Αν είναι .strm
   if (streamURL.endsWith('.strm')) {
     const resolved = await resolveSTRM(streamURL);
     if (resolved) {
@@ -662,7 +659,6 @@ async function playStreamAuto(rawURL, subtitleURL = null) {
   playStream(streamURL, subtitleURL);
 }
 
-// ➤ Το βασικό playStream με όλες τις fallback επιλογές
 async function playStream(streamURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
@@ -681,7 +677,6 @@ async function playStream(streamURL, subtitleURL = null) {
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
 
-  // ➤ Αν είναι iframe URL (php/html/embed)
   if (/embed|\.php$|\.html$/i.test(streamURL)) {
     let foundStream = null;
     for (let proxy of proxyList) {
@@ -690,7 +685,7 @@ async function playStream(streamURL, subtitleURL = null) {
         const res = await fetch(proxied);
         if (res.ok) {
           const html = await res.text();
-          const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/);
+          const match = html.match(/(https?:\/\/[^\s\"'<>]+\.m3u8)/);
           if (match) {
             foundStream = match[1];
             break;
@@ -706,7 +701,6 @@ async function playStream(streamURL, subtitleURL = null) {
     streamURL = foundStream;
   }
 
-  // ➤ Ειδική περίπτωση για .ts links ή http-only
   if (streamURL.endsWith('.ts') || streamURL.startsWith('http://')) {
     streamURL = await autoProxyFetch(streamURL) || streamURL;
     clapprDiv.style.display = 'block';
@@ -720,7 +714,6 @@ async function playStream(streamURL, subtitleURL = null) {
     return;
   }
 
-  // ➤ Αν είναι m3u8/mp4/mpd/webm
   if (isPlayableFormat(streamURL)) {
     const workingUrl = await autoProxyFetch(streamURL);
     streamURL = workingUrl || streamURL;
@@ -762,7 +755,6 @@ async function playStream(streamURL, subtitleURL = null) {
     console.warn('Fallback to Clappr due to error:', e);
   }
 
-  // ➤ Clappr Fallback
   clapprDiv.style.display = 'block';
   clapprPlayer = new Clappr.Player({
     source: streamURL,
@@ -772,6 +764,7 @@ async function playStream(streamURL, subtitleURL = null) {
     height: '100%'
   });
 }
+
 
 
 
