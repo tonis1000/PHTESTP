@@ -600,15 +600,15 @@ function updateClock() {
 // scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
 // scripts.js - Τελική έκδοση με βελτιωμένο autoProxyFetch για ERT fallback
 // scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
+// scripts.js - Τελική έκδοση με υποστήριξη proxy, iframe fallback, EPG και Clappr
 
 const proxyList = [
   '', // direct
   'https://tonis-proxy.onrender.com/',
-  'https://water-instinctive-peach.glitch.me/',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
   'https://thingproxy.freeboard.io/fetch/',
   'https://corsproxy.io/?url=',
-  'https://api.allorigins.win/raw?url=' // fallback
+  'https://api.allorigins.win/raw?url=' // τελευταίος fallback
 ];
 
 let clapprPlayer = null;
@@ -618,17 +618,11 @@ function isPlayableFormat(url) {
 }
 
 async function autoProxyFetch(url) {
-  const preferGlitch = url.startsWith('http://');
-  const sortedProxies = preferGlitch
-    ? ['https://tonis-proxy.onrender.com/', 'https://water-instinctive-peach.glitch.me/', ...proxyList]
-    : proxyList;
-
-  for (let proxy of sortedProxies) {
+  for (let proxy of proxyList) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
     try {
       let res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
-      if (res.status === 403 || res.type === 'opaque') {
-        console.warn('HEAD failed or opaque, trying GET for:', testUrl);
+      if (res.status === 403) {
         res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
       }
       if (res.ok) return testUrl;
@@ -678,18 +672,29 @@ async function playStream(streamURL, subtitleURL = null) {
     if (!foundStream) {
       const logoEl = document.getElementById('current-channel-logo');
       const nameEl = document.getElementById('current-channel-name');
-
       if (logoEl) logoEl.src = '';
       if (nameEl && (!nameEl.textContent || nameEl.textContent.trim() === 'ERT3 (Fallback)' || nameEl.textContent.trim() === 'Αγώνας (Iframe Fallback)')) {
         nameEl.textContent = 'Αγώνας (Iframe Fallback)';
       }
-
       iframePlayer.style.display = 'block';
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       return;
     }
 
     streamURL = foundStream;
+  }
+
+  // ➤ Ειδική περίπτωση norhrgr ή .ts ➜ Πάντα Clappr μόνο
+  if (streamURL.includes('norhrgr.top') || streamURL.endsWith('.ts')) {
+    clapprDiv.style.display = 'block';
+    clapprPlayer = new Clappr.Player({
+      source: streamURL,
+      parentId: '#clappr-player',
+      autoPlay: true,
+      width: '100%',
+      height: '100%'
+    });
+    return;
   }
 
   if (isPlayableFormat(streamURL)) {
@@ -743,6 +748,7 @@ async function playStream(streamURL, subtitleURL = null) {
     height: '100%'
   });
 }
+
 
 
 
