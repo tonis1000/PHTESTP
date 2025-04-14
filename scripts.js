@@ -598,7 +598,7 @@ function updateClock() {
 
 
 
-// ✅ SmartStream Player (Δεν αλλάζει όνομα - playStream)
+// ✅ SmartStream Player με αυτόματη αναγνώριση όλων των τύπων (STRM, M3U8, iframe, TS κ.λπ.)
 
 const proxyList = [
   '',
@@ -616,38 +616,6 @@ function isPlayableFormat(url) {
   return /\.(m3u8|ts|mp4|mpd|webm)$/i.test(url);
 }
 
-async function autoProxyFetch(url) {
-  for (let proxy of proxyList) {
-    const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
-    try {
-      const res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
-      if (res.status === 403) {
-        res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
-      }
-      if (res.ok) return testUrl;
-    } catch (e) {}
-  }
-  return null;
-}
-
-async function resolveSTRM(url) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Failed to fetch .strm');
-    const text = await res.text();
-    const lines = text.trim().split(/\r?\n/);
-    const stream = lines.find(line =>
-      line.trim().startsWith('http') &&
-      !line.trim().startsWith('#')
-    );
-    return stream || null;
-  } catch (e) {
-    console.error('STRM Resolve Error:', e);
-    return null;
-  }
-}
-
-
 function getExtension(url) {
   return url.split('?')[0].split('.').pop().toLowerCase();
 }
@@ -656,32 +624,41 @@ function needsProxy(url) {
   return window.location.protocol === 'https:' && url.startsWith('http://');
 }
 
-// Αν το URL είναι .strm, πρώτα κάνε fetch και πάρε το .m3u8
-if (streamURL.endsWith('.strm')) {
-  try {
-    const res = await fetch(streamURL);
-    if (res.ok) {
-      const strmText = await res.text();
-      const realUrl = strmText
-        .split('\n')
-        .find(line => line.trim().startsWith('http'));
-
-      if (realUrl) {
-        streamURL = realUrl.trim(); // Χρησιμοποιεί την m3u8
-      } else {
-        console.warn('Δεν βρέθηκε έγκυρο stream μέσα στο .strm');
-        return;
+async function autoProxyFetch(url) {
+  for (let proxy of proxyList) {
+    const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
+    try {
+      const res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
+      if (res.status === 403) {
+        const resGet = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+        if (resGet.ok) return testUrl;
+      } else if (res.ok) {
+        return testUrl;
       }
-    }
-  } catch (err) {
-    console.error('Σφάλμα κατά το fetch του .strm:', err);
-    return;
+    } catch (e) {}
+  }
+  return null;
+}
+
+async function resolveSTRM(url) {
+  try {
+    const workingUrl = await autoProxyFetch(url);
+    if (!workingUrl) throw new Error('Could not resolve STRM URL through proxy');
+    const res = await fetch(workingUrl);
+    if (!res.ok) throw new Error('Failed to fetch .strm');
+    const text = await res.text();
+    const lines = text.trim().split(/\r?\n/);
+    const stream = lines.find(line => line.trim().startsWith('http'));
+    return stream || null;
+  } catch (e) {
+    console.error('STRM Resolve Error:', e);
+    return null;
   }
 }
 
-
 async function playStreamAuto(rawURL, subtitleURL = null) {
   let streamURL = rawURL.trim();
+
   if (streamURL.endsWith('.strm')) {
     const resolved = await resolveSTRM(streamURL);
     if (resolved) {
@@ -691,6 +668,7 @@ async function playStreamAuto(rawURL, subtitleURL = null) {
       return;
     }
   }
+
   playStream(streamURL, subtitleURL);
 }
 
@@ -801,6 +779,7 @@ async function playStream(streamURL, subtitleURL = null) {
     height: '100%'
   });
 }
+
 
 
 
