@@ -597,7 +597,7 @@ function updateClock() {
 
 
 
-// ✅ SmartStream Player - Αυτόματη αναγνώριση όλων των τύπων (STRM, M3U, M3U8, iframe, TS κ.λπ.)
+// ✅ SmartStream Player (Δεν αλλάζει όνομα - playStream)
 
 const proxyList = [
   '',
@@ -619,7 +619,7 @@ async function autoProxyFetch(url) {
   for (let proxy of proxyList) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
     try {
-      let res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
+      const res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
       if (res.status === 403) {
         res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
       }
@@ -634,8 +634,11 @@ async function resolveSTRM(url) {
     const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch .strm');
     const text = await res.text();
-    const lines = text.trim().split('\\n');
-    const stream = lines.find(line => line.trim().startsWith('http'));
+    const lines = text.trim().split(/\r?\n/);
+    const stream = lines.find(line =>
+      line.trim().startsWith('http') &&
+      !line.trim().startsWith('#')
+    );
     return stream || null;
   } catch (e) {
     console.error('STRM Resolve Error:', e);
@@ -643,10 +646,17 @@ async function resolveSTRM(url) {
   }
 }
 
-// 🧠 Η νέα playStream αντικαθιστά την παλιά και είναι "έξυπνη"
-async function playStream(rawURL, subtitleURL = null) {
-  let streamURL = rawURL.trim();
 
+function getExtension(url) {
+  return url.split('?')[0].split('.').pop().toLowerCase();
+}
+
+function needsProxy(url) {
+  return window.location.protocol === 'https:' && url.startsWith('http://');
+}
+
+async function playStreamAuto(rawURL, subtitleURL = null) {
+  let streamURL = rawURL.trim();
   if (streamURL.endsWith('.strm')) {
     const resolved = await resolveSTRM(streamURL);
     if (resolved) {
@@ -656,12 +666,10 @@ async function playStream(rawURL, subtitleURL = null) {
       return;
     }
   }
-
-  playStreamCore(streamURL, subtitleURL);
+  playStream(streamURL, subtitleURL);
 }
 
-// ➤ Το βασικό playStream με όλες τις fallback επιλογές (ήταν η παλιά playStream)
-async function playStreamCore(streamURL, subtitleURL = null) {
+async function playStream(streamURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
@@ -679,7 +687,7 @@ async function playStreamCore(streamURL, subtitleURL = null) {
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
 
-  if (/embed|\\.php$|\\.html$/i.test(streamURL)) {
+  if (/embed|\.php$|\.html$/i.test(streamURL)) {
     let foundStream = null;
     for (let proxy of proxyList) {
       const proxied = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
@@ -687,7 +695,7 @@ async function playStreamCore(streamURL, subtitleURL = null) {
         const res = await fetch(proxied);
         if (res.ok) {
           const html = await res.text();
-          const match = html.match(/(https?:\\/\\/[^\\s"'<>]+\\.m3u8)/);
+          const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/);
           if (match) {
             foundStream = match[1];
             break;
@@ -703,7 +711,9 @@ async function playStreamCore(streamURL, subtitleURL = null) {
     streamURL = foundStream;
   }
 
-  if (streamURL.endsWith('.ts') || streamURL.startsWith('http://')) {
+  const ext = getExtension(streamURL);
+
+  if (ext === 'ts' || needsProxy(streamURL)) {
     streamURL = await autoProxyFetch(streamURL) || streamURL;
     clapprDiv.style.display = 'block';
     clapprPlayer = new Clappr.Player({
@@ -766,6 +776,7 @@ async function playStreamCore(streamURL, subtitleURL = null) {
     height: '100%'
   });
 }
+
 
 
 
