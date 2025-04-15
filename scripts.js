@@ -367,6 +367,13 @@ function updatePlayerDescription(title, description) {
 
 
 
+// Im Event-Handler für den Klick auf einen Sender
+const sidebarList = document.getElementById('sidebar-list');
+sidebarList.addEventListener('click', function (event) {
+    const channelInfo = event.target.closest('.channel-info');
+    if (channelInfo) {
+        const channelId = channelInfo.dataset.channelId;
+        const programInfo = getCurrentProgram(channelId);
 
         // Aktualisiert den Player mit der aktuellen Sendung
         setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, channelInfo.dataset.stream);
@@ -549,8 +556,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const playStreamFromInput = () => {
         const streamUrl = streamUrlInput.value;
         if (streamUrl) {
-            playStreamAuto(streamUrl);
-
+            playStream(streamUrl);
         }
     };
 
@@ -591,21 +597,34 @@ function updateClock() {
 
 
 
-// ✅ SmartStream Player με αυτόματη αναγνώριση όλων των τύπων (STRM, M3U8, iframe, TS κ.λπ.)
+// ✅ SmartStream Player - Αυτόματη αναγνώριση όλων των τύπων (STRM, M3U, M3U8, iframe, TS κ.λπ.)
+// ✅ Τελική, ταχύτερη έκδοση playStream.js με αυτόματη αναγνώριση τύπου, Proxy και fallback Clappr
+
 const proxyList = [
-  '',
-  'https://water-instinctive-peach.glitch.me/',
+  '', // direct
+  'https://water-instinctive-peach.glitch.me/',  
   'https://tonis-proxy.onrender.com/',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
   'https://thingproxy.freeboard.io/fetch/',
   'https://corsproxy.io/?url=',
-  'https://api.allorigins.win/raw?url='
+  'https://api.allorigins.win/raw?url=' // τελευταίος fallback
 ];
 
 let clapprPlayer = null;
 
-function isPlayableFormat(url) {
-  return /\.(m3u8|ts|mp4|mpd|webm)$/i.test(url);
+function getExtension(url) {
+  return url.split(/[?#]/)[0].split('.').pop().toLowerCase();
+}
+
+function needsProxy(url) {
+  return window.location.protocol === 'https:' && url.startsWith('http://');
+}
+
+async function fetchSTRM(url) {
+  const res = await fetch(url);
+  const text = await res.text();
+  const lines = text.split('\n');
+  return lines.find(line => line.startsWith('http'))?.trim();
 }
 
 async function autoProxyFetch(url) {
@@ -613,44 +632,13 @@ async function autoProxyFetch(url) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
     try {
       let res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
-      if (res.status === 403) res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+      if (res.status === 403) {
+        res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+      }
       if (res.ok) return testUrl;
     } catch (e) {}
   }
   return null;
-}
-
-async function resolveSTRM(url) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Failed to fetch .strm file');
-    const text = await res.text();
-    const lines = text.trim().split('\n');
-    for (let line of lines) {
-      line = line.trim();
-      if (line && !line.startsWith('#')) return line;
-    }
-    return null;
-  } catch (e) {
-    console.error('STRM Resolve Error:', e);
-    return null;
-  }
-}
-
-async function playStreamAuto(rawURL, subtitleURL = null) {
-  let streamURL = rawURL.trim();
-
-  if (streamURL.endsWith('.strm')) {
-    const resolved = await resolveSTRM(streamURL);
-    if (resolved) {
-      streamURL = resolved;
-    } else {
-      console.warn('Could not resolve .strm');
-      return;
-    }
-  }
-
-  playStream(streamURL, subtitleURL);
 }
 
 async function playStream(streamURL, subtitleURL = null) {
@@ -666,12 +654,19 @@ async function playStream(streamURL, subtitleURL = null) {
   iframePlayer.src = '';
   subtitleTrack.src = '';
   subtitleTrack.track.mode = 'hidden';
-
   videoPlayer.style.display = 'none';
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
 
-  if (/embed|\.php$|\.html$/i.test(streamURL)) {
+  if (streamURL.endsWith('.strm')) {
+    const realUrl = await fetchSTRM(streamURL);
+    if (realUrl) return playStream(realUrl, subtitleURL);
+  }
+
+  const ext = getExtension(streamURL);
+  const isIframe = /embed|\.php$|\.html$/i.test(streamURL);
+
+  if (isIframe) {
     let foundStream = null;
     for (let proxy of proxyList) {
       const proxied = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
@@ -687,7 +682,10 @@ async function playStream(streamURL, subtitleURL = null) {
         }
       } catch (e) {}
     }
+
     if (!foundStream) {
+      document.getElementById('current-channel-logo').src = '';
+      document.getElementById('current-channel-name').textContent = 'Αγώνας (Iframe Fallback)';
       iframePlayer.style.display = 'block';
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       return;
@@ -695,25 +693,11 @@ async function playStream(streamURL, subtitleURL = null) {
     streamURL = foundStream;
   }
 
-  if (streamURL.endsWith('.ts') || streamURL.startsWith('http://')) {
+  if (needsProxy(streamURL) || streamURL.includes('norhrgr.top')) {
     streamURL = await autoProxyFetch(streamURL) || streamURL;
-    clapprDiv.style.display = 'block';
-    clapprPlayer = new Clappr.Player({
-      source: streamURL,
-      parentId: '#clappr-player',
-      autoPlay: true,
-      width: '100%',
-      height: '100%'
-    });
-    return;
   }
 
-  if (isPlayableFormat(streamURL)) {
-    const workingUrl = await autoProxyFetch(streamURL);
-    streamURL = workingUrl || streamURL;
-  }
-
-  const showVideo = () => {
+  const showVideoPlayer = () => {
     videoPlayer.style.display = 'block';
     if (subtitleURL) {
       subtitleTrack.src = subtitleURL;
@@ -727,26 +711,26 @@ async function playStream(streamURL, subtitleURL = null) {
       hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-      showVideo();
+      showVideoPlayer();
       return;
     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
       videoPlayer.src = streamURL;
       videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
-      showVideo();
+      showVideoPlayer();
       return;
     } else if (streamURL.endsWith('.mpd')) {
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
-      showVideo();
+      showVideoPlayer();
       return;
-    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+    } else if (streamURL.endsWith('.mp4') || streamURL.endsWith('.webm')) {
       videoPlayer.src = streamURL;
       videoPlayer.play();
-      showVideo();
+      showVideoPlayer();
       return;
     }
   } catch (e) {
-    console.warn('Native failed. Falling back to Clappr:', e);
+    console.warn('Fallback to Clappr due to error:', e);
   }
 
   clapprDiv.style.display = 'block';
@@ -758,8 +742,6 @@ async function playStream(streamURL, subtitleURL = null) {
     height: '100%'
   });
 }
-
-
 
 
 
@@ -813,7 +795,7 @@ function convertSrtToVtt(srtContent) {
                     if (subtitleFile) {
                         handleSubtitleFile(subtitleFile);
                     }
-                   playStreamAuto(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
+                    playStream(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
                 }
             };
 
