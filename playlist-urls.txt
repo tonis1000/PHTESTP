@@ -7,3 +7,4 @@ Greece SP,https://pastebin.com/raw/a6WeqNUG
 Test,https://raw.githubusercontent.com/tonis1000/Mai/refs/heads/main/playlist.js
 Hellas Jim,https://raw.githubusercontent.com/jimgate07/grtv/refs/heads/master/android.m3u
 ForestRock_GR,https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR
+Don24crk,https://raw.githubusercontent.com/don24crk/Don24crk-Repository/refs/heads/master/android.m3u
