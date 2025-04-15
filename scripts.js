@@ -367,13 +367,6 @@ function updatePlayerDescription(title, description) {
 
 
 
-// Im Event-Handler für den Klick auf einen Sender
-const sidebarList = document.getElementById('sidebar-list');
-sidebarList.addEventListener('click', function (event) {
-    const channelInfo = event.target.closest('.channel-info');
-    if (channelInfo) {
-        const channelId = channelInfo.dataset.channelId;
-        const programInfo = getCurrentProgram(channelId);
 
         // Aktualisiert den Player mit der aktuellen Sendung
         setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, channelInfo.dataset.stream);
