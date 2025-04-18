@@ -21,20 +21,17 @@ async function loadSportPlaylist() {
   const sidebarList = document.getElementById('sidebar-list');
   sidebarList.innerHTML = '';
 
-  const proxyUrl = 'https://cors-anywhere-production-d9b6.up.railway.app/';
   const sourceUrl = 'https://foothubhd.online/program.txt';
-  
-  try {
-    let response = await fetch(sourceUrl);
-    
-    if (!response.ok) {
-      response = await fetch(proxyUrl + sourceUrl);
-    }
-    
-    if (!response.ok) {
-      throw new Error('Δεν ήταν δυνατή η φόρτωση της λίστας αθλητικών γεγονότων.');
-    }
+  const proxyUrl = await autoProxyFetch(sourceUrl); // αυτοματη επιλογή proxy
 
+  if (!proxyUrl) {
+    console.error('Καμία διαθέσιμη proxy επιλογή.');
+    sidebarList.innerHTML = '<li style="color:red;">CORS: Δεν είναι δυνατή η φόρτωση από την πηγή.</li>';
+    return;
+  }
+
+  try {
+    const response = await fetch(proxyUrl);
     const text = await response.text();
     const lines = text.split('\n');
 
@@ -42,88 +39,88 @@ async function loadSportPlaylist() {
     let matchesForDay = [];
 
     const flushDay = () => {
-        if (currentDate && matchesForDay.length) {
-            matchesForDay.sort((a, b) => a.time.localeCompare(b.time));
-            const dateHeader = document.createElement('li');
-            dateHeader.textContent = `--- ${currentDate.toUpperCase()} ---`;
-            dateHeader.style.fontWeight = 'bold';
-            dateHeader.style.color = '#ff4d4d';
-            dateHeader.style.margin = '10px 0';
-            sidebarList.appendChild(dateHeader);
+      if (currentDate && matchesForDay.length) {
+        matchesForDay.sort((a, b) => a.time.localeCompare(b.time));
+        const dateHeader = document.createElement('li');
+        dateHeader.textContent = `--- ${currentDate.toUpperCase()} ---`;
+        dateHeader.style.fontWeight = 'bold';
+        dateHeader.style.color = '#ff4d4d';
+        dateHeader.style.margin = '10px 0';
+        sidebarList.appendChild(dateHeader);
 
-            matchesForDay.forEach(match => {
-                const li = document.createElement('li');
-                li.style.marginBottom = '8px';
+        matchesForDay.forEach(match => {
+          const li = document.createElement('li');
+          li.style.marginBottom = '8px';
 
-                const title = document.createElement('div');
-                title.textContent = `${match.time} ${match.title}`;
-                title.style.color = 'white';
-                title.style.marginBottom = '3px';
+          const title = document.createElement('div');
+          title.textContent = `${match.time} ${match.title}`;
+          title.style.color = 'white';
+          title.style.marginBottom = '3px';
 
-                const linksDiv = document.createElement('div');
-                match.links.forEach((link, idx) => {
-                    const a = document.createElement('a');
-                    a.textContent = `[Link${idx + 1}]`;
-                    a.href = '#';
-                    a.style.marginRight = '6px';
+          const linksDiv = document.createElement('div');
+          match.links.forEach((link, idx) => {
+            const a = document.createElement('a');
+            a.textContent = `[Link${idx + 1}]`;
+            a.href = '#';
+            a.style.marginRight = '6px';
 
-                    if (isLiveGame(match.time)) {
-                        a.style.color = 'limegreen';
-                        a.style.fontWeight = 'bold';
-                    }
+            if (isLiveGame(match.time)) {
+              a.style.color = 'limegreen';
+              a.style.fontWeight = 'bold';
+            }
 
-                    a.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        document.getElementById('stream-url').value = link;
-                        document.getElementById('current-channel-name').textContent = match.title;
-                        document.getElementById('current-channel-logo').src = '';
-                        playStream(link);
-                    });
-
-                    linksDiv.appendChild(a);
-                });
-
-                li.appendChild(title);
-                li.appendChild(linksDiv);
-                sidebarList.appendChild(li);
+            a.addEventListener('click', (e) => {
+              e.preventDefault();
+              document.getElementById('stream-url').value = link;
+              document.getElementById('current-channel-name').textContent = match.title;
+              document.getElementById('current-channel-logo').src = '';
+              playStream(link);
             });
 
-            matchesForDay = [];
-        }
+            linksDiv.appendChild(a);
+          });
+
+          li.appendChild(title);
+          li.appendChild(linksDiv);
+          sidebarList.appendChild(li);
+        });
+
+        matchesForDay = [];
+      }
     };
 
     for (let line of lines) {
-        line = line.trim();
-        if (!line) continue;
+      line = line.trim();
+      if (!line) continue;
 
-        const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+\d{1,2}\/\d{1,2}\/\d{4})/);
-        if (dateMatch) {
-            flushDay();
-            currentDate = dateMatch[1];
-            continue;
-        }
+      const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+\d{1,2}\/\d{1,2}\/\d{4})/);
+      if (dateMatch) {
+        flushDay();
+        currentDate = dateMatch[1];
+        continue;
+      }
 
-        const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^\/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)];
-        const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
+      const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^\/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)];
+      const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
 
-        if (gameMatches.length && linkMatches.length) {
-            gameMatches.forEach(game => {
-                matchesForDay.push({
-                    time: adjustHourForGermany(game[1]),
-                    title: game[2].trim(),
-                    links: linkMatches
-                });
-            });
-        }
+      if (gameMatches.length && linkMatches.length) {
+        gameMatches.forEach(game => {
+          matchesForDay.push({
+            time: adjustHourForGermany(game[1]),
+            title: game[2].trim(),
+            links: linkMatches
+          });
+        });
+      }
     }
 
     flushDay();
-
   } catch (error) {
     console.error('Πρόβλημα φόρτωσης sport playlist:', error);
-    sidebarList.innerHTML = '<li style="color:red;">Σφάλμα φόρτωσης αθλητικών δεδομένων.</li>';
+    sidebarList.innerHTML = '<li style="color:red;">Σφάλμα φόρτωσης δεδομένων.</li>';
   }
 }
+
 
 
 
