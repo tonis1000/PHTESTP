@@ -153,16 +153,6 @@ async function loadSportPlaylist() {
 
 
 
-function isLiveGame(timeStr) {
-    const now = new Date();
-    const [h, m] = timeStr.split(':').map(Number);
-    const gameTime = new Date(now);
-    gameTime.setHours(h, m, 0, 0);
-    const diffMin = (now - gameTime) / 60000;
-    return diffMin >= -10 && diffMin <= 130;
-}
-
-
 
 function isLiveGame(timeStr, dateStr) {
   const [h, m] = timeStr.split(':').map(Number);
