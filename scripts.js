@@ -17,21 +17,40 @@ function loadExternalPlaylist() {
 
 
 // Συνάρτηση που διαβάζει το περιεχόμενο και εμφανίζει τα παιχνίδια
+// Αντιγράφεις αυτό το κομμάτι στην αρχή του scripts.js
+function adjustHourForGermany(timeStr) {
+  let [h, m] = timeStr.split(':').map(Number);
+  h = (h - 1 + 24) % 24;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
+function isLiveGame(timeStr, dateStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const [day, month, year] = dateStr.split('/').map(Number);
+
+  const gameDate = new Date(year, month - 1, day, h, m);
+  const now = new Date();
+
+  const isSameDay = gameDate.getDate() === now.getDate() &&
+                    gameDate.getMonth() === now.getMonth() &&
+                    gameDate.getFullYear() === now.getFullYear();
+
+  const diffMin = (now - gameDate) / 60000;
+  return isSameDay && diffMin >= -10 && diffMin <= 130;
+}
+
 async function loadSportPlaylist() {
   const sidebarList = document.getElementById('sidebar-list');
   sidebarList.innerHTML = '';
 
+  const proxy = 'https://cors-anywhere-production-d9b6.up.railway.app/';
   const sourceUrl = 'https://foothubhd.online/program.txt';
-  const proxyUrl = await autoProxyFetch(sourceUrl); // αυτοματη επιλογή proxy
-
-  if (!proxyUrl) {
-    console.error('Καμία διαθέσιμη proxy επιλογή.');
-    sidebarList.innerHTML = '<li style="color:red;">CORS: Δεν είναι δυνατή η φόρτωση από την πηγή.</li>';
-    return;
-  }
+  const finalUrl = proxy + sourceUrl;
 
   try {
-    const response = await fetch(proxyUrl);
+    const response = await fetch(finalUrl);
+    if (!response.ok) throw new Error('Λήψη απέτυχε');
+
     const text = await response.text();
     const lines = text.split('\n');
 
@@ -52,15 +71,12 @@ async function loadSportPlaylist() {
           const li = document.createElement('li');
           li.style.marginBottom = '8px';
 
-       const title = document.createElement('div');
-
-const isLive = isLiveGame(match.time, match.date);
-const liveIcon = isLive ? '🔴 ' : '';
-title.textContent = `${liveIcon}${match.time} ${match.title}`;
-
-title.style.color = 'white';
-title.style.marginBottom = '3px';
-
+          const title = document.createElement('div');
+          const isLive = isLiveGame(match.time, match.date);
+          const liveIcon = isLive ? '🔴 ' : '';
+          title.textContent = `${liveIcon}${match.time} ${match.title}`;
+          title.style.color = 'white';
+          title.style.marginBottom = '3px';
 
           const linksDiv = document.createElement('div');
           match.links.forEach((link, idx) => {
@@ -69,7 +85,7 @@ title.style.marginBottom = '3px';
             a.href = '#';
             a.style.marginRight = '6px';
 
-            if (isLiveGame(match.time)) {
+            if (isLive) {
               a.style.color = 'limegreen';
               a.style.fontWeight = 'bold';
             }
@@ -98,10 +114,10 @@ title.style.marginBottom = '3px';
       line = line.trim();
       if (!line) continue;
 
-      const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+\d{1,2}\/\d{1,2}\/\d{4})/);
+      const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+(\d{1,2})\/(\d{1,2})\/(\d{4}))/);
       if (dateMatch) {
         flushDay();
-        currentDate = dateMatch[1];
+        currentDate = `${dateMatch[2]}/${dateMatch[3]}/${dateMatch[4]}`;
         continue;
       }
 
@@ -113,7 +129,8 @@ title.style.marginBottom = '3px';
           matchesForDay.push({
             time: adjustHourForGermany(game[1]),
             title: game[2].trim(),
-            links: linkMatches
+            links: linkMatches,
+            date: currentDate
           });
         });
       }
@@ -121,10 +138,11 @@ title.style.marginBottom = '3px';
 
     flushDay();
   } catch (error) {
-    console.error('Πρόβλημα φόρτωσης sport playlist:', error);
-    sidebarList.innerHTML = '<li style="color:red;">Σφάλμα φόρτωσης δεδομένων.</li>';
+    console.error('Σφάλμα κατά τη φόρτωση sport playlist:', error);
+    sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης αθλητικών γεγονότων.</li>';
   }
 }
+
 
 
 
