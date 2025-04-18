@@ -55,13 +55,14 @@ async function loadSportPlaylist() {
     const lines = text.split('\n');
 
     let currentDate = '';
+    let currentDateWithDay = '';
     let matchesForDay = [];
 
     const flushDay = () => {
       if (currentDate && matchesForDay.length) {
         matchesForDay.sort((a, b) => a.time.localeCompare(b.time));
         const dateHeader = document.createElement('li');
-        dateHeader.textContent = `--- ${currentDate.toUpperCase()} ---`;
+        dateHeader.textContent = `--- ${currentDateWithDay.toUpperCase()} ---`;
         dateHeader.style.fontWeight = 'bold';
         dateHeader.style.color = '#ff4d4d';
         dateHeader.style.margin = '10px 0';
@@ -114,10 +115,14 @@ async function loadSportPlaylist() {
       line = line.trim();
       if (!line) continue;
 
-      const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+\s+(\d{1,2})\/(\d{1,2})\/(\d{4}))/);
+      const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+)\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
       if (dateMatch) {
         flushDay();
         currentDate = `${dateMatch[2]}/${dateMatch[3]}/${dateMatch[4]}`;
+
+        const dateObj = new Date(`${dateMatch[4]}-${dateMatch[3].padStart(2, '0')}-${dateMatch[2].padStart(2, '0')}`);
+        const weekday = dateObj.toLocaleDateString('el-GR', { weekday: 'long' });
+        currentDateWithDay = `${weekday} ${currentDate}`;
         continue;
       }
 
