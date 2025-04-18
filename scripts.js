@@ -871,6 +871,7 @@ function convertSrtToVtt(srtContent) {
                     if (subtitleFile) {
                         handleSubtitleFile(subtitleFile);
                     }
+                    logProxyUrl(streamUrl);
                     playStream(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
                 }
             };
