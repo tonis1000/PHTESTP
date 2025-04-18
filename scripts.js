@@ -575,7 +575,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
     document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
     document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
-    document.getElementById('multiSportPlaylist').addEventListener('click', loadMultiSportPlaylist);
+   
 
 
 
