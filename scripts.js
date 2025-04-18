@@ -151,45 +151,6 @@ async function loadSportPlaylist() {
 
 
 
-async function loadSport2Playlist() {
-  const sidebarList = document.getElementById('sidebar-list');
-  sidebarList.innerHTML = '';
-
-  const streams = [
-    { title: 'CSport 1', url: 'https://sportskeeda.vip/embed/stream-622.php' },
-    { title: 'CSport 2', url: 'https://sportskeeda.vip/embed/stream-623.php' },
-    { title: 'Bein Sports', url: 'https://sportskeeda.vip/embed/stream-626.php' },
-    { title: 'SuperSport', url: 'https://sportskeeda.vip/embed/stream-627.php' },
-    { title: 'Sky Sports', url: 'https://sportskeeda.vip/embed/stream-628.php' }
-  ];
-
-  streams.forEach((stream, idx) => {
-    const li = document.createElement('li');
-    li.style.marginBottom = '8px';
-    li.style.color = 'white';
-
-    const title = document.createElement('div');
-    title.textContent = `🏟️ ${stream.title}`;
-    title.style.marginBottom = '5px';
-
-    const button = document.createElement('button');
-    button.textContent = '▶️ Παίξε';
-    button.addEventListener('click', () => {
-      document.getElementById('stream-url').value = stream.url;
-      document.getElementById('current-channel-name').textContent = stream.title;
-      document.getElementById('current-channel-logo').src = '';
-      playStream(stream.url);
-    });
-
-    li.appendChild(title);
-    li.appendChild(button);
-    sidebarList.appendChild(li);
-  });
-}
-
-
-
-
 
 function isLiveGame(timeStr) {
     const now = new Date();
