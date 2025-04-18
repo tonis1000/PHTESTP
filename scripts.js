@@ -52,10 +52,15 @@ async function loadSportPlaylist() {
           const li = document.createElement('li');
           li.style.marginBottom = '8px';
 
-          const title = document.createElement('div');
-          title.textContent = `${match.time} ${match.title}`;
-          title.style.color = 'white';
-          title.style.marginBottom = '3px';
+       const title = document.createElement('div');
+
+const isLive = isLiveGame(match.time, match.date);
+const liveIcon = isLive ? '🔴 ' : '';
+title.textContent = `${liveIcon}${match.time} ${match.title}`;
+
+title.style.color = 'white';
+title.style.marginBottom = '3px';
+
 
           const linksDiv = document.createElement('div');
           match.links.forEach((link, idx) => {
