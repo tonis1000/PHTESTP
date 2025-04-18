@@ -609,6 +609,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const playStreamFromInput = () => {
         const streamUrl = streamUrlInput.value;
         if (streamUrl) {
+            logProxyUrl(streamUrl);
             playStream(streamUrl);
         }
     };
