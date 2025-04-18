@@ -28,10 +28,14 @@ async function testProxiesForUrl(url) {
   return null;
 }
 
+function deduplicateArray(arr) {
+  return [...new Set(arr.filter(Boolean))];
+}
+
 (async () => {
   if (!fs.existsSync(CACHE_FILE)) return;
 
-  const proxyCache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+  const proxyCache = deduplicateArray(JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8')));
   const proxyMap = fs.existsSync(MAP_FILE)
     ? JSON.parse(fs.readFileSync(MAP_FILE, 'utf8'))
     : {};
