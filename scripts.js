@@ -264,6 +264,10 @@ document.getElementById('copy-button').addEventListener('click', function() {
 // Globales Objekt für EPG-Daten
 let epgData = {};
 
+const proxyUsageCache = new Set();
+
+
+
 // Funktion zum Laden und Parsen der EPG-Daten
 function loadEPGData() {
     fetch('https://ext.greektv.app/epg/epg.xml')
