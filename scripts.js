@@ -96,6 +96,7 @@ async function loadSportPlaylist() {
               document.getElementById('stream-url').value = link;
               document.getElementById('current-channel-name').textContent = match.title;
               document.getElementById('current-channel-logo').src = '';
+              logProxyUrl(link);  
               playStream(link);
             });
 
