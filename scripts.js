@@ -593,6 +593,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const programInfo = getCurrentProgram(channelId);
 
             setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
+            logProxyUrl(streamURL);
             playStream(streamURL);
 
             // Aktualisieren der Programmbeschreibung
