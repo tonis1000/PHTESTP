@@ -1,37 +1,65 @@
-name: Update Proxy Map
+// updateProxyMap.js – Εκτελείται από το GitHub Action κάθε 15 λεπτά
+// Διαβάζει proxy-cache.json ➜ βρίσκει working proxy ➜ ενημερώνει proxy-map.json
 
-description: 'Ελέγχει ποιος proxy λειτουργεί για κάθε URL και ενημερώνει το proxy-map.json'
+const fs = require('fs');
+const path = require('path');
+const fetch = require('node-fetch');
 
-on:
-  schedule:
-    - cron: '*/15 * * * *'  # κάθε 15 λεπτά
-  workflow_dispatch:       # χειροκίνητο trigger
+const proxyList = [
+  'https://cors-anywhere-production-d9b6.up.railway.app/',
+  'https://tonis-proxy.onrender.com/',
+  'https://corsproxy.io/?url=',
+  'https://api.allorigins.win/raw?url='
+];
 
-jobs:
-  update-proxies:
-    runs-on: ubuntu-latest
+const CACHE_FILE = path.resolve(__dirname, 'proxy-cache.json');
+const MAP_FILE = path.resolve(__dirname, 'proxy-map.json');
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+async function testProxiesForUrl(url) {
+  for (let proxy of proxyList) {
+    const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
+    try {
+      const res = await fetch(testUrl, { method: 'HEAD', timeout: 7000 });
+      if (res.ok) return proxy;
+    } catch (err) {
+      continue;
+    }
+  }
+  return null;
+}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+function deduplicateArray(arr) {
+  return [...new Set(arr.filter(Boolean))];
+}
 
-      - name: Install dependencies
-        run: npm install node-fetch@2
+(async () => {
+  if (!fs.existsSync(CACHE_FILE)) return;
 
-      - name: Run Proxy Update Script
-        run: node updateProxyMap.js
+  const proxyCache = deduplicateArray(JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8')));
+  const proxyMap = fs.existsSync(MAP_FILE)
+    ? JSON.parse(fs.readFileSync(MAP_FILE, 'utf8'))
+    : {};
 
-      - name: Commit and Push (if needed)
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add proxy-map.json
-          git diff --cached --quiet || git commit -m "Update proxy-map.json via GitHub Action"
-          git push
+  let updated = false;
+
+  for (const url of proxyCache) {
+    if (!proxyMap[url]) {
+      console.log(`Testing: ${url}`);
+      const workingProxy = await testProxiesForUrl(url);
+      if (workingProxy) {
+        proxyMap[url] = workingProxy;
+        updated = true;
+        console.log(`✔ Found working proxy for ${url}: ${workingProxy}`);
+      } else {
+        console.log(`✘ No proxy worked for ${url}`);
+      }
+    }
+  }
+
+  if (updated) {
+    fs.writeFileSync(MAP_FILE, JSON.stringify(proxyMap, null, 2));
+    console.log('✅ proxy-map.json updated.');
+  } else {
+    console.log('ℹ️ No new entries. proxy-map.json unchanged.');
+  }
+})();
