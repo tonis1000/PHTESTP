@@ -134,14 +134,23 @@ function isLiveGame(timeStr) {
     return diffMin >= -10 && diffMin <= 130;
 }
 
-function adjustHourForGermany(timeStr) {
-    let [h, m] = timeStr.split(':').map(Number);
-    h = (h - 1 + 24) % 24;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+
+
+function isLiveGame(timeStr, dateStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const [day, month, year] = dateStr.split('/').map(Number);
+
+  const gameDate = new Date(year, month - 1, day, h, m);
+  const now = new Date();
+
+  const isSameDay = gameDate.getDate() === now.getDate() &&
+                    gameDate.getMonth() === now.getMonth() &&
+                    gameDate.getFullYear() === now.getFullYear();
+
+  const diffMin = (now - gameDate) / 60000;
+
+  return isSameDay && diffMin >= -10 && diffMin <= 130;
 }
-
-
-
 
 
 
