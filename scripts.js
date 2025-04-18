@@ -631,6 +631,16 @@ function setCurrentChannel(channelName, streamUrl) {
     streamUrlInput.value = streamUrl;
 }
 
+// Funktion zum Setzen des aktuellen Sendernamens und der URL
+function setCurrentChannel(channelName, streamUrl) {
+  const currentChannelName = document.getElementById('current-channel-name');
+  const streamUrlInput = document.getElementById('stream-url');
+  currentChannelName.textContent = channelName;
+  streamUrlInput.value = streamUrl;
+}
+
+
+
 // Aktualisierung der Uhrzeit
 function updateClock() {
     const now = new Date();
