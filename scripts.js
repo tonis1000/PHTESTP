@@ -577,13 +577,10 @@ document.addEventListener('DOMContentLoaded', function () {
     loadEPGData();
     updateClock();
     setInterval(updateClock, 1000);
+
     document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
     document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
     document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
-   
-
-
-
 
     const sidebarList = document.getElementById('sidebar-list');
     sidebarList.addEventListener('click', function (event) {
@@ -597,10 +594,26 @@ document.addEventListener('DOMContentLoaded', function () {
             logProxyUrl(streamURL);
             playStream(streamURL);
 
-            // Aktualisieren der Programmbeschreibung
             updatePlayerDescription(programInfo.title, programInfo.description);
         }
     });
+
+    // 🎯 Νέο: Export κουμπί για αποθήκευση του proxy cache
+    document.getElementById('export-cache-button').addEventListener('click', () => {
+        const cacheArray = Array.from(proxyUsageCache);
+        const blob = new Blob([JSON.stringify(cacheArray, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'proxy-cache.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+});
+
 
     setInterval(checkStreamStatus, 60000);
 
