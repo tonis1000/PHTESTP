@@ -2,6 +2,15 @@
 
 // 🧠 Καταγραφή λειτουργικού Proxy και Player για κάθε URL
 const streamPerfMap = {}; // Κύρια μνήμη
+const proxyList = [
+  '',
+  'https://cors-anywhere-production-d9b6.up.railway.app/',
+  'https://tonis-proxy.onrender.com/',
+  'https://thingproxy.freeboard.io/fetch/',
+  'https://corsproxy.io/?url=',
+  'https://api.allorigins.win/raw?url='
+];
+
 
 // ✅ Δημιουργία προσωρινής global cache για καταγραφή
 const globalStreamCache = {};
