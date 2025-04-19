@@ -1,58 +1,5 @@
-// 🔵 Global cache για URLs που εμφανίστηκαν
 
-// ✅ 1. Τρέχον cache με proxy & player που έχουμε ήδη στο GitHub (π.χ. streamPerfMap.json)
-const streamPerfMap = {}; // Κύρια μνήμη (φορτώνεται από GitHub Action ή προεγκατεστημένο)
-
-// ✅ 2. Προσωρινή cache για νέα URLs που εμφανίζονται ή παίζουν
-const globalStreamCache = {}; // Τα νέα URLs που δεν υπάρχουν ακόμη στο streamPerfMap.json
-
-// ✅ 3. Προξυ λίστα για εναλλακτικές πηγές
-const proxyList = [
-  '',
-  'https://cors-anywhere-production-d9b6.up.railway.app/',
-  'https://tonis-proxy.onrender.com/',
-  'https://thingproxy.freeboard.io/fetch/',
-  'https://corsproxy.io/?url=',
-  'https://api.allorigins.win/raw?url='
-];
-
-// ✅ 4. Καταγραφή κάθε stream που παίζει (με player και proxy που χρησιμοποιήθηκε)
-function cacheStream(url, playerUsed, proxyUsed = '') {
-    if (!streamPerfMap[url] && !globalStreamCache[url]) {
-        globalStreamCache[url] = {
-            player: playerUsed,
-            proxy: proxyUsed
-        };
-    }
-}
-
-// ✅ 5. Αποστολή των νέων URLs (globalStreamCache) στον Glitch server κάθε 15 λεπτά
-async function sendStreamPerfMapToServer() {
-    const newEntries = Object.keys(globalStreamCache);
-    if (newEntries.length === 0) return;
-
-    try {
-        const response = await fetch('https://abrupt-wary-attempt.glitch.me/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(globalStreamCache)
-        });
-
-        if (!response.ok) {
-            throw new Error('Αποτυχία αποστολής στον server');
-        }
-
-        console.log('✅ Επιτυχής αποστολή στο Glitch server:', newEntries.length, 'νέα streams');
-        Object.keys(globalStreamCache).forEach(key => delete globalStreamCache[key]);
-    } catch (error) {
-        console.error('❌ Σφάλμα κατά την αποστολή:', error);
-    }
-}
-
-// ✅ 6. Αυτόματη αποστολή στον server κάθε 15 λεπτά
-setInterval(sendStreamPerfMapToServer, 15 * 60 * 1000);
-
-
+const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
 
 
 
@@ -704,7 +651,6 @@ async function resolveSTRM(url) {
   }
 }
 
-
 async function autoProxyFetch(url) {
   for (let proxy of proxyList) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
@@ -713,17 +659,13 @@ async function autoProxyFetch(url) {
       if (res.status === 403 || res.status === 405) {
         res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
       }
-      if (res.ok) {
-        return { workingProxy: proxy, workingUrl: testUrl };
-      }
+      if (res.ok) return testUrl;
     } catch (e) {
-      console.warn('❌ Proxy failed:', proxy);
+      console.warn('Proxy failed:', proxy);
     }
   }
-  return { workingProxy: null, workingUrl: null };
+  return null;
 }
-
-
 
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
@@ -744,16 +686,15 @@ async function playStream(initialURL, subtitleURL = null) {
   clapprDiv.style.display = 'none';
 
   let streamURL = initialURL;
-  let proxyUsed = '';
 
-  // 📦 STRM υποστήριξη
+  // STRM υποστήριξη
   if (isSTRM(streamURL)) {
     const resolved = await resolveSTRM(streamURL);
     if (resolved) streamURL = resolved;
     else return;
   }
 
-  // 🌐 iframe ➜ προσπαθεί να βρει m3u8
+  // Iframe ανίχνευση
   if (isIframeStream(streamURL)) {
     let foundStream = null;
     for (let proxy of proxyList) {
@@ -765,7 +706,6 @@ async function playStream(initialURL, subtitleURL = null) {
           const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/);
           if (match) {
             foundStream = match[1];
-            proxyUsed = proxy;
             break;
           }
         }
@@ -780,7 +720,6 @@ async function playStream(initialURL, subtitleURL = null) {
       }
       iframePlayer.style.display = 'block';
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      cacheStream(streamURL, 'iframe', '');
       return;
     }
 
@@ -789,13 +728,9 @@ async function playStream(initialURL, subtitleURL = null) {
 
   const forceClappr = streamURL.includes('norhrgr.top') || streamURL.endsWith('.ts');
 
-  // 🌐 Αν δεν είναι Clappr, προσπάθησε με proxy
   if (!forceClappr) {
     const workingUrl = await autoProxyFetch(streamURL);
-    if (workingUrl) {
-      proxyUsed = proxyList.find(p => workingUrl.startsWith(p)) || '';
-      streamURL = workingUrl;
-    }
+    if (workingUrl) streamURL = workingUrl;
   }
 
   const showVideoPlayer = () => {
@@ -813,32 +748,27 @@ async function playStream(initialURL, subtitleURL = null) {
       hls.attachMedia(videoPlayer);
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
       showVideoPlayer();
-      cacheStream(streamURL, 'hls.js', proxyUsed);
       return;
     } else if (!forceClappr && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
       videoPlayer.src = streamURL;
       videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
       showVideoPlayer();
-      cacheStream(streamURL, 'native-hls', proxyUsed);
       return;
     } else if (!forceClappr && streamURL.endsWith('.mpd')) {
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
       showVideoPlayer();
-      cacheStream(streamURL, 'dash.js', proxyUsed);
       return;
     } else if (!forceClappr && (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm'))) {
       videoPlayer.src = streamURL;
       videoPlayer.play();
       showVideoPlayer();
-      cacheStream(streamURL, 'native-mp4', proxyUsed);
       return;
     }
   } catch (e) {
-    console.warn('⚠️ Fallback to Clappr due to error:', e);
+    console.warn('Fallback to Clappr due to error:', e);
   }
 
-  // ⛳ Clappr fallback
   clapprDiv.style.display = 'block';
   clapprPlayer = new Clappr.Player({
     source: streamURL,
@@ -847,10 +777,7 @@ async function playStream(initialURL, subtitleURL = null) {
     width: '100%',
     height: '100%'
   });
-
-  cacheStream(streamURL, 'clappr', proxyUsed);
 }
-
 
 
 
