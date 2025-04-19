@@ -724,9 +724,8 @@ async function playStream(initialURL, subtitleURL = null) {
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
-  let usedPlayer = 'unknown';
-  let usedProxy = '';
 
+  if (clapprPlayer) clapprPlayer.destroy();
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
@@ -739,44 +738,67 @@ async function playStream(initialURL, subtitleURL = null) {
   clapprDiv.style.display = 'none';
 
   let streamURL = initialURL;
+  let proxyUsed = '';
 
-  // iframe fallback
+  // STRM υποστήριξη
+  if (isSTRM(streamURL)) {
+    const resolved = await resolveSTRM(streamURL);
+    if (resolved) streamURL = resolved;
+    else return;
+  }
+
+  // iframe ➜ προσπαθεί να βρει m3u8
   if (isIframeStream(streamURL)) {
+    let foundStream = null;
     for (let proxy of proxyList) {
-      const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
+      const proxied = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
       try {
-        const res = await fetch(testUrl);
+        const res = await fetch(proxied);
         if (res.ok) {
           const html = await res.text();
           const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/);
           if (match) {
-            streamURL = match[1];
+            foundStream = match[1];
+            proxyUsed = proxy;
             break;
           }
         }
       } catch (e) {}
     }
 
-    // Αν δεν βρέθηκε .m3u8 ➜ iframe fallback
-    if (!streamURL.endsWith('.m3u8')) {
+    if (!foundStream) {
+      document.getElementById('current-channel-logo').src = '';
+      const nameEl = document.getElementById('current-channel-name');
+      if (nameEl && (!nameEl.textContent || nameEl.textContent.includes('Fallback'))) {
+        nameEl.textContent = 'Αγώνας (Iframe Fallback)';
+      }
       iframePlayer.style.display = 'block';
-      iframePlayer.src = streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      usedPlayer = 'iframe';
-      streamPerfMap[initialURL] = { proxy: '', player: usedPlayer };
+      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      cacheStream(streamURL, 'iframe', '');
       return;
     }
+
+    streamURL = foundStream;
   }
 
-  const isDirect = isDirectStream(streamURL);
-  const forceClappr = streamURL.includes('.ts');
+  const forceClappr = streamURL.includes('norhrgr.top') || streamURL.endsWith('.ts');
 
-  if (!forceClappr && isDirect) {
-    const { workingProxy, workingUrl } = await autoProxyFetch(streamURL);
+  // Αν δεν είναι Clappr, προσπάθησε με proxy
+  if (!forceClappr) {
+    const workingUrl = await autoProxyFetch(streamURL);
     if (workingUrl) {
+      proxyUsed = proxyList.find(p => workingUrl.startsWith(p)) || '';
       streamURL = workingUrl;
-      usedProxy = workingProxy;
     }
   }
+
+  const showVideoPlayer = () => {
+    videoPlayer.style.display = 'block';
+    if (subtitleURL) {
+      subtitleTrack.src = subtitleURL;
+      subtitleTrack.track.mode = 'showing';
+    }
+  };
 
   try {
     if (!forceClappr && Hls.isSupported() && streamURL.endsWith('.m3u8')) {
@@ -784,46 +806,42 @@ async function playStream(initialURL, subtitleURL = null) {
       hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-      videoPlayer.style.display = 'block';
-      usedPlayer = 'hls.js';
+      showVideoPlayer();
+      cacheStream(streamURL, 'hls.js', proxyUsed);
+      return;
     } else if (!forceClappr && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
       videoPlayer.src = streamURL;
       videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
-      videoPlayer.style.display = 'block';
-      usedPlayer = 'native';
+      showVideoPlayer();
+      cacheStream(streamURL, 'native-hls', proxyUsed);
+      return;
     } else if (!forceClappr && streamURL.endsWith('.mpd')) {
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
-      videoPlayer.style.display = 'block';
-      usedPlayer = 'dash.js';
-    } else if (!forceClappr && streamURL.match(/\.(mp4|webm)$/)) {
+      showVideoPlayer();
+      cacheStream(streamURL, 'dash.js', proxyUsed);
+      return;
+    } else if (!forceClappr && (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm'))) {
       videoPlayer.src = streamURL;
       videoPlayer.play();
-      videoPlayer.style.display = 'block';
-      usedPlayer = 'native';
-    } else {
-      throw new Error('No native support, fallback to Clappr');
+      showVideoPlayer();
+      cacheStream(streamURL, 'native-mp4', proxyUsed);
+      return;
     }
   } catch (e) {
-    console.warn('⚠️ Fallback to Clappr:', e);
-    clapprDiv.style.display = 'block';
-    new Clappr.Player({
-      source: streamURL,
-      parentId: '#clappr-player',
-      autoPlay: true,
-      width: '100%',
-      height: '100%'
-    });
-    usedPlayer = 'clappr';
+    console.warn('Fallback to Clappr due to error:', e);
   }
 
-  // ✅ Καταγραφή Proxy και Player
-  streamPerfMap[initialURL] = {
-    proxy: usedProxy,
-    player: usedPlayer
-  };
+  clapprDiv.style.display = 'block';
+  clapprPlayer = new Clappr.Player({
+    source: streamURL,
+    parentId: '#clappr-player',
+    autoPlay: true,
+    width: '100%',
+    height: '100%'
+  });
 
-  console.log('✅ Καταγράφηκε:', streamPerfMap[initialURL]);
+  cacheStream(streamURL, 'clappr', proxyUsed);
 }
 
 
