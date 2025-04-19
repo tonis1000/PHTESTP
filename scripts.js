@@ -746,14 +746,14 @@ async function playStream(initialURL, subtitleURL = null) {
   let streamURL = initialURL;
   let proxyUsed = '';
 
-  // STRM υποστήριξη
+  // 📦 STRM υποστήριξη
   if (isSTRM(streamURL)) {
     const resolved = await resolveSTRM(streamURL);
     if (resolved) streamURL = resolved;
     else return;
   }
 
-  // iframe ➜ προσπαθεί να βρει m3u8
+  // 🌐 iframe ➜ προσπαθεί να βρει m3u8
   if (isIframeStream(streamURL)) {
     let foundStream = null;
     for (let proxy of proxyList) {
@@ -789,7 +789,7 @@ async function playStream(initialURL, subtitleURL = null) {
 
   const forceClappr = streamURL.includes('norhrgr.top') || streamURL.endsWith('.ts');
 
-  // Αν δεν είναι Clappr, προσπάθησε με proxy
+  // 🌐 Αν δεν είναι Clappr, προσπάθησε με proxy
   if (!forceClappr) {
     const workingUrl = await autoProxyFetch(streamURL);
     if (workingUrl) {
@@ -835,9 +835,10 @@ async function playStream(initialURL, subtitleURL = null) {
       return;
     }
   } catch (e) {
-    console.warn('Fallback to Clappr due to error:', e);
+    console.warn('⚠️ Fallback to Clappr due to error:', e);
   }
 
+  // ⛳ Clappr fallback
   clapprDiv.style.display = 'block';
   clapprPlayer = new Clappr.Player({
     source: streamURL,
@@ -849,6 +850,7 @@ async function playStream(initialURL, subtitleURL = null) {
 
   cacheStream(streamURL, 'clappr', proxyUsed);
 }
+
 
 
 
