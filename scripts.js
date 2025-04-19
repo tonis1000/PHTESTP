@@ -1105,7 +1105,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-let lastSentCache = {};
 
 function hasStreamCacheChanged() {
   return JSON.stringify(globalStreamCache) !== JSON.stringify(lastSentCache);
