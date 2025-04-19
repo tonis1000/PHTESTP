@@ -720,6 +720,9 @@ async function playStream(initialURL, subtitleURL = null) {
       }
       iframePlayer.style.display = 'block';
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      
+      // ➕ Καταγραφή για iframe fallback
+      logStreamUsage(initialURL, streamURL, 'iframe');
       return;
     }
 
@@ -748,21 +751,29 @@ async function playStream(initialURL, subtitleURL = null) {
       hls.attachMedia(videoPlayer);
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
       showVideoPlayer();
+
+      logStreamUsage(initialURL, streamURL, 'hls.js');
       return;
     } else if (!forceClappr && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
       videoPlayer.src = streamURL;
       videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
       showVideoPlayer();
+
+      logStreamUsage(initialURL, streamURL, 'native-hls');
       return;
     } else if (!forceClappr && streamURL.endsWith('.mpd')) {
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
       showVideoPlayer();
+
+      logStreamUsage(initialURL, streamURL, 'dash.js');
       return;
     } else if (!forceClappr && (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm'))) {
       videoPlayer.src = streamURL;
       videoPlayer.play();
       showVideoPlayer();
+
+      logStreamUsage(initialURL, streamURL, 'native-mp4');
       return;
     }
   } catch (e) {
@@ -777,8 +788,71 @@ async function playStream(initialURL, subtitleURL = null) {
     width: '100%',
     height: '100%'
   });
+
+  logStreamUsage(initialURL, streamURL, 'clappr');
 }
 
+
+function logStreamUsage(initialUrl, finalUrl, playerUsed) {
+  const now = new Date().toISOString();
+  const proxyUsed = finalUrl !== initialUrl ? finalUrl.replace(initialUrl, '') : '';
+
+  if (!globalStreamCache[initialUrl]) {
+    globalStreamCache[initialUrl] = {
+      timestamp: now,
+      proxy: proxyUsed,
+      player: playerUsed
+    };
+    console.log('📦 Καταγραφή στο globalStreamCache:', initialUrl, globalStreamCache[initialUrl]);
+  }
+}
+
+
+const CACHE_UPLOAD_URL = 'https://yellow-hulking-guan.glitch.me/update-cache';
+let lastSentCache = {};
+
+// Συγκρίνει αν υπάρχουν νέες εγγραφές
+function hasNewEntries(current, previous) {
+  const currentKeys = Object.keys(current);
+  const previousKeys = Object.keys(previous);
+  if (currentKeys.length !== previousKeys.length) return true;
+
+  return currentKeys.some(key => {
+    return !previous[key] ||
+           previous[key].timestamp !== current[key].timestamp ||
+           previous[key].proxy !== current[key].proxy ||
+           previous[key].player !== current[key].player;
+  });
+}
+
+// Στέλνει το cache στον Glitch Server
+async function sendGlobalCacheIfUpdated() {
+  if (hasNewEntries(globalStreamCache, lastSentCache)) {
+    try {
+      const response = await fetch(CACHE_UPLOAD_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(globalStreamCache)
+      });
+
+      if (response.ok) {
+        console.log('✅ Το globalStreamCache στάλθηκε επιτυχώς στο Glitch API');
+        lastSentCache = JSON.parse(JSON.stringify(globalStreamCache)); // βαθύ αντίγραφο
+      } else {
+        console.warn('❌ Αποτυχία αποστολής στο API:', await response.text());
+      }
+    } catch (err) {
+      console.error('🚫 Σφάλμα κατά την αποστολή στο Glitch API:', err);
+    }
+  } else {
+    console.log('⏸️ Καμία αλλαγή, δεν στάλθηκε τίποτα στο Glitch.');
+  }
+}
+
+// ⏱️ Χρονιστής ανά 15 λεπτά
+setInterval(sendGlobalCacheIfUpdated, 15 * 60 * 1000);
 
 
 
