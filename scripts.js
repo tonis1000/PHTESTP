@@ -1105,4 +1105,38 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+let lastSentCache = {};
+
+function hasStreamCacheChanged() {
+  return JSON.stringify(globalStreamCache) !== JSON.stringify(lastSentCache);
+}
+
+function sendStreamCacheToServer() {
+  if (!hasStreamCacheChanged()) {
+    console.log('📭 Καμία αλλαγή στο cache, δεν έγινε αποστολή.');
+    return;
+  }
+
+  fetch('https://yellow-hulking-guan.glitch.me/update', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(globalStreamCache)
+  })
+  .then(res => {
+    if (res.ok) {
+      console.log('✅ Αποστολή cache στο Glitch επιτυχής.');
+      lastSentCache = JSON.parse(JSON.stringify(globalStreamCache)); // βαθύ αντίγραφο
+    } else {
+      console.error('❌ Σφάλμα κατά την αποστολή στο Glitch:', res.status);
+    }
+  })
+  .catch(err => {
+    console.error('⚠️ Σφάλμα σύνδεσης με το Glitch server:', err);
+  });
+}
+
+// 🕒 Εκτέλεση κάθε 15 λεπτά
+setInterval(sendStreamCacheToServer, 15 * 60 * 1000);
 
