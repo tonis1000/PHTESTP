@@ -1,3 +1,18 @@
 {
-  "message": "No cache found."
+  "message": "No cache found.",
+  "https://lakatamia.tv/app/chans/gr/mega.php": {
+    "timestamp": "2025-04-19T22:22:08.513Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://www.anacon.org/app/chans/gr/ert2s2.php": {
+    "timestamp": "2025-04-19T22:22:15.403Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "http://skai-live.siliconweb.com/media/cambria4/index.m3u8": {
+    "timestamp": "2025-04-19T22:22:59.372Z",
+    "proxy": "",
+    "player": "hls.js"
+  }
 }
