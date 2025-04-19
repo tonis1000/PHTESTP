@@ -1,7 +1,12 @@
 // 🔵 Global cache για URLs που εμφανίστηκαν
 
-// 🧠 Καταγραφή λειτουργικού Proxy και Player για κάθε URL
-const streamPerfMap = {}; // Κύρια μνήμη
+// ✅ 1. Τρέχον cache με proxy & player που έχουμε ήδη στο GitHub (π.χ. streamPerfMap.json)
+const streamPerfMap = {}; // Κύρια μνήμη (φορτώνεται από GitHub Action ή προεγκατεστημένο)
+
+// ✅ 2. Προσωρινή cache για νέα URLs που εμφανίζονται ή παίζουν
+const globalStreamCache = {}; // Τα νέα URLs που δεν υπάρχουν ακόμη στο streamPerfMap.json
+
+// ✅ 3. Προξυ λίστα για εναλλακτικές πηγές
 const proxyList = [
   '',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
@@ -11,13 +16,9 @@ const proxyList = [
   'https://api.allorigins.win/raw?url='
 ];
 
-
-// ✅ Δημιουργία προσωρινής global cache για καταγραφή
-const globalStreamCache = {};
-
-// ✅ Συνάρτηση για καταγραφή κάθε stream που παίζει
+// ✅ 4. Καταγραφή κάθε stream που παίζει (με player και proxy που χρησιμοποιήθηκε)
 function cacheStream(url, playerUsed, proxyUsed = '') {
-    if (!globalStreamCache[url]) {
+    if (!streamPerfMap[url] && !globalStreamCache[url]) {
         globalStreamCache[url] = {
             player: playerUsed,
             proxy: proxyUsed
@@ -25,8 +26,11 @@ function cacheStream(url, playerUsed, proxyUsed = '') {
     }
 }
 
-// ✅ Συνάρτηση αποστολής στον server
+// ✅ 5. Αποστολή των νέων URLs (globalStreamCache) στον Glitch server κάθε 15 λεπτά
 async function sendStreamPerfMapToServer() {
+    const newEntries = Object.keys(globalStreamCache);
+    if (newEntries.length === 0) return;
+
     try {
         const response = await fetch('https://abrupt-wary-attempt.glitch.me/save', {
             method: 'POST',
@@ -38,14 +42,16 @@ async function sendStreamPerfMapToServer() {
             throw new Error('Αποτυχία αποστολής στον server');
         }
 
-        console.log('✅ Επιτυχής αποστολή στο Glitch server');
+        console.log('✅ Επιτυχής αποστολή στο Glitch server:', newEntries.length, 'νέα streams');
+        Object.keys(globalStreamCache).forEach(key => delete globalStreamCache[key]);
     } catch (error) {
         console.error('❌ Σφάλμα κατά την αποστολή:', error);
     }
 }
 
-// ✅ Αυτόματη αποστολή κάθε 15 λεπτά
+// ✅ 6. Αυτόματη αποστολή στον server κάθε 15 λεπτά
 setInterval(sendStreamPerfMapToServer, 15 * 60 * 1000);
+
 
 
 
