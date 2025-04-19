@@ -1,6 +1,9 @@
 
 const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
 
+let streamPerfMap = {};  // Περιέχει proxy + player για κάθε stream
+
+
 
 
 // Funktion zum Laden der Playlist.m3u und Aktualisieren der Sidebar
