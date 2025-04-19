@@ -2,14 +2,41 @@
 
 // 🧠 Καταγραφή λειτουργικού Proxy και Player για κάθε URL
 const streamPerfMap = {}; // Κύρια μνήμη
-const proxyList = [
-  '',
-  'https://cors-anywhere-production-d9b6.up.railway.app/',
-  'https://tonis-proxy.onrender.com/',
-  'https://thingproxy.freeboard.io/fetch/',
-  'https://corsproxy.io/?url=',
-  'https://api.allorigins.win/raw?url='
-];
+
+// ✅ Δημιουργία προσωρινής global cache για καταγραφή
+const globalStreamCache = {};
+
+// ✅ Συνάρτηση για καταγραφή κάθε stream που παίζει
+function cacheStream(url, playerUsed, proxyUsed = '') {
+    if (!globalStreamCache[url]) {
+        globalStreamCache[url] = {
+            player: playerUsed,
+            proxy: proxyUsed
+        };
+    }
+}
+
+// ✅ Συνάρτηση αποστολής στον server
+async function sendStreamPerfMapToServer() {
+    try {
+        const response = await fetch('https://abrupt-wary-attempt.glitch.me/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(globalStreamCache)
+        });
+
+        if (!response.ok) {
+            throw new Error('Αποτυχία αποστολής στον server');
+        }
+
+        console.log('✅ Επιτυχής αποστολή στο Glitch server');
+    } catch (error) {
+        console.error('❌ Σφάλμα κατά την αποστολή:', error);
+    }
+}
+
+// ✅ Αυτόματη αποστολή κάθε 15 λεπτά
+setInterval(sendStreamPerfMapToServer, 15 * 60 * 1000);
 
 
 
