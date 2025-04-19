@@ -734,10 +734,22 @@ async function playStream(initialURL, subtitleURL = null) {
 
   const forceClappr = streamURL.includes('norhrgr.top') || streamURL.endsWith('.ts');
 
-  if (!forceClappr) {
+if (!forceClappr) {
+  if (streamPerfMap[initialURL] && streamPerfMap[initialURL].proxy) {
+    // ➤ Αν έχει proxy ήδη καταγεγραμμένο ➜ χρησιμοποίησέ τον
+    const direct = streamPerfMap[initialURL].proxy.endsWith('=') ?
+      streamPerfMap[initialURL].proxy + encodeURIComponent(initialURL) :
+      streamPerfMap[initialURL].proxy + initialURL;
+
+    streamURL = direct;
+    console.log('⚡ Χρήση cached proxy:', direct);
+  } else {
+    // ➤ Αλλιώς ψάξε κανονικά
     const workingUrl = await autoProxyFetch(streamURL);
     if (workingUrl) streamURL = workingUrl;
   }
+}
+
 
   const showVideoPlayer = () => {
     videoPlayer.style.display = 'block';
