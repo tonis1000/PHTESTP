@@ -675,6 +675,8 @@ async function autoProxyFetch(url) {
 }
 
 async function playStream(initialURL, subtitleURL = null) {
+  addToGlobalCache(initialURL); // ✅ Καταγραφή URL
+  
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
