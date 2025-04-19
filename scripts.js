@@ -662,6 +662,7 @@ async function resolveSTRM(url) {
   }
 }
 
+
 async function autoProxyFetch(url) {
   for (let proxy of proxyList) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
@@ -670,13 +671,17 @@ async function autoProxyFetch(url) {
       if (res.status === 403 || res.status === 405) {
         res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
       }
-      if (res.ok) return testUrl;
+      if (res.ok) {
+        return { workingProxy: proxy, workingUrl: testUrl };
+      }
     } catch (e) {
-      console.warn('Proxy failed:', proxy);
+      console.warn('❌ Proxy failed:', proxy);
     }
   }
-  return null;
+  return { workingProxy: null, workingUrl: null };
 }
+
+
 
 async function playStream(initialURL, subtitleURL = null) {
   addToGlobalCache(initialURL); // ✅ Καταγραφή URL
