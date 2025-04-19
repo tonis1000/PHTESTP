@@ -14,5 +14,60 @@
     "timestamp": "2025-04-19T22:22:59.372Z",
     "proxy": "",
     "player": "hls.js"
+  },
+  "https://ertflix.akamaized.net/ertlive/ertnews/default/playlist.m3u8": {
+    "timestamp": "2025-04-19T23:32:39.825Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "https://liveopencloud.siliconweb.com/1/ZlRza2R6L2tFRnFJ/eWVLSlQx/hls/live/playlist.m3u8": {
+    "timestamp": "2025-04-19T23:32:49.847Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "https://livestar.siliconweb.com/media/star4/star4newhd.m3u8": {
+    "timestamp": "2025-04-19T23:33:18.244Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "https://actionlive.siliconweb.com/actionabr/actiontv/playlist.m3u8": {
+    "timestamp": "2025-04-19T23:33:30.827Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "https://pro.free.hr:3887/live/pronewslive.m3u8": {
+    "timestamp": "2025-04-19T23:33:33.959Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "https://kontralive.siliconweb.com/live/kontratv/playlist.m3u8": {
+    "timestamp": "2025-04-19T23:33:36.763Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "https://web.onair-radio.eu/groovytv/groovytv/chunklist_w2146395179.m3u8": {
+    "timestamp": "2025-04-19T23:33:42.158Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "http://l2.cloudskep.com/ant1cm2/abr/playlist.m3u8": {
+    "timestamp": "2025-04-19T23:33:51.960Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "http://actionlive.siliconweb.com/actionabr/actiontv/playlist.m3u8": {
+    "timestamp": "2025-04-19T23:34:36.438Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "http://cdn5.smart-tv-data.com/local/action24/playlist.m3u8": {
+    "timestamp": "2025-04-19T23:34:50.071Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "https://wow.anixa.tv/live/mega/playlist.m3u8": {
+    "timestamp": "2025-04-19T23:37:56.947Z",
+    "proxy": "https://api.allorigins.win/raw?url=https%3A%2F%2Fwow.anixa.tv%2Flive%2Fmega%2Fplaylist.m3u8",
+    "player": "hls.js"
   }
 }
