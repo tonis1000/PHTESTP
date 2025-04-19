@@ -1,3 +1,126 @@
+// ✅ GLOBAL STREAM CACHE για καταγραφή όλων των URLs
+const globalStreamCache = new Set();
+
+// ➕ Καταγραφή από playStream()
+async function playStream(initialURL, subtitleURL = null) {
+  globalStreamCache.add(initialURL); // καταγραφή στο global cache
+
+  const videoPlayer = document.getElementById('video-player');
+  const iframePlayer = document.getElementById('iframe-player');
+  const clapprDiv = document.getElementById('clappr-player');
+  const subtitleTrack = document.getElementById('subtitle-track');
+
+  if (clapprPlayer) clapprPlayer.destroy();
+  videoPlayer.pause();
+  videoPlayer.removeAttribute('src');
+  videoPlayer.load();
+  iframePlayer.src = '';
+  subtitleTrack.src = '';
+  subtitleTrack.track.mode = 'hidden';
+
+  videoPlayer.style.display = 'none';
+  iframePlayer.style.display = 'none';
+  clapprDiv.style.display = 'none';
+
+  let streamURL = initialURL;
+
+  // STRM υποστήριξη
+  if (isSTRM(streamURL)) {
+    const resolved = await resolveSTRM(streamURL);
+    if (resolved) streamURL = resolved;
+    else return;
+  }
+
+  // Iframe ανίχνευση
+  if (isIframeStream(streamURL)) {
+    let foundStream = null;
+    for (let proxy of proxyList) {
+      const proxied = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
+      try {
+        const res = await fetch(proxied);
+        if (res.ok) {
+          const html = await res.text();
+          const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/);
+          if (match) {
+            foundStream = match[1];
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!foundStream) {
+      document.getElementById('current-channel-logo').src = '';
+      const nameEl = document.getElementById('current-channel-name');
+      if (nameEl && (!nameEl.textContent || nameEl.textContent.includes('Fallback'))) {
+        nameEl.textContent = 'Αγώνας (Iframe Fallback)';
+      }
+      iframePlayer.style.display = 'block';
+      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      return;
+    }
+
+    streamURL = foundStream;
+  }
+
+  const forceClappr = streamURL.includes('norhrgr.top') || streamURL.endsWith('.ts');
+
+  if (!forceClappr) {
+    const workingUrl = await autoProxyFetch(streamURL);
+    if (workingUrl) streamURL = workingUrl;
+  }
+
+  const showVideoPlayer = () => {
+    videoPlayer.style.display = 'block';
+    if (subtitleURL) {
+      subtitleTrack.src = subtitleURL;
+      subtitleTrack.track.mode = 'showing';
+    }
+  };
+
+  try {
+    if (!forceClappr && Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+      const hls = new Hls();
+      hls.loadSource(streamURL);
+      hls.attachMedia(videoPlayer);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+      showVideoPlayer();
+      return;
+    } else if (!forceClappr && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+      videoPlayer.src = streamURL;
+      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
+      showVideoPlayer();
+      return;
+    } else if (!forceClappr && streamURL.endsWith('.mpd')) {
+      const dashPlayer = dashjs.MediaPlayer().create();
+      dashPlayer.initialize(videoPlayer, streamURL, true);
+      showVideoPlayer();
+      return;
+    } else if (!forceClappr && (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm'))) {
+      videoPlayer.src = streamURL;
+      videoPlayer.play();
+      showVideoPlayer();
+      return;
+    }
+  } catch (e) {
+    console.warn('Fallback to Clappr due to error:', e);
+  }
+
+  clapprDiv.style.display = 'block';
+  clapprPlayer = new Clappr.Player({
+    source: streamURL,
+    parentId: '#clappr-player',
+    autoPlay: true,
+    width: '100%',
+    height: '100%'
+  });
+}
+
+
+
+
+
+
 
 // Funktion zum Laden der Playlist.m3u und Aktualisieren der Sidebar
 function loadMyPlaylist() {
