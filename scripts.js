@@ -548,6 +548,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Ereignisbehandler für Klicks auf Sender
 document.addEventListener('DOMContentLoaded', function () {
+
+  // 🔄 Φόρτωση proxy-map.json
+  fetch('https://tonis1000.github.io/PHTESTP/proxy-map.json')
+    .then(res => res.json())
+    .then(data => {
+      streamPerfMap = data;
+      console.log('🔁 Proxy-Player Map geladen:', streamPerfMap);
+    })
+    .catch(err => {
+      console.warn('⚠️ Fehler beim Laden des proxy-map.json:', err);
+    });
+    
     loadEPGData();
     updateClock();
     setInterval(updateClock, 1000);
