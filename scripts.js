@@ -1,7 +1,14 @@
 
 const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
 
-let streamPerfMap = {};  // Περιέχει proxy + player για κάθε stream
+let streamPerfMap = {};
+fetch('https://tonis1000.github.io/PHTESTP/proxy-map.json')
+  .then(res => res.json())
+  .then(data => {
+    streamPerfMap = data;
+    console.log('🔁 Proxy-Player Map geladen:', streamPerfMap);
+  });
+
 
 
 
@@ -682,6 +689,10 @@ async function autoProxyFetch(url) {
   return null;
 }
 
+
+
+
+
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
@@ -707,6 +718,31 @@ async function playStream(initialURL, subtitleURL = null) {
     const resolved = await resolveSTRM(streamURL);
     if (resolved) streamURL = resolved;
     else return;
+  }
+
+  // 👉 Αν υπάρχει καταγεγραμμένος player για αυτό το URL
+  if (streamPerfMap[initialURL]) {
+    const cached = streamPerfMap[initialURL];
+    if (cached.player === 'iframe') {
+      document.getElementById('current-channel-logo').src = '';
+      const nameEl = document.getElementById('current-channel-name');
+      if (nameEl && (!nameEl.textContent || nameEl.textContent.includes('Fallback'))) {
+        nameEl.textContent = 'Αγώνας (Iframe Fallback)';
+      }
+      iframePlayer.style.display = 'block';
+      iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      return;
+    } else if (cached.player === 'clappr') {
+      clapprDiv.style.display = 'block';
+      clapprPlayer = new Clappr.Player({
+        source: initialURL,
+        parentId: '#clappr-player',
+        autoPlay: true,
+        width: '100%',
+        height: '100%'
+      });
+      return;
+    }
   }
 
   // Iframe ανίχνευση
@@ -735,8 +771,7 @@ async function playStream(initialURL, subtitleURL = null) {
       }
       iframePlayer.style.display = 'block';
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      
-      // ➕ Καταγραφή για iframe fallback
+
       logStreamUsage(initialURL, streamURL, 'iframe');
       return;
     }
@@ -746,22 +781,19 @@ async function playStream(initialURL, subtitleURL = null) {
 
   const forceClappr = streamURL.includes('norhrgr.top') || streamURL.endsWith('.ts');
 
-if (!forceClappr) {
-  if (streamPerfMap[initialURL] && streamPerfMap[initialURL].proxy) {
-    // ➤ Αν έχει proxy ήδη καταγεγραμμένο ➜ χρησιμοποίησέ τον
-    const direct = streamPerfMap[initialURL].proxy.endsWith('=') ?
-      streamPerfMap[initialURL].proxy + encodeURIComponent(initialURL) :
-      streamPerfMap[initialURL].proxy + initialURL;
-
-    streamURL = direct;
-    console.log('⚡ Χρήση cached proxy:', direct);
-  } else {
-    // ➤ Αλλιώς ψάξε κανονικά
-    const workingUrl = await autoProxyFetch(streamURL);
-    if (workingUrl) streamURL = workingUrl;
+  // ➤ Αν υπάρχει cached proxy, χρησιμοποιήσέ τον
+  if (!forceClappr) {
+    if (streamPerfMap[initialURL] && streamPerfMap[initialURL].proxy) {
+      const direct = streamPerfMap[initialURL].proxy.endsWith('=') ?
+        streamPerfMap[initialURL].proxy + encodeURIComponent(initialURL) :
+        streamPerfMap[initialURL].proxy + initialURL;
+      streamURL = direct;
+      console.log('⚡ Χρήση cached proxy:', direct);
+    } else {
+      const workingUrl = await autoProxyFetch(streamURL);
+      if (workingUrl) streamURL = workingUrl;
+    }
   }
-}
-
 
   const showVideoPlayer = () => {
     videoPlayer.style.display = 'block';
@@ -818,6 +850,11 @@ if (!forceClappr) {
 
   logStreamUsage(initialURL, streamURL, 'clappr');
 }
+
+
+
+
+
 
 
 function logStreamUsage(initialUrl, finalUrl, playerUsed) {
