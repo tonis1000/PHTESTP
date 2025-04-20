@@ -1,4 +1,9 @@
-{
+{  
+  "https://foothubhd.online/*": {
+    "timestamp": "2025-04-20T13:45:00.000Z",
+    "proxy": "",
+    "player": "iframe"
+  },
   "message": "No cache found.",
   "https://lakatamia.tv/app/chans/gr/mega.php": {
     "timestamp": "2025-04-19T22:22:08.513Z",
