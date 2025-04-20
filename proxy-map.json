@@ -89,5 +89,45 @@
     "timestamp": "2025-04-20T06:56:26.998Z",
     "proxy": "",
     "player": "hls.js"
+  },
+  "http://iptvtree.net:8080/test_acct/ohbo1veifa4AhD/12": {
+    "timestamp": "2025-04-20T07:32:13.312Z",
+    "proxy": "https://water-instinctive-peach.glitch.me/",
+    "player": "native-mp4"
+  },
+  "http://alphatvlive.siliconweb.com/1/Y2Rsd1lUcUVoajcv/UVdCN25h/hls/live/playlist.m3u8": {
+    "timestamp": "2025-04-20T07:32:13.960Z",
+    "proxy": "https://api.allorigins.win/raw?url=http%3A%2F%2Falphatvlive.siliconweb.com%2F1%2FY2Rsd1lUcUVoajcv%2FUVdCN25h%2Fhls%2Flive%2Fplaylist.m3u8",
+    "player": "hls.js"
+  },
+  "https://raw.githubusercontent.com/jimgate07/grtv/refs/heads/master/Metadoseis/ant1%20bup.m3u8": {
+    "timestamp": "2025-04-20T07:37:38.925Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "http://iptvtree.net:8080/test_acct/ohbo1veifa4AhD/132": {
+    "timestamp": "2025-04-20T07:38:45.773Z",
+    "proxy": "https://water-instinctive-peach.glitch.me/",
+    "player": "native-mp4"
+  },
+  "https://ertflix.akamaized.net/ertlive/ert1/clrdef24723b/playlist.m3u8": {
+    "timestamp": "2025-04-20T07:39:12.979Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "http://kontralive.siliconweb.com/live/kontratv/playlist.m3u8": {
+    "timestamp": "2025-04-20T07:39:40.926Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "http://c98db5952cb54b358365984178fb898a.msvdn.net/live/S14373792/aGr5KG7RcZ9a/chunklist_b3710976.m3u8": {
+    "timestamp": "2025-04-20T07:42:03.620Z",
+    "proxy": "",
+    "player": "hls.js"
+  },
+  "https://onechannel.siliconweb.com/one/stream/chunks.m3u8": {
+    "timestamp": "2025-04-20T07:42:28.229Z",
+    "proxy": "",
+    "player": "hls.js"
   }
 }
