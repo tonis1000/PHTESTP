@@ -244,7 +244,11 @@ document.getElementById('copy-button').addEventListener('click', function() {
 });
 
 
-
+  // ⬇️ Χειροκίνητη αποστολή cache ⬇️
+  document.getElementById('send-cache-button')?.addEventListener('click', async () => {
+    console.log('⏩ Χειροκίνητη αποστολή cache...');
+    await sendGlobalCacheIfUpdated();
+  });
 
 
 // Globales Objekt für EPG-Daten
