@@ -1,4 +1,4 @@
-{  
+{
   "https://foothubhd.online/*": {
     "timestamp": "2025-04-20T13:45:00.000Z",
     "proxy": "",
@@ -158,5 +158,145 @@
     "timestamp": "2025-04-20T07:46:24.230Z",
     "proxy": "https://cors-anywhere-production-d9b6.up.railway.app/",
     "player": "native-mp4"
+  },
+  "https://foothubhd.online/cdn3/linka.php": {
+    "timestamp": "2025-04-20T07:56:24.427Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cdn3/linkd.php": {
+    "timestamp": "2025-04-20T07:56:28.078Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/1/link5.php": {
+    "timestamp": "2025-04-20T07:56:29.750Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/3/link4.php": {
+    "timestamp": "2025-04-20T07:56:33.504Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/3/link1.php": {
+    "timestamp": "2025-04-20T07:56:40.258Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cdn3/linke.php": {
+    "timestamp": "2025-04-20T07:56:47.523Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cdn3/linkeb.php": {
+    "timestamp": "2025-04-20T07:56:51.472Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/2/link5.php": {
+    "timestamp": "2025-04-20T07:56:59.624Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cdn3/linkc.php": {
+    "timestamp": "2025-04-20T07:57:25.996Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cdn3/linkcb.php": {
+    "timestamp": "2025-04-20T07:57:29.710Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/1/link3.php": {
+    "timestamp": "2025-04-20T07:57:35.217Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/4/link3.php": {
+    "timestamp": "2025-04-20T07:57:42.014Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/2/link3.php": {
+    "timestamp": "2025-04-20T07:57:47.782Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/3/link3.php": {
+    "timestamp": "2025-04-20T07:57:54.995Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cdn3/linkdb.php": {
+    "timestamp": "2025-04-20T07:58:04.015Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/1/link4.php": {
+    "timestamp": "2025-04-20T07:58:09.246Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/2/link4.php": {
+    "timestamp": "2025-04-20T07:58:17.733Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cdn3/linkf.php": {
+    "timestamp": "2025-04-20T07:58:31.378Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cdn3/linkfb.php": {
+    "timestamp": "2025-04-20T07:58:35.313Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/1/link6.php": {
+    "timestamp": "2025-04-20T07:58:39.477Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/2/link6.php": {
+    "timestamp": "2025-04-20T07:58:46.152Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/3/link6.php": {
+    "timestamp": "2025-04-20T07:58:50.296Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/3/link5.php": {
+    "timestamp": "2025-04-20T07:59:09.503Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cdn3/linkab.php": {
+    "timestamp": "2025-04-20T07:59:17.674Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/1/link1.php": {
+    "timestamp": "2025-04-20T07:59:22.572Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/4/link1.php": {
+    "timestamp": "2025-04-20T07:59:29.023Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cast/2/link1.php": {
+    "timestamp": "2025-04-20T07:59:33.205Z",
+    "proxy": "",
+    "player": "iframe"
+  },
+  "https://foothubhd.online/cdn3/linkb.php": {
+    "timestamp": "2025-04-20T07:59:45.655Z",
+    "proxy": "",
+    "player": "iframe"
   }
 }
