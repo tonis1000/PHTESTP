@@ -115,29 +115,18 @@ async function loadSportPlaylist() {
               a.style.fontWeight = 'bold';
             }
 
-            a.addEventListener('click', (e) => {
+a.addEventListener('click', (e) => {
   e.preventDefault();
   document.getElementById('stream-url').value = link;
   document.getElementById('current-channel-name').textContent = match.title;
 
-  // 🔁 Δυναμική εμφάνιση λογότυπων ομάδων μέσω Unsplash
+  // ➕ Εμφάνιση ποιο link πατήθηκε
   const logoContainer = document.getElementById('current-channel-logo');
-  logoContainer.innerHTML = ''; // Καθαρίζουμε προηγούμενα
-
-  const teams = match.title.split(/[-–—]| vs | VS | Vs /i).map(t => t.trim()).slice(0, 2);
-  teams.forEach(team => {
-    const img = document.createElement('img');
-    img.src = `https://source.unsplash.it/40x40/?${encodeURIComponent(team + ' λογότυπο png')}`;
-    img.alt = team;
-    img.title = team;
-    img.style.height = '28px';
-    img.style.marginRight = '8px';
-    img.style.borderRadius = '4px';
-    logoContainer.appendChild(img);
-  });
+  logoContainer.innerHTML = `<span style="color: gold; font-weight: bold;">🔗 ${a.textContent}</span>`;
 
   playStream(link);
 });
+
 
 
             
