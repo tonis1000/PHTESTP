@@ -919,8 +919,7 @@ async function sendGlobalCacheIfUpdated() {
   }
 }
 
-// ⏱️ Χρονιστής ανά 15 λεπτά
-setInterval(sendGlobalCacheIfUpdated, 15 * 60 * 1000);
+
 
 
 
