@@ -245,10 +245,21 @@ document.getElementById('copy-button').addEventListener('click', function() {
 
 
   // ⬇️ Χειροκίνητη αποστολή cache ⬇️
-  document.getElementById('send-cache-button')?.addEventListener('click', async () => {
-    console.log('⏩ Χειροκίνητη αποστολή cache...');
-    await sendGlobalCacheIfUpdated();
-  });
+document.getElementById('send-cache-button')?.addEventListener('click', async () => {
+  console.log('⏩ Χειροκίνητη αποστολή cache...');
+  await sendGlobalCacheIfUpdated();
+
+  const statusEl = document.getElementById('cache-status-message');
+  if (statusEl) {
+    statusEl.textContent = '✅ Το cache στάλθηκε και αποθηκεύτηκε!';
+    statusEl.style.display = 'block';
+    setTimeout(() => {
+      statusEl.style.display = 'none';
+      statusEl.textContent = '';
+    }, 3000); // εξαφανίζεται μετά από 3 δευτερόλεπτα
+  }
+});
+
 
 
 // Globales Objekt für EPG-Daten
