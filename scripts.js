@@ -124,18 +124,27 @@ async function loadSportPlaylist() {
             });
 
             // 🟢 Ανίχνευση LIVE preview από iframe (π.χ. .m3u8 μέσα στο HTML)
-            try {
-              const html = await fetch(proxy + link).then(res => res.text());
-              if (html.includes('.m3u8')) {
-                const liveBadge = document.createElement('span');
-                liveBadge.textContent = ' 🟢LIVE?';
-                liveBadge.style.color = 'limegreen';
-                liveBadge.style.fontWeight = 'bold';
-                a.appendChild(liveBadge);
-              }
-            } catch (e) {
-              console.warn('Δεν μπορώ να κάνω preview για:', link);
-            }
+try {
+  const html = await fetch(proxy + link).then(res => res.text());
+
+  if (
+    html.includes('.m3u8') ||
+    html.includes('<video') ||
+    html.includes('autoplay') ||
+    html.includes('hls.js') ||
+    html.includes('Clappr') ||
+    html.includes('jwplayer')
+  ) {
+    const liveBadge = document.createElement('span');
+    liveBadge.textContent = ' 🟢LIVE?';
+    liveBadge.style.color = 'limegreen';
+    liveBadge.style.fontWeight = 'bold';
+    a.appendChild(liveBadge);
+  }
+} catch (e) {
+  console.warn('Δεν μπορώ να κάνω preview για:', link);
+}
+
 
             linksDiv.appendChild(a);
           });
