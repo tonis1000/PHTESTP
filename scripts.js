@@ -104,7 +104,7 @@ async function loadSportPlaylist() {
           title.style.marginBottom = '3px';
 
           const linksDiv = document.createElement('div');
-          match.links.forEach((link, idx) => {
+          match.links.forEach(async (link, idx) => {
             const a = document.createElement('a');
             a.textContent = `[Link${idx + 1}]`;
             a.href = '#';
@@ -122,6 +122,20 @@ async function loadSportPlaylist() {
               document.getElementById('current-channel-logo').src = '';
               playStream(link);
             });
+
+            // 🟢 Ανίχνευση LIVE preview από iframe (π.χ. .m3u8 μέσα στο HTML)
+            try {
+              const html = await fetch(proxy + link).then(res => res.text());
+              if (html.includes('.m3u8')) {
+                const liveBadge = document.createElement('span');
+                liveBadge.textContent = ' 🟢LIVE?';
+                liveBadge.style.color = 'limegreen';
+                liveBadge.style.fontWeight = 'bold';
+                a.appendChild(liveBadge);
+              }
+            } catch (e) {
+              console.warn('Δεν μπορώ να κάνω preview για:', link);
+            }
 
             linksDiv.appendChild(a);
           });
@@ -171,6 +185,7 @@ async function loadSportPlaylist() {
     sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης αθλητικών γεγονότων.</li>';
   }
 }
+
 
   
 
