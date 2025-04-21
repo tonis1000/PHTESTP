@@ -247,18 +247,36 @@ document.getElementById('copy-button').addEventListener('click', function() {
   // ⬇️ Χειροκίνητη αποστολή cache ⬇️
 document.getElementById('send-cache-button')?.addEventListener('click', async () => {
   console.log('⏩ Χειροκίνητη αποστολή cache...');
-  await sendGlobalCacheIfUpdated();
 
   const statusEl = document.getElementById('cache-status-message');
-  if (statusEl) {
-    statusEl.textContent = '✅ Το cache στάλθηκε και αποθηκεύτηκε!';
-    statusEl.style.display = 'block';
-    setTimeout(() => {
-      statusEl.style.display = 'none';
-      statusEl.textContent = '';
-    }, 3000); // εξαφανίζεται μετά από 3 δευτερόλεπτα
+  statusEl.style.display = 'block';
+  statusEl.style.color = 'white';
+  statusEl.textContent = '⏳ Γίνεται αποστολή cache...';
+
+  try {
+    const result = await sendGlobalCacheIfUpdated(true); // με force = true
+
+    if (result === 'success') {
+      statusEl.style.color = 'lime';
+      statusEl.textContent = '✅ Το cache στάλθηκε και αποθηκεύτηκε!';
+    } else if (result === 'no-change') {
+      statusEl.style.color = 'orange';
+      statusEl.textContent = 'ℹ️ Δεν υπάρχουν νέες αλλαγές στο cache.';
+    } else {
+      statusEl.style.color = 'red';
+      statusEl.textContent = '❌ Σφάλμα αποστολής στο Glitch ή αποθήκευσης.';
+    }
+  } catch (e) {
+    statusEl.style.color = 'red';
+    statusEl.textContent = '🚫 Γενικό σφάλμα: ' + e.message;
   }
+
+  setTimeout(() => {
+    statusEl.style.display = 'none';
+    statusEl.textContent = '';
+  }, 3000);
 });
+
 
 
 
