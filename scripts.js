@@ -39,20 +39,29 @@ function adjustHourForGermany(timeStr) {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 }
 
+
 function isLiveGame(timeStr, dateStr) {
   const [h, m] = timeStr.split(':').map(Number);
   const [day, month, year] = dateStr.split('/').map(Number);
 
-  const gameDate = new Date(year, month - 1, day, h, m);
+  // Ώρα αγώνα (σε UTC, αφαιρώντας 3 ώρες από GR ώρα)
+  const gameDateUTC = new Date(Date.UTC(year, month - 1, day, h - 3, m));
+
+  // Τρέχουσα ώρα (UTC)
   const now = new Date();
+  const nowUTC = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
 
-  const isSameDay = gameDate.getDate() === now.getDate() &&
-                    gameDate.getMonth() === now.getMonth() &&
-                    gameDate.getFullYear() === now.getFullYear();
+  // Έλεγχος αν είναι η ίδια μέρα
+  const isSameDay = gameDateUTC.getUTCDate() === nowUTC.getUTCDate() &&
+                    gameDateUTC.getUTCMonth() === nowUTC.getUTCMonth() &&
+                    gameDateUTC.getUTCFullYear() === nowUTC.getUTCFullYear();
 
-  const diffMin = (now - gameDate) / 60000;
+  const diffMin = (nowUTC - gameDateUTC) / 60000;
   return isSameDay && diffMin >= -10 && diffMin <= 130;
 }
+
+
+
 
 async function loadSportPlaylist() {
   const sidebarList = document.getElementById('sidebar-list');
