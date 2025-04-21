@@ -670,15 +670,15 @@ function updateClock() {
 
 
 // scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
-
 const proxyList = [
-  '',
-  'https://water-instinctive-peach.glitch.me/',  
-  'https://tonis-proxy.onrender.com/',
+  'https://groovy-ossified-legal.glitch.me/?url=',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
+  'https://tonis-proxy.onrender.com/',
+  'https://api.allorigins.win/raw?url=',
   'https://thingproxy.freeboard.io/fetch/',
-  'https://corsproxy.io/?url=',
-  'https://api.allorigins.win/raw?url='
+  'https://corsproxy.io/?',
+  'https://cors.bridged.cc/',
+  'https://yacdn.org/proxy/'
 ];
 
 let clapprPlayer = null;
