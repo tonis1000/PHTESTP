@@ -923,30 +923,35 @@ function hasNewEntries(current, previous) {
 }
 
 // Στέλνει το cache στον Glitch Server
-async function sendGlobalCacheIfUpdated() {
-  if (hasNewEntries(globalStreamCache, lastSentCache)) {
-    try {
-      const response = await fetch(CACHE_UPLOAD_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(globalStreamCache)
-      });
-
-      if (response.ok) {
-        console.log('✅ Το globalStreamCache στάλθηκε επιτυχώς στο Glitch API');
-        lastSentCache = JSON.parse(JSON.stringify(globalStreamCache)); // βαθύ αντίγραφο
-      } else {
-        console.warn('❌ Αποτυχία αποστολής στο API:', await response.text());
-      }
-    } catch (err) {
-      console.error('🚫 Σφάλμα κατά την αποστολή στο Glitch API:', err);
-    }
-  } else {
+async function sendGlobalCacheIfUpdated(force = false) {
+  if (!force && !hasNewEntries(globalStreamCache, lastSentCache)) {
     console.log('⏸️ Καμία αλλαγή, δεν στάλθηκε τίποτα στο Glitch.');
+    return 'no-change';
+  }
+
+  try {
+    const response = await fetch(CACHE_UPLOAD_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(globalStreamCache)
+    });
+
+    if (response.ok) {
+      console.log('✅ Το globalStreamCache στάλθηκε επιτυχώς στο Glitch API');
+      lastSentCache = JSON.parse(JSON.stringify(globalStreamCache)); // βαθύ αντίγραφο
+      return 'success';
+    } else {
+      console.warn('❌ Αποτυχία αποστολής στο API:', await response.text());
+      return 'error';
+    }
+  } catch (err) {
+    console.error('🚫 Σφάλμα κατά την αποστολή στο Glitch API:', err);
+    return 'error';
   }
 }
+
 
 
 
