@@ -156,7 +156,7 @@ async function loadSportPlaylist() {
       if (gameMatches.length && linkMatches.length) {
         gameMatches.forEach(game => {
           matchesForDay.push({
-            time: adjustHourForGermany(game[1]),
+            time: game[1], // κρατάμε την ώρα GR όπως είναι
             title: game[2].trim(),
             links: linkMatches,
             date: currentDate
