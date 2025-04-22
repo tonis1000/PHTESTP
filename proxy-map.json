@@ -9,6 +9,11 @@
     "proxy": "",
     "player": "iframe"
   },
+    "http://www.anacon.org/app/chans/gr/ert1s2image.php": {
+    "timestamp": "2025-04-19T22:22:08.513Z",
+    "proxy": "",
+    "player": "iframe"
+  },
   "https://www.anacon.org/app/chans/gr/ert2s2.php": {
     "timestamp": "2025-04-19T22:22:15.403Z",
     "proxy": "",
