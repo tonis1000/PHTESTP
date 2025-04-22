@@ -121,9 +121,7 @@ a.addEventListener('click', (e) => {
 
 
 
-            
-
-            // 🟢 Ανίχνευση LIVE preview από iframe (π.χ. .m3u8 μέσα στο HTML)
+// 🟢 Ανίχνευση LIVE preview από iframe (π.χ. .m3u8 μέσα στο HTML)
 try {
   const html = await fetch(proxy + link).then(res => res.text());
 
@@ -145,51 +143,55 @@ try {
   console.warn('Δεν μπορώ να κάνω preview για:', link);
 }
 
+linksDiv.appendChild(a);
+});
 
-            linksDiv.appendChild(a);
-          });
+li.appendChild(title);
+li.appendChild(linksDiv);
+sidebarList.appendChild(li);
+});
 
-          li.appendChild(title);
-          li.appendChild(linksDiv);
-          sidebarList.appendChild(li);
-        });
-
-        matchesForDay = [];
-      }
-    };
-
-    for (let line of lines) {
-      line = line.trim();
-      if (!line) continue;
-
-      const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+)\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-if (dateMatch) {
-  flushDay();
-
-  const weekdayFromText = dateMatch[1].toLowerCase(); // π.χ. "τετάρτη"
-  const day = parseInt(dateMatch[2], 10);
-  const month = parseInt(dateMatch[3], 10);
-  const year = parseInt(dateMatch[4], 10);
-
-  // Φτιάχνει αρχική ημερομηνία που έγραψε
-  let date = new Date(year, month - 1, day);
-  let actualWeekday = date.toLocaleDateString('el-GR', { weekday: 'long' }).toLowerCase();
-
-  // Αν η ημέρα από το κείμενο δεν ταιριάζει με την ημερομηνία, διορθώνουμε
-  if (actualWeekday !== weekdayFromText) {
-    console.warn(`⚠️ Λάθος ημέρα: "${weekdayFromText}" ≠ ${actualWeekday} (${day}/${month}/${year}) ➜ διορθώνεται...`);
-    for (let i = 0; i < 7; i++) {
-      date.setDate(date.getDate() + 1);
-      actualWeekday = date.toLocaleDateString('el-GR', { weekday: 'long' }).toLowerCase();
-      if (actualWeekday === weekdayFromText) break;
-    }
-  }
-
-  // Τελική αποθήκευση
-  currentDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-  currentDateWithDay = `${date.toLocaleDateString('el-GR', { weekday: 'long' })} ${currentDate}`;
-  continue;
+matchesForDay = [];
 }
+};
+
+// 🔁 Ανάλυση κάθε γραμμής του αρχείου
+for (let line of lines) {
+  line = line.trim();
+  if (!line) continue;
+
+  // ✅ Εντοπισμός header "ΠΡΟΓΡΑΜΜΑ ..."
+  const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+)\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (dateMatch) {
+    flushDay(); // αποθήκευση των προηγούμενων αγώνων
+
+    const weekdayFromText = dateMatch[1].toLowerCase(); // π.χ. "τετάρτη"
+    const day = parseInt(dateMatch[2], 10);
+    const month = parseInt(dateMatch[3], 10);
+    const year = parseInt(dateMatch[4], 10);
+
+    // 👉 Δημιουργούμε την αρχική ημερομηνία από τα νούμερα
+    let date = new Date(year, month - 1, day);
+    let actualWeekday = date.toLocaleDateString('el-GR', { weekday: 'long' }).toLowerCase();
+
+    // ⚠️ Έλεγχος αν είναι λάθος η ημέρα (π.χ. "Τετάρτη 22/4" ενώ 22/4 είναι Τρίτη)
+    if (actualWeekday !== weekdayFromText) {
+      console.warn(`⚠️ Λάθος ημέρα: "${weekdayFromText}" ≠ ${actualWeekday} (${day}/${month}/${year}) ➜ διορθώνεται...`);
+      for (let i = 0; i < 7; i++) {
+        date.setDate(date.getDate() + 1); // πήγαινε 1 μέρα μπροστά
+        actualWeekday = date.toLocaleDateString('el-GR', { weekday: 'long' }).toLowerCase();
+        if (actualWeekday === weekdayFromText) break;
+      }
+    }
+
+    // 📅 Οριστική αποθήκευση διορθωμένης ημερομηνίας
+    currentDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+    currentDateWithDay = `${date.toLocaleDateString('el-GR', { weekday: 'long' })} ${currentDate}`;
+    continue;
+  }
+            
+
+
 
 
       const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^\/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)];
