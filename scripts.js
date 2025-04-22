@@ -1114,14 +1114,11 @@ function sendStreamCacheToServer() {
     console.error('⚠️ Σφάλμα σύνδεσης με το Glitch server:', err);
   });
 }
-document.addEventListener('DOMContentLoaded', function () {
 
-  
-  
-  
-  
-  
-  
+
+
+
+document.addEventListener('DOMContentLoaded', function () {  
   // 🔄 Φόρτωση proxy-map.json
   fetch('https://tonis1000.github.io/PHTESTP/proxy-map.json')
     .then(res => res.json())
