@@ -607,84 +607,7 @@ function checkStreamStatus() {
 }
 
 
-// filter-online-button
-document.addEventListener('DOMContentLoaded', function () {
-    const filterOnlineButton = document.getElementById('filter-online-button');
 
-    filterOnlineButton.addEventListener('click', function () {
-        const items = document.querySelectorAll('#sidebar-list li');
-        items.forEach(item => {
-            const channelInfo = item.querySelector('.channel-info');
-            if (channelInfo && channelInfo.classList.contains('online')) {
-                item.style.display = ''; // Zeige online Sender
-            } else {
-                item.style.display = 'none'; // Verstecke nicht-online Sender
-            }
-        });
-    });
-});
-
-// Deine bestehende checkStreamStatus-Funktion bleibt unverändert.
-
-
-// Ereignisbehandler für Klicks auf Sender
-document.addEventListener('DOMContentLoaded', function () {
-
-  // 🔄 Φόρτωση proxy-map.json
-  fetch('https://tonis1000.github.io/PHTESTP/proxy-map.json')
-    .then(res => res.json())
-    .then(data => {
-      streamPerfMap = data;
-      console.log('🔁 Proxy-Player Map geladen:', streamPerfMap);
-    })
-    .catch(err => {
-      console.warn('⚠️ Fehler beim Laden des proxy-map.json:', err);
-    });
-    
-    loadEPGData();
-    updateClock();
-    setInterval(updateClock, 1000);
-    document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
-    document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
-    document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
-
-
-    const sidebarList = document.getElementById('sidebar-list');
-    sidebarList.addEventListener('click', function (event) {
-        const channelInfo = event.target.closest('.channel-info');
-        if (channelInfo) {
-            const streamURL = channelInfo.dataset.stream;
-            const channelId = channelInfo.dataset.channelId;
-            const programInfo = getCurrentProgram(channelId);
-
-            setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
-            playStream(streamURL);
-
-            // Aktualisieren der Programmbeschreibung
-            updatePlayerDescription(programInfo.title, programInfo.description);
-        }
-    });
-
-    setInterval(checkStreamStatus, 60000);
-
-    const playButton = document.getElementById('play-button');
-    const streamUrlInput = document.getElementById('stream-url');
-
-    const playStreamFromInput = () => {
-        const streamUrl = streamUrlInput.value;
-        if (streamUrl) {
-            playStream(streamUrl);
-        }
-    };
-
-    playButton.addEventListener('click', playStreamFromInput);
-
-    streamUrlInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            playStreamFromInput();
-        }
-    });
-});
 
 
 
@@ -1161,72 +1084,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-document.addEventListener('DOMContentLoaded', function () {
-    const filterOnlineButton = document.getElementById('filter-online-button');
-
-    // Event-Listener für den Klick auf den Filter-Button
-    filterOnlineButton.addEventListener('click', function () {
-        const items = document.querySelectorAll('#sidebar-list li'); // Alle Listeneinträge in der Sidebar abrufen
-        items.forEach(item => {
-            const channelInfo = item.querySelector('.channel-info'); // Suche nach dem Channel-Info-Element in jedem Listeneintrag
-            if (channelInfo && channelInfo.classList.contains('online')) {
-                item.style.display = ''; // Zeige den Eintrag, wenn der Sender online ist
-            } else {
-                item.style.display = 'none'; // Verstecke den Eintrag, wenn der Sender offline ist
-            }
-        });
-    });
-});
-
-
-const showAllButton = document.getElementById('show-all-button');
-
-showAllButton.addEventListener('click', function () {
-    const items = document.querySelectorAll('#sidebar-list li');
-    items.forEach(item => {
-        item.style.display = ''; // Zeige alle Sender an
-    });
-});
-
-
-
-
-// Funktion zum Filtern der Senderliste und Abspielen des ersten sichtbaren Ergebnisses bei Enter
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('search-input');
-
-    // Event-Listener für die Eingabe im Suchfeld
-    searchInput.addEventListener('input', function() {
-        const filter = searchInput.value.toLowerCase();
-        const sidebarList = document.getElementById('sidebar-list');
-        const items = sidebarList.getElementsByTagName('li');
-
-        let firstVisibleItem = null;
-
-        Array.from(items).forEach(item => {
-            const text = item.textContent || item.innerText;
-            if (text.toLowerCase().includes(filter)) {
-                item.style.display = ''; // Zeige den Eintrag
-                if (!firstVisibleItem) {
-                    firstVisibleItem = item; // Setze das erste sichtbare Element
-                }
-            } else {
-                item.style.display = 'none'; // Verstecke den Eintrag
-            }
-        });
-
-        // Event-Listener für die Enter-Taste
-        searchInput.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
-                if (firstVisibleItem) {
-                    const streamURL = firstVisibleItem.querySelector('.channel-info').dataset.stream;
-                    playStream(streamURL);
-                }
-            }
-        });
-    });
-});
-
 
 function hasStreamCacheChanged() {
   return JSON.stringify(globalStreamCache) !== JSON.stringify(lastSentCache);
@@ -1257,7 +1114,102 @@ function sendStreamCacheToServer() {
     console.error('⚠️ Σφάλμα σύνδεσης με το Glitch server:', err);
   });
 }
+document.addEventListener('DOMContentLoaded', function () {
+  // 🔄 Φόρτωση proxy-map.json
+  fetch('https://tonis1000.github.io/PHTESTP/proxy-map.json')
+    .then(res => res.json())
+    .then(data => {
+      streamPerfMap = data;
+      console.log('🔁 Proxy-Player Map geladen:', streamPerfMap);
+    })
+    .catch(err => {
+      console.warn('⚠️ Fehler beim Laden des proxy-map.json:', err);
+    });
+    
+  loadEPGData();
+  updateClock();
+  setInterval(updateClock, 1000);
+  document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
+  document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
+  document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
 
-// 🕒 Εκτέλεση κάθε 15 λεπτά
-setInterval(sendStreamCacheToServer, 15 * 60 * 1000);
+  const sidebarList = document.getElementById('sidebar-list');
+  sidebarList.addEventListener('click', function (event) {
+    const channelInfo = event.target.closest('.channel-info');
+    if (channelInfo) {
+      const streamURL = channelInfo.dataset.stream;
+      const channelId = channelInfo.dataset.channelId;
+      const programInfo = getCurrentProgram(channelId);
 
+      setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
+      playStream(streamURL);
+
+      // Aktualisieren der Programmbeschreibung
+      updatePlayerDescription(programInfo.title, programInfo.description);
+    }
+  });
+
+  setInterval(checkStreamStatus, 60000);
+
+  const playButton = document.getElementById('play-button');
+  const streamUrlInput = document.getElementById('stream-url');
+
+  const playStreamFromInput = () => {
+    const streamUrl = streamUrlInput.value;
+    if (streamUrl) {
+      playStream(streamUrl);
+    }
+  };
+
+  playButton.addEventListener('click', playStreamFromInput);
+
+  streamUrlInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      playStreamFromInput();
+    }
+  });
+
+  // Προσθήκη των νέων event listeners
+  const filterOnlineButton = document.getElementById('filter-online-button');
+  filterOnlineButton.addEventListener('click', function() {
+    const items = document.querySelectorAll('#sidebar-list li');
+    items.forEach(item => {
+      const channelInfo = item.querySelector('.channel-info');
+      if (channelInfo && channelInfo.classList.contains('online')) {
+        item.style.display = '';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  });
+
+  const showAllButton = document.getElementById('show-all-button');
+  showAllButton.addEventListener('click', function() {
+    const items = document.querySelectorAll('#sidebar-list li');
+    items.forEach(item => {
+      item.style.display = '';
+    });
+  });
+
+  const searchInput = document.getElementById('search-input');
+  searchInput.addEventListener('input', function() {
+    const filter = searchInput.value.toLowerCase();
+    const sidebarList = document.getElementById('sidebar-list');
+    const items = sidebarList.getElementsByTagName('li');
+
+    Array.from(items).forEach(item => {
+      const text = item.textContent || item.innerText;
+      item.style.display = text.toLowerCase().includes(filter) ? '' : 'none';
+    });
+  });
+
+  searchInput.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') {
+      const firstVisibleItem = document.querySelector('#sidebar-list li[style=""]');
+      if (firstVisibleItem) {
+        const streamURL = firstVisibleItem.querySelector('.channel-info').dataset.stream;
+        playStream(streamURL);
+      }
+    }
+  });
+});
