@@ -2,14 +2,6 @@
 const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
 
 let streamPerfMap = {};
-fetch('https://tonis1000.github.io/PHTESTP/proxy-map.json')
-  .then(res => res.json())
-  .then(data => {
-    streamPerfMap = data;
-    console.log('🔁 Proxy-Player Map geladen:', streamPerfMap);
-  });
-
-
 
 
 
@@ -470,32 +462,6 @@ function updatePlayerDescription(title, description) {
             }
         }
 
-
-
-// Im Event-Handler für den Klick auf einen Sender
-const sidebarList = document.getElementById('sidebar-list');
-sidebarList.addEventListener('click', function (event) {
-    const channelInfo = event.target.closest('.channel-info');
-    if (channelInfo) {
-        const channelId = channelInfo.dataset.channelId;
-        const programInfo = getCurrentProgram(channelId);
-
-        // Aktualisiert den Player mit der aktuellen Sendung
-        setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, channelInfo.dataset.stream);
-        playStream(channelInfo.dataset.stream);
-
-        // Aktualisiert die Programmbeschreibung
-        updatePlayerDescription(programInfo.title, programInfo.description);
-
-        // Aktualisiert die nächsten Programme
-        updateNextPrograms(channelId);
-
-        // Zeigt das Logo des ausgewählten Senders an
-        const logoContainer = document.getElementById('current-channel-logo');
-        const logoImg = channelInfo.querySelector('.logo-container img').src;
-        logoContainer.src = logoImg;
-    }
-});
 
 
 
@@ -961,39 +927,6 @@ function convertSrtToVtt(srtContent) {
 
 
 
-        // Event-Listener für den Play-Button und Datei-Eingabe
-        document.addEventListener('DOMContentLoaded', function () {
-            const playButton = document.getElementById('play-button');
-            const streamUrlInput = document.getElementById('stream-url');
-            const subtitleFileInput = document.getElementById('subtitle-file');
-
-            const playStreamFromInput = () => {
-                const streamUrl = streamUrlInput.value;
-                const subtitleFile = subtitleFileInput.files[0];
-                if (streamUrl) {
-                    if (subtitleFile) {
-                        handleSubtitleFile(subtitleFile);
-                    }
-                    playStream(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
-                }
-            };
-
-            playButton.addEventListener('click', playStreamFromInput);
-
-            streamUrlInput.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    playStreamFromInput();
-                }
-            });
-
-            subtitleFileInput.addEventListener('change', (event) => {
-                const subtitleFile = event.target.files[0];
-                if (subtitleFile) {
-                    handleSubtitleFile(subtitleFile);
-                }
-            });
-        });
-
 
 
 
@@ -1117,8 +1050,8 @@ function sendStreamCacheToServer() {
 
 
 
-
-document.addEventListener('DOMContentLoaded', function () {  
+// Ο ενιαίος και σωστός DOMContentLoaded block με όλα τα event listeners
+document.addEventListener('DOMContentLoaded', function () {
   // 🔄 Φόρτωση proxy-map.json
   fetch('https://tonis1000.github.io/PHTESTP/proxy-map.json')
     .then(res => res.json())
@@ -1129,10 +1062,11 @@ document.addEventListener('DOMContentLoaded', function () {
     .catch(err => {
       console.warn('⚠️ Fehler beim Laden des proxy-map.json:', err);
     });
-    
+
   loadEPGData();
   updateClock();
   setInterval(updateClock, 1000);
+
   document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
   document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
   document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
@@ -1148,8 +1082,12 @@ document.addEventListener('DOMContentLoaded', function () {
       setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
       playStream(streamURL);
 
-      // Aktualisieren der Programmbeschreibung
       updatePlayerDescription(programInfo.title, programInfo.description);
+      updateNextPrograms(channelId);
+
+      const logoContainer = document.getElementById('current-channel-logo');
+      const logoImg = channelInfo.querySelector('.logo-container img').src;
+      logoContainer.src = logoImg;
     }
   });
 
@@ -1157,57 +1095,40 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const playButton = document.getElementById('play-button');
   const streamUrlInput = document.getElementById('stream-url');
+  const subtitleFileInput = document.getElementById('subtitle-file');
 
   const playStreamFromInput = () => {
     const streamUrl = streamUrlInput.value;
+    const subtitleFile = subtitleFileInput?.files?.[0];
     if (streamUrl) {
-      playStream(streamUrl);
+      if (subtitleFile) {
+        handleSubtitleFile(subtitleFile);
+      }
+      playStream(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
     }
   };
 
   playButton.addEventListener('click', playStreamFromInput);
-
   streamUrlInput.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      playStreamFromInput();
-    }
+    if (event.key === 'Enter') playStreamFromInput();
+  });
+  subtitleFileInput?.addEventListener('change', (event) => {
+    const subtitleFile = event.target.files[0];
+    if (subtitleFile) handleSubtitleFile(subtitleFile);
   });
 
-  // Προσθήκη των νέων event listeners
-  const filterOnlineButton = document.getElementById('filter-online-button');
-  filterOnlineButton.addEventListener('click', function() {
-    const items = document.querySelectorAll('#sidebar-list li');
-    items.forEach(item => {
-      const channelInfo = item.querySelector('.channel-info');
-      if (channelInfo && channelInfo.classList.contains('online')) {
-        item.style.display = '';
-      } else {
-        item.style.display = 'none';
-      }
-    });
-  });
-
-  const showAllButton = document.getElementById('show-all-button');
-  showAllButton.addEventListener('click', function() {
-    const items = document.querySelectorAll('#sidebar-list li');
-    items.forEach(item => {
-      item.style.display = '';
-    });
-  });
-
+  // 🔍 Αναζήτηση
   const searchInput = document.getElementById('search-input');
-  searchInput.addEventListener('input', function() {
+  searchInput.addEventListener('input', function () {
     const filter = searchInput.value.toLowerCase();
-    const sidebarList = document.getElementById('sidebar-list');
-    const items = sidebarList.getElementsByTagName('li');
-
-    Array.from(items).forEach(item => {
+    const items = document.querySelectorAll('#sidebar-list li');
+    items.forEach(item => {
       const text = item.textContent || item.innerText;
       item.style.display = text.toLowerCase().includes(filter) ? '' : 'none';
     });
   });
 
-  searchInput.addEventListener('keydown', function(event) {
+  searchInput.addEventListener('keydown', function (event) {
     if (event.key === 'Enter') {
       const firstVisibleItem = document.querySelector('#sidebar-list li[style=""]');
       if (firstVisibleItem) {
@@ -1216,4 +1137,27 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
   });
+
+  // Φίλτρο μόνο Online
+  const filterOnlineButton = document.getElementById('filter-online-button');
+  filterOnlineButton.addEventListener('click', function () {
+    const items = document.querySelectorAll('#sidebar-list li');
+    items.forEach(item => {
+      const channelInfo = item.querySelector('.channel-info');
+      item.style.display = (channelInfo && channelInfo.classList.contains('online')) ? '' : 'none';
+    });
+  });
+
+  // Εμφάνιση Όλων
+  const showAllButton = document.getElementById('show-all-button');
+  showAllButton.addEventListener('click', function () {
+    const items = document.querySelectorAll('#sidebar-list li');
+    items.forEach(item => item.style.display = '');
+  });
+
+  // Playlist-URLs φορτώνουν όταν κάνεις κλικ στο playlist-urls panel
+  const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
+  if (playlistUrlsTitle) {
+    playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
+  }
 });
