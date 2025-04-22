@@ -1053,7 +1053,7 @@ function sendStreamCacheToServer() {
 // Ο ενιαίος και σωστός DOMContentLoaded block με όλα τα event listeners
 document.addEventListener('DOMContentLoaded', function () {
   // 🔄 Φόρτωση proxy-map.json
-  fetch('https://tonis1000.github.io/PHTESTP/proxy-map.json')
+  fetch('https://yellow-hulking-guan.glitch.me/proxy-map.json')
     .then(res => res.json())
     .then(data => {
       streamPerfMap = data;
