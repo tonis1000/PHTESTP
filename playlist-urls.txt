@@ -2,6 +2,7 @@
 possiblelife/gtrvlst,https://raw.githubusercontent.com/possiblelife/gtrvlst/refs/heads/main/gtrv.txt
 jimgate07/grtv,https://raw.githubusercontent.com/jimgate07/grtv/refs/heads/master/android.m3u
 And73Smi/IPTV-M3U,https://raw.githubusercontent.com/And73Smi/IPTV-M3U/refs/heads/main/iptv.m3u
+Michatec/Greek-IPTV,https://raw.githubusercontent.com/Michatec/Greek-IPTV/refs/heads/main/greek-iptv.m3u8
 
 Greece POLLA,https://raw.githubusercontent.com/gdiolitsis/greek-iptv/97a831afe2ce5b6104b465d94533125f518fa423/ForestRock_GR
 Greece,https://raw.githubusercontent.com/And73Smi/IPTV-M3U/9638d418f74f662ab62525ca67697829f1c650a8/iptv.m3u
