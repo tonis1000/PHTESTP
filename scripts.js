@@ -653,9 +653,17 @@ function isDirectStream(url) {
   return /\.(m3u8|ts|mp4|mpd|webm)$/i.test(url);
 }
 
-function isSTRM(url) {
-  return url.endsWith('.strm');
+function isIframeStream(url) {
+  url = url.toLowerCase();
+  return (
+    /embed|\.php$|\.html$/.test(url) ||
+    url.includes('anacon.org') ||
+    url.includes('lakatamia.tv') ||
+    url.includes('sportskeeda') ||
+    url.includes('worldstreams.tv')
+  );
 }
+
 
 async function resolveSTRM(url) {
   try {
