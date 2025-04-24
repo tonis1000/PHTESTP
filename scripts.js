@@ -979,14 +979,12 @@ function toggleContent(contentId) {
 function loadPlaylistUrls() {
     fetch('playlist-urls.txt')
         .then(response => {
-            if (!response.ok) {
-                throw new Error('Netzwerkantwort war nicht ok.');
-            }
+            if (!response.ok) throw new Error('Netzwerkantwort war nicht ok.');
             return response.text();
         })
         .then(data => {
             const playlistList = document.getElementById('playlist-url-list');
-            playlistList.innerHTML = ''; // Leert die Liste, um neue Einträge hinzuzufügen
+            playlistList.innerHTML = '';
 
             const lines = data.split('\n');
             lines.forEach(line => {
@@ -998,43 +996,49 @@ function loadPlaylistUrls() {
                         const li = document.createElement('li');
                         const link = document.createElement('a');
                         link.textContent = label;
-                        link.href = '#'; // Verhindert, dass der Link die Seite neu lädt
-                        link.addEventListener('click', function(event) {
-                            event.preventDefault(); // Verhindert, dass der Link die Seite neu lädt
-                            document.getElementById('stream-url').value = url; // Setzt die URL in das Eingabefeld stream-url
+                        link.href = '#';
+                        link.classList.add('source-entry');
 
-                            // Nach dem Setzen der URL in das Eingabefeld
-                            console.log('Versuche URL abzurufen:', url); // Debugging-Log
+                        link.addEventListener('click', function (event) {
+                            event.preventDefault();
+
+                            // Αφαίρεσε την .active από όλες τις άλλες
+                            document.querySelectorAll('#playlist-url-list a').forEach(a => a.classList.remove('active'));
+                            // Πρόσθεσε .active στο τρέχον
+                            this.classList.add('active');
+
+                            document.getElementById('stream-url').value = url;
+
+                            console.log('Versuche URL abzurufen:', url);
                             fetch(url)
                                 .then(response => {
-                                    if (!response.ok) {
-                                        throw new Error('Netzwerkantwort war nicht ok.');
-                                    }
+                                    if (!response.ok) throw new Error('Netzwerkantwort war nicht ok.');
                                     return response.text();
                                 })
                                 .then(data => {
-                                    console.log('Daten erfolgreich geladen. Verarbeite M3U-Daten.'); // Debugging-Log
+                                    console.log('Daten erfolgreich geladen. Verarbeite M3U-Daten.');
                                     updateSidebarFromM3U(data);
                                 })
                                 .catch(error => {
                                     console.error('Fehler beim Laden der Playlist:', error);
-                                    alert('Fehler beim Laden der Playlist. Siehe Konsole für Details.'); // Optional: Benutzer informieren
+                                    alert('Fehler beim Laden der Playlist. Siehe Konsole für Details.');
                                 });
                         });
 
                         li.appendChild(link);
                         playlistList.appendChild(li);
                     } else {
-                        console.warn('Zeile hat kein Label oder keine URL:', trimmedLine); // Debugging-Log für leere Zeilen
+                        console.warn('Zeile hat kein Label oder keine URL:', trimmedLine);
                     }
                 }
             });
         })
         .catch(error => {
             console.error('Fehler beim Laden der Playlist URLs:', error);
-            alert('Fehler beim Laden der Playlist-URLs. Siehe Konsole für Details.'); // Optional: Benutzer informieren
+            alert('Fehler beim Laden der Playlist-URLs. Siehe Konsole für Details.');
         });
 }
+
 
 // Event-Listener für den Klick auf den Playlist-URLs-Titel
 document.addEventListener('DOMContentLoaded', function() {
