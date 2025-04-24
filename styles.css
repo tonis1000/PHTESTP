@@ -513,3 +513,7 @@ div.next-program h4 {
     color: #ffff66 !important;   /* Πιο φανταχτερό στο hover */
     text-decoration: underline;
 }
+
+#playlist-url-list a.active {
+    color: #90ee90 !important; /* Ανοιχτό πράσινο */
+}
