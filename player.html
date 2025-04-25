@@ -2,19 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>TS Stream Player</title>
+  <title>Simple Player</title>
   <style>
-    body, html {
+    html, body {
       margin: 0;
       padding: 0;
-      background: black;
       height: 100%;
-      width: 100%;
+      background-color: black;
     }
     video {
       width: 100%;
       height: 100%;
-      background: black;
+      background-color: black;
     }
   </style>
 </head>
@@ -23,13 +22,14 @@
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    const videoURL = params.get('url');
-    if (videoURL) {
+    const url = params.get('url');
+
+    if (url) {
       const video = document.getElementById('video');
-      video.src = videoURL;
-      video.play();
+      video.src = url;
+      video.play().catch(console.error);
     } else {
-      document.body.innerHTML = '<h2 style="color: white;">❌ No URL Provided</h2>';
+      document.body.innerHTML = '<h2 style="color:white; text-align:center; margin-top:40px;">❌ Δεν βρέθηκε video URL</h2>';
     }
   </script>
 </body>
