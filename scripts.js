@@ -719,8 +719,9 @@ function isSTRM(url) {
 }
 
 function isTSStream(url) {
-  return url.toLowerCase().endsWith('.ts');
+  return url.toLowerCase().endsWith('.ts') || url.toLowerCase().endsWith('.m2ts') || url.toLowerCase().includes('mpeg.2ts');
 }
+
 
 
 
