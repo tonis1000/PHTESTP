@@ -808,11 +808,6 @@ async function playStream(initialURL, subtitleURL = null) {
         videoPlayer.play();
         videoPlayer.style.display = 'block';
         return true;
-      } else if (player === 'native-ts' && videoPlayer.canPlayType('video/mp2t')) {
-        videoPlayer.src = streamURL;
-        videoPlayer.play();
-        videoPlayer.style.display = 'block';
-        return true;
       }
     } catch (e) {
       console.warn('⛔ Προσπάθεια απέτυχε:', e);
@@ -821,7 +816,6 @@ async function playStream(initialURL, subtitleURL = null) {
   };
 
   const cached = streamPerfMap[initialURL];
-
   if (cached) {
     const success = await tryPlay(cached.proxy, cached.player);
     if (success) {
@@ -855,9 +849,8 @@ async function playStream(initialURL, subtitleURL = null) {
 
   streamURL = workingURL;
 
+  let streamType = detectStreamType(streamURL);
   let playerUsed = '';
-
-  const streamType = detectStreamType(streamURL);
 
   if (streamType === 'hls' && Hls.isSupported()) {
     await tryPlay(null, 'hls.js');
@@ -872,13 +865,8 @@ async function playStream(initialURL, subtitleURL = null) {
     await tryPlay(null, 'native-mp4');
     playerUsed = 'native-mp4';
   } else if (streamType === 'ts') {
-    if (videoPlayer.canPlayType('video/mp2t')) {
-      await tryPlay(null, 'native-ts');
-      playerUsed = 'native-ts';
-    } else {
-      alert('⚠️ Αυτό το πρόγραμμα περιήγησης δεν υποστηρίζει απευθείας αναπαραγωγή .ts streams.');
-      return;
-    }
+    await tryPlay(null, 'clappr');
+    playerUsed = 'clappr';
   } else {
     await tryPlay(null, 'clappr');
     playerUsed = 'clappr';
@@ -886,6 +874,7 @@ async function playStream(initialURL, subtitleURL = null) {
 
   logStreamUsage(initialURL, workingURL, playerUsed);
 }
+
 
 
 
