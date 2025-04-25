@@ -645,17 +645,7 @@ const proxyList = [
 
 let clapprPlayer = null;
 
-function isIframeStream(url) {
-  return /embed|\.php$|\.html$/i.test(url);
-}
 
-function isDirectStream(url) {
-  return /\.(m3u8|ts|mp4|mpd|webm)$/i.test(url);
-}
-
-function isSTRM(url) {
-  return url.endsWith('.strm');
-}
 
 async function resolveSTRM(url) {
   try {
