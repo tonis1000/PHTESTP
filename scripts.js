@@ -883,7 +883,8 @@ async function playStream(url, subtitleURL = null) {
   }
   return false; // 🟰 Εδώ πρέπει να τελειώνει η tryPlayStream()
 } 
-
+} 
+    
   function choosePlayer(url) {
     if (url.endsWith('.m3u8')) return Hls.isSupported() ? 'hls.js' : 'native-hls';
     if (url.endsWith('.mpd')) return 'dash.js';
