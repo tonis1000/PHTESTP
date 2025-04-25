@@ -728,27 +728,20 @@ function isTSStream(url) {
 
 
 function detectStreamType(url) {
+  if (!url) return 'unknown';
+
   const lowerUrl = url.toLowerCase();
 
-  if (lowerUrl.endsWith('.m3u8')) {
-    return 'hls';
-  } else if (lowerUrl.endsWith('.mpd')) {
-    return 'dash';
-  } else if (lowerUrl.endsWith('.mp4')) {
-    return 'mp4';
-  } else if (lowerUrl.endsWith('.webm')) {
-    return 'webm';
-  } else if (lowerUrl.endsWith('.ts') || lowerUrl.includes('.ts?') || lowerUrl.endsWith('.m2ts') || lowerUrl.endsWith('.mpeg.2ts')) {
-    return 'ts';
-  } else if (lowerUrl.endsWith('.strm')) {
-    return 'strm';
-  } else if (isIframeStream(url)) {
-    return 'iframe';
-  } else {
-    return 'unknown';
-  }
-}
+  if (lowerUrl.endsWith('.m3u8')) return 'hls';
+  if (lowerUrl.endsWith('.ts')) return 'ts';
+  if (lowerUrl.endsWith('.mpd')) return 'dash';
+  if (lowerUrl.endsWith('.mp4')) return 'mp4';
+  if (lowerUrl.endsWith('.webm')) return 'webm';
+  if (lowerUrl.endsWith('.strm')) return 'strm';
+  if (lowerUrl.includes('/embed/') || lowerUrl.endsWith('.php') || lowerUrl.endsWith('.html')) return 'iframe';
 
+  return 'unknown';
+}
 
 
 
@@ -876,10 +869,10 @@ async function playStream(initialURL, subtitleURL = null) {
   } else if (streamType === 'mp4' || streamType === 'webm') {
     await tryPlay(null, 'native-mp4');
     playerUsed = 'native-mp4';
-} else if (streamType === 'ts') {
-  const playerPageURL = 'https://tonis1000.github.io/player.html?url=' + encodeURIComponent(streamURL);
-  await tryPlay(playerPageURL, 'iframe');
-  playerUsed = 'iframe';
+  } else if (streamType === 'ts') {
+    if (videoPlayer.canPlayType('video/mp2t') || videoPlayer.canPlayType('video/m2ts') || videoPlayer.canPlayType('video/mp4')) {
+      await tryPlay(null, 'native-mp4');
+      playerUsed = 'native-mp4';
     } else {
       await tryPlay(null, 'clappr');
       playerUsed = 'clappr';
