@@ -846,67 +846,6 @@ async function playStream(url, subtitleURL = null) {
 
 
 
-  const showVideoPlayer = () => {
-    videoPlayer.style.display = 'block';
-    if (subtitleURL) {
-      subtitleTrack.src = subtitleURL;
-      subtitleTrack.track.mode = 'showing';
-    }
-  };
-
-  try {
-    if (!forceClappr && Hls.isSupported() && streamURL.endsWith('.m3u8')) {
-      const hls = new Hls();
-      hls.loadSource(streamURL);
-      hls.attachMedia(videoPlayer);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-      showVideoPlayer();
-
-      logStreamUsage(initialURL, streamURL, 'hls.js');
-      return;
-    } else if (!forceClappr && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-      videoPlayer.src = streamURL;
-      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
-      showVideoPlayer();
-
-      logStreamUsage(initialURL, streamURL, 'native-hls');
-      return;
-    } else if (!forceClappr && streamURL.endsWith('.mpd')) {
-      const dashPlayer = dashjs.MediaPlayer().create();
-      dashPlayer.initialize(videoPlayer, streamURL, true);
-      showVideoPlayer();
-
-      logStreamUsage(initialURL, streamURL, 'dash.js');
-      return;
-    } else if (!forceClappr && (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm'))) {
-      videoPlayer.src = streamURL;
-      videoPlayer.play();
-      showVideoPlayer();
-
-      logStreamUsage(initialURL, streamURL, 'native-mp4');
-      return;
-    }
-  } catch (e) {
-    console.warn('Fallback to Clappr due to error:', e);
-  }
-
-  clapprDiv.style.display = 'block';
-  clapprPlayer = new Clappr.Player({
-    source: streamURL,
-    parentId: '#clappr-player',
-    autoPlay: true,
-    width: '100%',
-    height: '100%'
-  });
-
-  logStreamUsage(initialURL, streamURL, 'clappr');
-}
-
-
-
-
-
-
 
 function logStreamUsage(initialUrl, finalUrl, playerUsed) {
   const now = new Date().toISOString();
