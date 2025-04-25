@@ -718,6 +718,10 @@ function isSTRM(url) {
   return url.endsWith('.strm');
 }
 
+function isTSStream(url) {
+  return url.toLowerCase().endsWith('.ts');
+}
+
 
 
 
