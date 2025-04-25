@@ -732,10 +732,12 @@ function detectStreamType(url) {
   if (url.endsWith('.mpd')) return 'dash';
   if (url.endsWith('.mp4')) return 'mp4';
   if (url.endsWith('.webm')) return 'webm';
+  if (url.endsWith('.ts')) return 'ts'; // ➕ Εδώ η προσθήκη
   if (url.match(/(\/embed\/|\.php$|\.html$)/)) return 'iframe';
 
   return 'unknown';
 }
+
 
 
 
