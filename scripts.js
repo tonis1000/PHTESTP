@@ -793,7 +793,7 @@ async function playStream(url, subtitleURL = null) {
     if (url.match(/\.(mp4|webm)$/)) return 'native-mp4';
     return 'clappr';
   }
-
+} 
   function detectStreamType(url) {
     if (url.endsWith('.strm')) return 'strm';
     if (url.match(/\.(m3u8|mpd|mp4|webm|ts)$/)) return 'direct';
