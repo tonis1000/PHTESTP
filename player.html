@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Simple Player</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TS Stream Player</title>
   <style>
-    html, body {
+    body, html {
       margin: 0;
       padding: 0;
       height: 100%;
@@ -21,15 +22,18 @@
   <video id="video" controls autoplay></video>
 
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const url = params.get('url');
+    const urlParams = new URLSearchParams(window.location.search);
+    const streamUrl = urlParams.get('url');
 
-    if (url) {
-      const video = document.getElementById('video');
-      video.src = url;
-      video.play().catch(console.error);
+    const video = document.getElementById('video');
+
+    if (streamUrl) {
+      video.src = decodeURIComponent(streamUrl);
+      video.play().catch(err => {
+        console.error('⛔ Σφάλμα κατά την αναπαραγωγή:', err);
+      });
     } else {
-      document.body.innerHTML = '<h2 style="color:white; text-align:center; margin-top:40px;">❌ Δεν βρέθηκε video URL</h2>';
+      console.error('⛔ Δεν δόθηκε URL για το βίντεο.');
     }
   </script>
 </body>
