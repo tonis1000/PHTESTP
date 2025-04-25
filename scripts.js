@@ -854,37 +854,37 @@ async function playStream(initialURL, subtitleURL = null) {
 
   streamURL = workingURL;
 
-let streamType = detectStreamType(streamURL);
-let playerUsed = '';
+  let streamType = detectStreamType(streamURL);
+  let playerUsed = '';
 
-if (streamType === 'hls' && Hls.isSupported()) {
-  await tryPlay(null, 'hls.js');
-  playerUsed = 'hls.js';
-} else if (streamType === 'hls' && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-  await tryPlay(null, 'native-hls');
-  playerUsed = 'native-hls';
-} else if (streamType === 'dash') {
-  await tryPlay(null, 'dash.js');
-  playerUsed = 'dash.js';
-} else if (streamType === 'mp4' || streamType === 'webm') {
-  await tryPlay(null, 'native-mp4');
-  playerUsed = 'native-mp4';
-} else if (isTSStream(streamURL)) {
-  if (videoPlayer.canPlayType('video/mp2t') || videoPlayer.canPlayType('video/m2ts') || videoPlayer.canPlayType('video/mp4')) {
+  if (streamType === 'hls' && Hls.isSupported()) {
+    await tryPlay(null, 'hls.js');
+    playerUsed = 'hls.js';
+  } else if (streamType === 'hls' && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+    await tryPlay(null, 'native-hls');
+    playerUsed = 'native-hls';
+  } else if (streamType === 'dash') {
+    await tryPlay(null, 'dash.js');
+    playerUsed = 'dash.js';
+  } else if (streamType === 'mp4' || streamType === 'webm') {
     await tryPlay(null, 'native-mp4');
     playerUsed = 'native-mp4';
+  } else if (streamType === 'ts') {
+    if (videoPlayer.canPlayType('video/mp2t') || videoPlayer.canPlayType('video/m2ts') || videoPlayer.canPlayType('video/mp4')) {
+      await tryPlay(null, 'native-mp4');
+      playerUsed = 'native-mp4';
+    } else {
+      await tryPlay(null, 'clappr');
+      playerUsed = 'clappr';
+    }
   } else {
     await tryPlay(null, 'clappr');
     playerUsed = 'clappr';
   }
-} else {
-  await tryPlay(null, 'clappr');
-  playerUsed = 'clappr';
-}
-
 
   logStreamUsage(initialURL, workingURL, playerUsed);
 }
+
 
 
 
