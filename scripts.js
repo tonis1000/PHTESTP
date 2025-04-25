@@ -876,10 +876,10 @@ async function playStream(initialURL, subtitleURL = null) {
   } else if (streamType === 'mp4' || streamType === 'webm') {
     await tryPlay(null, 'native-mp4');
     playerUsed = 'native-mp4';
-  } else if (streamType === 'ts') {
-    if (videoPlayer.canPlayType('video/mp2t') || videoPlayer.canPlayType('video/m2ts') || videoPlayer.canPlayType('video/mp4')) {
-      await tryPlay(null, 'native-mp4');
-      playerUsed = 'native-mp4';
+} else if (streamType === 'ts') {
+  const playerPageURL = 'https://tonis1000.github.io/player.html?url=' + encodeURIComponent(streamURL);
+  await tryPlay(playerPageURL, 'iframe');
+  playerUsed = 'iframe';
     } else {
       await tryPlay(null, 'clappr');
       playerUsed = 'clappr';
