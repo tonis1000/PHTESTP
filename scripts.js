@@ -772,23 +772,19 @@ async function playStream(url, subtitleURL = null) {
         videoPlayer.style.display = 'block';
         return true;
       }
-      if (player === 'clappr') {
-        clapprDiv.style.display = 'block';
-        window.clapprPlayer = new Clappr.Player({
-          source: streamURL,
-          parentId: '#clappr-player',
-          autoPlay: true,
-          width: '100%',
-          height: '100%'
-        });
-        return true;
-      }
-      return false;
-    } catch (e) {
-      console.error('⚠️ Error during play attempt:', e);
-      return false;
-    }
+ if (player === 'clappr') {
+    clapprDiv.style.display = 'block';
+    window.clapprPlayer = new Clappr.Player({
+      source: streamURL,
+      parentId: '#clappr-player',
+      autoPlay: true,
+      width: '100%',
+      height: '100%'
+    });
+    return true;
   }
+  return false; // 🟰 Εδώ πρέπει να τελειώνει η tryPlayStream()
+} 
 
   function choosePlayer(url) {
     if (url.endsWith('.m3u8')) return Hls.isSupported() ? 'hls.js' : 'native-hls';
