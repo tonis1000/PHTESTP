@@ -744,6 +744,8 @@ function detectStreamType(url) {
 
 
 
+
+
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
@@ -806,6 +808,11 @@ async function playStream(initialURL, subtitleURL = null) {
         videoPlayer.play();
         videoPlayer.style.display = 'block';
         return true;
+      } else if (player === 'native-ts' && videoPlayer.canPlayType('video/mp2t')) {
+        videoPlayer.src = streamURL;
+        videoPlayer.play();
+        videoPlayer.style.display = 'block';
+        return true;
       }
     } catch (e) {
       console.warn('⛔ Προσπάθεια απέτυχε:', e);
@@ -850,18 +857,28 @@ async function playStream(initialURL, subtitleURL = null) {
 
   let playerUsed = '';
 
-  if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+  const streamType = detectStreamType(streamURL);
+
+  if (streamType === 'hls' && Hls.isSupported()) {
     await tryPlay(null, 'hls.js');
     playerUsed = 'hls.js';
-  } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+  } else if (streamType === 'hls' && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
     await tryPlay(null, 'native-hls');
     playerUsed = 'native-hls';
-  } else if (streamURL.endsWith('.mpd')) {
+  } else if (streamType === 'dash') {
     await tryPlay(null, 'dash.js');
     playerUsed = 'dash.js';
-  } else if (streamURL.endsWith('.mp4') || streamURL.endsWith('.webm')) {
+  } else if (streamType === 'mp4' || streamType === 'webm') {
     await tryPlay(null, 'native-mp4');
     playerUsed = 'native-mp4';
+  } else if (streamType === 'ts') {
+    if (videoPlayer.canPlayType('video/mp2t')) {
+      await tryPlay(null, 'native-ts');
+      playerUsed = 'native-ts';
+    } else {
+      alert('⚠️ Αυτό το πρόγραμμα περιήγησης δεν υποστηρίζει απευθείας αναπαραγωγή .ts streams.');
+      return;
+    }
   } else {
     await tryPlay(null, 'clappr');
     playerUsed = 'clappr';
@@ -869,7 +886,6 @@ async function playStream(initialURL, subtitleURL = null) {
 
   logStreamUsage(initialURL, workingURL, playerUsed);
 }
-
 
 
 
