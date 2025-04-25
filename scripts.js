@@ -870,8 +870,13 @@ if (streamType === 'hls' && Hls.isSupported()) {
   await tryPlay(null, 'native-mp4');
   playerUsed = 'native-mp4';
 } else if (isTSStream(streamURL)) {
-  await tryPlay(null, 'native-mp4'); // ⚡ Παίζουμε τα .ts με Native Video
-  playerUsed = 'native-mp4';
+  if (videoPlayer.canPlayType('video/mp2t') || videoPlayer.canPlayType('video/m2ts') || videoPlayer.canPlayType('video/mp4')) {
+    await tryPlay(null, 'native-mp4');
+    playerUsed = 'native-mp4';
+  } else {
+    await tryPlay(null, 'clappr');
+    playerUsed = 'clappr';
+  }
 } else {
   await tryPlay(null, 'clappr');
   playerUsed = 'clappr';
