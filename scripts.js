@@ -658,7 +658,8 @@ async function resolveSTRM(url) {
   }
 }
 
-async function autoProxyFetch(url) {
+
+async function autoProxyFetch(url, proxyList) {
   for (let proxy of proxyList) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
     try {
@@ -679,7 +680,6 @@ async function autoProxyFetch(url) {
   }
   return null; // Τίποτα δεν δούλεψε
 }
-
 
 
 
