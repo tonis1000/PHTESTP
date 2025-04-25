@@ -832,18 +832,6 @@ async function playStream(url, subtitleURL = null) {
     return null;
   }
 
-  async function resolveSTRM(url) {
-    try {
-      const text = await fetch(url).then(res => res.text());
-      const match = text.match(/https?:\/\/[^\s]+/);
-      return match ? match[0] : null;
-    } catch { return null; }
-  }
-}
-
-
-
-
 
 
 
