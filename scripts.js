@@ -74,7 +74,7 @@ async function loadSportPlaylist() {
     let currentDateWithDay = '';
     let matchesForDay = [];
 
-    const flushDay = () => {
+    const flushDay = async () => {
       if (currentDate && matchesForDay.length) {
         matchesForDay.sort((a, b) => a.time.localeCompare(b.time));
         const dateHeader = document.createElement('li');
@@ -84,7 +84,7 @@ async function loadSportPlaylist() {
         dateHeader.style.margin = '10px 0';
         sidebarList.appendChild(dateHeader);
 
-        matchesForDay.forEach(match => {
+        for (const match of matchesForDay) {
           const li = document.createElement('li');
           li.style.marginBottom = '8px';
 
@@ -96,7 +96,9 @@ async function loadSportPlaylist() {
           title.style.marginBottom = '3px';
 
           const linksDiv = document.createElement('div');
-          match.links.forEach(async (link, idx) => {
+
+          for (let idx = 0; idx < match.links.length; idx++) {
+            const link = match.links[idx];
             const a = document.createElement('a');
             a.textContent = `[Link${idx + 1}]`;
             a.href = '#';
@@ -107,17 +109,112 @@ async function loadSportPlaylist() {
               a.style.fontWeight = 'bold';
             }
 
-a.addEventListener('click', (e) => {
-  e.preventDefault();
-  document.getElementById('stream-url').value = link;
-  document.getElementById('current-channel-name').textContent = match.title;
+            a.addEventListener('click', (e) => {
+              e.preventDefault();
+              document.getElementById('stream-url').value = link;
+              document.getElementById('current-channel-name').textContent = match.title;
 
-  // ➕ Εμφάνιση ποιο link πατήθηκε
-  const logoContainer = document.getElementById('current-channel-logo');
-  logoContainer.innerHTML = `<span style="color: gold; font-weight: bold;">🔗 ${a.textContent}</span>`;
+              const logoContainer = document.getElementById('current-channel-logo');
+              logoContainer.innerHTML = `<span style="color: gold; font-weight: bold;">🔗 ${a.textContent}</span>`;
 
-  playStream(link);
-});
+              playStream(link);
+            });
+
+            // 🟢 LIVE preview ανίχνευση
+            try {
+              const html = await fetch(proxy + link).then(res => res.text());
+              if (
+                html.includes('.m3u8') ||
+                html.includes('<video') ||
+                html.includes('autoplay') ||
+                html.includes('hls.js') ||
+                html.includes('Clappr') ||
+                html.includes('jwplayer')
+              ) {
+                const liveBadge = document.createElement('span');
+                liveBadge.textContent = ' 🟢LIVE?';
+                liveBadge.style.color = 'limegreen';
+                liveBadge.style.fontWeight = 'bold';
+                a.appendChild(liveBadge);
+              }
+            } catch (e) {
+              console.warn('Δεν μπορώ να κάνω preview για:', link);
+            }
+
+            linksDiv.appendChild(a);
+          }
+
+          li.appendChild(title);
+          li.appendChild(linksDiv);
+          sidebarList.appendChild(li);
+        }
+
+        matchesForDay = [];
+      }
+    };
+
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
+
+      const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+)\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (dateMatch) {
+        await flushDay();
+
+        const weekdayFromText = dateMatch[1].toLowerCase();
+        const originalDay = parseInt(dateMatch[2], 10);
+        const originalMonth = parseInt(dateMatch[3], 10);
+        const originalYear = parseInt(dateMatch[4], 10);
+
+        let originalDate = new Date(originalYear, originalMonth - 1, originalDay);
+        let correctedDate = null;
+
+        const today = new Date();
+        for (let offset = -3; offset <= 7; offset++) {
+          const testDate = new Date(today);
+          testDate.setDate(today.getDate() + offset);
+
+          const weekday = testDate.toLocaleDateString('el-GR', { weekday: 'long' }).toLowerCase();
+          if (weekday === weekdayFromText) {
+            correctedDate = testDate;
+            break;
+          }
+        }
+
+        if (!correctedDate) {
+          console.warn(`⚠️ Δεν βρέθηκε κατάλληλη ημερομηνία για "${weekdayFromText}", κρατάμε ${originalDate.toLocaleDateString()}`);
+          correctedDate = originalDate;
+        } else {
+          console.log(`✅ Διορθώθηκε ημερομηνία για "${weekdayFromText}": ${correctedDate.toLocaleDateString('el-GR')}`);
+        }
+
+        currentDate = `${correctedDate.getDate()}/${correctedDate.getMonth() + 1}/${correctedDate.getFullYear()}`;
+        currentDateWithDay = `${correctedDate.toLocaleDateString('el-GR', { weekday: 'long' })} ${currentDate}`;
+        continue;
+      }
+
+      const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^\/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)];
+      const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
+
+      if (gameMatches.length && linkMatches.length) {
+        gameMatches.forEach(game => {
+          matchesForDay.push({
+            time: game[1],
+            title: game[2].trim(),
+            links: linkMatches,
+            date: currentDate
+          });
+        });
+      }
+    }
+
+    await flushDay();
+  } catch (error) {
+    console.error('Σφάλμα κατά τη φόρτωση sport playlist:', error);
+    sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης αθλητικών γεγονότων.</li>';
+  }
+}
+
 
 
 
