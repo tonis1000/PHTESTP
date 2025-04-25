@@ -1097,9 +1097,11 @@ document.addEventListener('DOMContentLoaded', function () {
       updatePlayerDescription(programInfo.title, programInfo.description);
       updateNextPrograms(channelId);
 
-      const logoContainer = document.getElementById('current-channel-logo');
-      const logoImg = channelInfo.querySelector('.logo-container img').src;
-      logoContainer.src = logoImg;
+const logoContainer = document.getElementById('current-channel-logo');
+const logoImg = channelInfo.querySelector('.logo-container img').src;
+logoContainer.innerHTML = `<span style="display:inline-block;"><img src="${logoImg}" alt="Logo" style="max-height: 50px;"></span>`;
+
+
     }
   });
 
