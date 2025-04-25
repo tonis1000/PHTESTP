@@ -725,15 +725,15 @@ function isSTRM(url) {
 function detectStreamType(url) {
   if (!url) return 'unknown';
 
-  url = url.toLowerCase();
+  const lowerUrl = url.toLowerCase();
 
-  if (url.endsWith('.strm')) return 'strm';
-  if (url.endsWith('.m3u8')) return 'hls';
-  if (url.endsWith('.mpd')) return 'dash';
-  if (url.endsWith('.mp4')) return 'mp4';
-  if (url.endsWith('.webm')) return 'webm';
-  if (url.endsWith('.ts')) return 'ts'; // ➕ Εδώ η προσθήκη
-  if (url.match(/(\/embed\/|\.php$|\.html$)/)) return 'iframe';
+  if (lowerUrl.endsWith('.m3u8')) return 'hls';
+  if (lowerUrl.endsWith('.ts')) return 'ts';
+  if (lowerUrl.endsWith('.mpd')) return 'dash';
+  if (lowerUrl.endsWith('.mp4')) return 'mp4';
+  if (lowerUrl.endsWith('.webm')) return 'webm';
+  if (lowerUrl.endsWith('.strm')) return 'strm';
+  if (lowerUrl.includes('/embed/') || lowerUrl.endsWith('.php') || lowerUrl.endsWith('.html')) return 'iframe';
 
   return 'unknown';
 }
