@@ -728,20 +728,27 @@ function isTSStream(url) {
 
 
 function detectStreamType(url) {
-  if (!url) return 'unknown';
-
   const lowerUrl = url.toLowerCase();
 
-  if (lowerUrl.endsWith('.m3u8')) return 'hls';
-  if (lowerUrl.endsWith('.ts')) return 'ts';
-  if (lowerUrl.endsWith('.mpd')) return 'dash';
-  if (lowerUrl.endsWith('.mp4')) return 'mp4';
-  if (lowerUrl.endsWith('.webm')) return 'webm';
-  if (lowerUrl.endsWith('.strm')) return 'strm';
-  if (lowerUrl.includes('/embed/') || lowerUrl.endsWith('.php') || lowerUrl.endsWith('.html')) return 'iframe';
-
-  return 'unknown';
+  if (lowerUrl.endsWith('.m3u8')) {
+    return 'hls';
+  } else if (lowerUrl.endsWith('.mpd')) {
+    return 'dash';
+  } else if (lowerUrl.endsWith('.mp4')) {
+    return 'mp4';
+  } else if (lowerUrl.endsWith('.webm')) {
+    return 'webm';
+  } else if (lowerUrl.endsWith('.ts') || lowerUrl.includes('.ts?') || lowerUrl.endsWith('.m2ts') || lowerUrl.endsWith('.mpeg.2ts')) {
+    return 'ts';
+  } else if (lowerUrl.endsWith('.strm')) {
+    return 'strm';
+  } else if (isIframeStream(url)) {
+    return 'iframe';
+  } else {
+    return 'unknown';
+  }
 }
+
 
 
 
