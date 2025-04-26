@@ -749,16 +749,14 @@ function detectStreamType(url) {
 
 
 
-
-
-// Εϕαγενή καθαρή συναρτησης playStream
+// ✅ Τελικό playStream(url)
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  // 1. Reset Players
+  // 1. Reset όλων των players
   if (clapprPlayer) clapprPlayer.destroy();
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
@@ -771,114 +769,131 @@ async function playStream(initialURL, subtitleURL = null) {
   clapprDiv.style.display = 'none';
 
   let streamURL = initialURL;
-  const cached = streamPerfMap[initialURL];
 
-  const tryPlay = async (url, player) => {
+  // ➡️ Helper για δοκιμή με συγκεκριμένο proxy + player
+  async function tryPlay(proxy, player) {
     try {
-      if (player === 'hls.js' && Hls.isSupported()) {
+      let testURL = proxy ? (proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL) : streamURL;
+      if (player === 'iframe') {
+        iframePlayer.style.display = 'block';
+        iframePlayer.src = testURL.includes('autoplay') ? testURL : testURL + (testURL.includes('?') ? '&' : '?') + 'autoplay=1';
+        return true;
+      } else if (player === 'clappr') {
+        clapprDiv.style.display = 'block';
+        clapprPlayer = new Clappr.Player({
+          source: testURL,
+          parentId: '#clappr-player',
+          autoPlay: true,
+          width: '100%',
+          height: '100%'
+        });
+        return true;
+      } else if (player === 'hls.js' && Hls.isSupported()) {
         const hls = new Hls();
-        hls.loadSource(url);
+        hls.loadSource(testURL);
         hls.attachMedia(videoPlayer);
         hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
         videoPlayer.style.display = 'block';
         return true;
       } else if (player === 'native-hls' && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-        videoPlayer.src = url;
-        await videoPlayer.play();
+        videoPlayer.src = testURL;
+        videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
         videoPlayer.style.display = 'block';
         return true;
-      } else if (player === 'dash.js' && url.endsWith('.mpd')) {
+      } else if (player === 'dash.js' && testURL.endsWith('.mpd')) {
         const dashPlayer = dashjs.MediaPlayer().create();
-        dashPlayer.initialize(videoPlayer, url, true);
+        dashPlayer.initialize(videoPlayer, testURL, true);
         videoPlayer.style.display = 'block';
         return true;
-      } else if (player === 'native-mp4' && (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm'))) {
-        videoPlayer.src = url;
+      } else if (player === 'native-mp4') {
+        videoPlayer.src = testURL;
         await videoPlayer.play();
         videoPlayer.style.display = 'block';
-        return true;
-      } else if (player === 'clappr') {
-        clapprDiv.style.display = 'block';
-        clapprPlayer = new Clappr.Player({ source: url, parentId: '#clappr-player', autoPlay: true });
-        return true;
-      } else if (player === 'iframe') {
-        iframePlayer.style.display = 'block';
-        iframePlayer.src = url.includes('autoplay') ? url : url + (url.includes('?') ? '&' : '?') + 'autoplay=1';
         return true;
       }
-    } catch (e) {
-      console.warn(`⛔️ Προσπάθεια απέτυχε: ${player}`, e);
+    } catch (err) {
+      console.warn('⛔ Απέτυχε προσπάθεια play:', player, err);
     }
     return false;
-  };
+  }
 
-  // 2. Try cache
+  // 2. Αν υπάρχει στο cache ➔ δοκίμασε
+  const cached = streamPerfMap[initialURL];
   if (cached) {
-    const success = await tryPlay(cached.proxy ? cached.proxy + encodeURIComponent(initialURL) : initialURL, cached.player);
+    const success = await tryPlay(cached.proxy, cached.player);
     if (success) {
-      console.log('✅ Cache success!');
+      console.log('✅ Έπαιξε από cache.');
       return;
     } else {
-      console.warn('🚫 Wrong cache, deleting...');
+      console.warn('🔄 Cache άκυρο. Διαγραφή.');
       delete streamPerfMap[initialURL];
     }
   }
 
-  // 3. Check if STRM
+  // 3. Αν είναι .strm ➔ λύνουμε
   if (isSTRM(streamURL)) {
     const resolved = await resolveSTRM(streamURL);
     if (resolved) streamURL = resolved;
-    else return;
+    else {
+      console.error('⛔ STRM δεν άνοιξε.');
+      return;
+    }
   }
 
-  // 4. Check if iframe
+  // 4. Αν είναι iframe ➔ βρίσκουμε m3u8
   if (isIframeStream(streamURL)) {
     const directStream = await findM3U8inIframe(streamURL, proxyList);
     if (directStream) {
       streamURL = directStream;
     } else {
-      await tryPlay(streamURL, 'iframe');
-      logStreamUsage(initialURL, streamURL, 'iframe');
+      await tryPlay(null, 'iframe');
+      logStreamUsage(initialURL, initialURL, 'iframe');
       return;
     }
   }
 
   // 5. Proxy detection
-  let workingURL = null;
-  for (let proxy of proxyList) {
-    const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
-    try {
-      let res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
-      if (!res.ok) res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
-      if (res.ok) {
-        console.log(`✅ Proxy OK: ${proxy || 'direct'}`);
-        workingURL = testUrl;
-        break;
-      }
-    } catch (e) {
-      console.warn(`❌ Proxy failed: ${proxy || 'direct'}`);
-    }
+  let workingURL = await autoProxyFetch(streamURL);
+  if (!workingURL) {
+    console.error('❌ Κανένας proxy δεν δούλεψε.');
+    return;
   }
-  if (!workingURL) return console.error('❌ No working proxy.');
+  streamURL = workingURL;
 
-  // 7. Player Priority
-  const players = ['hls.js', 'native-hls', 'dash.js', 'native-mp4', 'clappr', 'iframe'];
-  for (let player of players) {
-    const success = await tryPlay(workingURL, player);
-    if (success) {
-      logStreamUsage(initialURL, workingURL, player);
-      return;
-    }
+  // 6. Εντοπισμός τύπου
+  let streamType = detectStreamType(streamURL);
+
+  // 7. Δοκιμή players με σειρά προτεραιότητας
+  let playerUsed = '';
+
+  if (streamType === 'hls' && Hls.isSupported()) {
+    if (await tryPlay(null, 'hls.js')) playerUsed = 'hls.js';
+  }
+  if (!playerUsed && streamType === 'hls' && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+    if (await tryPlay(null, 'native-hls')) playerUsed = 'native-hls';
+  }
+  if (!playerUsed && streamType === 'dash') {
+    if (await tryPlay(null, 'dash.js')) playerUsed = 'dash.js';
+  }
+  if (!playerUsed && (streamType === 'mp4' || streamType === 'webm')) {
+    if (await tryPlay(null, 'native-mp4')) playerUsed = 'native-mp4';
+  }
+  if (!playerUsed) {
+    if (await tryPlay(null, 'clappr')) playerUsed = 'clappr';
   }
 
-  console.error('❌ No player could play the stream.');
+  if (!playerUsed) {
+    if (await tryPlay(null, 'iframe')) playerUsed = 'iframe';
+  }
+
+  // 8. Αν παίξει ➔ αποθήκευση στο cache
+  if (playerUsed) {
+    logStreamUsage(initialURL, streamURL, playerUsed);
+    console.log('✅ Stream παίχτηκε επιτυχώς με:', playerUsed);
+  } else {
+    console.error('❌ Καμία μέθοδος δεν λειτούργησε.');
+  }
 }
-
-// ➡️ Ο helper logStreamUsage παραμένει ίδιος.
-
-
-
-
 
 
 
