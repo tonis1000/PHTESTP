@@ -960,12 +960,13 @@ function logStreamUsage(initialURL, finalURL, playerUsed) {
   if (!initialURL || !finalURL || !playerUsed) return;
 
   streamPerfMap[initialURL] = {
-    proxy: finalURL.startsWith(initialURL) ? "" : finalURL.replace(initialURL, ""),
+    proxy: isAlreadyProxied(finalURL) ? finalURL : "", // αν υπάρχει proxy, κράτα το proxy URL
     player: playerUsed
   };
 
   console.log('💾 Καταγράφηκε στο cache:', streamPerfMap[initialURL]);
 }
+
 
 
 
