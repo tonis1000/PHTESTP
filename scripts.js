@@ -770,117 +770,132 @@ function debug(msg) {
 
 
 
-// === fixM3U8RelativeLinks ===
+// ========================================
+// 🔥 1. Συνάρτηση για διόρθωση relative links
+// ========================================
 async function fixM3U8RelativeLinks(m3u8Url) {
-  console.log('🔧 Ξεκινάω διόρθωση relative links για:', m3u8Url);
-
-  const isAbsolute = (link) => link.startsWith('http://') || link.startsWith('https://');
-
   try {
+    console.log('🔧 Ξεκινάω διόρθωση relative links για:', m3u8Url);
     const response = await fetch(m3u8Url);
-    if (!response.ok) {
-      console.error('❌ Αποτυχία λήψης του M3U8:', response.status);
-      return null;
-    }
-
+    if (!response.ok) throw new Error('Δεν μπόρεσα να κατεβάσω το m3u8 αρχείο.');
     let text = await response.text();
     const baseUrl = m3u8Url.substring(0, m3u8Url.lastIndexOf('/') + 1);
-
-    text = text.replace(/^(?!#)([^\s]+)/gm, (line) => {
-      const trimmed = line.trim();
-      if (trimmed && !isAbsolute(trimmed)) {
-        const absoluteUrl = baseUrl + trimmed;
-        const proxiedUrl = proxyList[1].endsWith('=') ? proxyList[1] + encodeURIComponent(absoluteUrl) : proxyList[1] + absoluteUrl;
-        return proxiedUrl;
-      }
-      return line;
+    text = text.replace(/^(?!#)([^:\/\n][^\n]*)$/gm, (match) => {
+      return baseUrl + match;
     });
-
     console.log('✅ Διορθώθηκαν τα relative links!');
-    return text;
-  } catch (error) {
-    console.error('🚫 Σφάλμα κατά τη διόρθωση του M3U8:', error);
+    return URL.createObjectURL(new Blob([text], { type: 'application/vnd.apple.mpegurl' }));
+  } catch (e) {
+    console.error('⛔ Σφάλμα στη διόρθωση links:', e);
     return null;
   }
 }
 
 
-// === safeTryPlay ===
-async function safeTryPlay(initialURL, streamURL, proxy, player) {
-  console.log(`🧪 Προσπαθώ με player: ${player} μέσω ${proxy ? proxy : 'direct'}`);
 
+
+// ========================================
+// 🔥 2. Ασφαλής προσπάθεια αναπαραγωγής
+// ========================================
+async function safeTryPlay(initialURL, streamURL, proxy, player) {
   try {
+    const videoPlayer = document.getElementById('video-player');
+    const iframePlayer = document.getElementById('iframe-player');
+    const clapprDiv = document.getElementById('clappr-player');
+
+    if (!videoPlayer || !iframePlayer || !clapprDiv) {
+      console.error('⛔ Λείπουν players από το DOM.');
+      return false;
+    }
+
+    // Καθαρισμός
+    if (typeof clapprPlayer !== 'undefined' && clapprPlayer) {
+      clapprPlayer.destroy();
+      clapprPlayer = null;
+    }
+    videoPlayer.pause();
+    videoPlayer.removeAttribute('src');
+    videoPlayer.load();
+    iframePlayer.src = '';
+
+    videoPlayer.style.display = 'none';
+    iframePlayer.style.display = 'none';
+    clapprDiv.style.display = 'none';
+
+    // Ενημέρωση URL
+    let finalURL = proxy ? (proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL) : streamURL;
+
+    console.log(`🧪 Προσπαθώ με player: ${player} μέσω ${proxy ? 'proxy' : 'direct'}`);
+
     if (player === 'iframe') {
       iframePlayer.style.display = 'block';
-      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      iframePlayer.src = finalURL.includes('autoplay') ? finalURL : finalURL + (finalURL.includes('?') ? '&' : '?') + 'autoplay=1';
       return true;
     } else if (player === 'clappr') {
       clapprDiv.style.display = 'block';
       clapprPlayer = new Clappr.Player({
-        source: streamURL,
+        source: finalURL,
         parentId: '#clappr-player',
         autoPlay: true,
         width: '100%',
         height: '100%'
       });
       return true;
-    } else if (player === 'hls.js' && Hls.isSupported()) {
+    } else if (player === 'hls.js' && typeof Hls !== 'undefined' && Hls.isSupported()) {
       const hls = new Hls();
-      hls.loadSource(streamURL);
+      hls.loadSource(finalURL);
       hls.attachMedia(videoPlayer);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        videoPlayer.play();
+      });
       videoPlayer.style.display = 'block';
       return true;
     } else if (player === 'native-hls' && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-      videoPlayer.src = streamURL;
-      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
+      videoPlayer.src = finalURL;
+      videoPlayer.addEventListener('loadedmetadata', () => {
+        videoPlayer.play();
+      });
       videoPlayer.style.display = 'block';
       return true;
-    } else if (player === 'dash.js' && streamURL.endsWith('.mpd')) {
+    } else if (player === 'dash.js' && finalURL.endsWith('.mpd')) {
       const dashPlayer = dashjs.MediaPlayer().create();
-      dashPlayer.initialize(videoPlayer, streamURL, true);
+      dashPlayer.initialize(videoPlayer, finalURL, true);
       videoPlayer.style.display = 'block';
       return true;
     } else if (player === 'native-mp4' && (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm'))) {
-      videoPlayer.src = streamURL;
+      videoPlayer.src = finalURL;
       videoPlayer.play();
       videoPlayer.style.display = 'block';
       return true;
     }
   } catch (e) {
-    console.warn('⛔ Σφάλμα σε safeTryPlay:', e);
+    console.error('⛔ Σφάλμα σε safeTryPlay:', e);
   }
-
   return false;
 }
 
 
-// === playStream ===
+
+
+// ========================================
+// 🔥 3. Κεντρική playStream() λειτουργία
+// ========================================
 async function playStream(initialURL, subtitleURL = null) {
-  console.log('🌐 Ξεκινάω αναπαραγωγή:', initialURL);
+  console.log('▶️ Ξεκινάω αναπαραγωγή:', initialURL);
 
-  const videoPlayer = document.getElementById('video-player');
-  const iframePlayer = document.getElementById('iframe-player');
-  const clapprDiv = document.getElementById('clappr-player');
-  const subtitleTrack = document.getElementById('subtitle-track');
-
-  if (clapprPlayer) clapprPlayer.destroy();
-  videoPlayer.pause();
-  videoPlayer.removeAttribute('src');
-  videoPlayer.load();
-  iframePlayer.src = '';
-  subtitleTrack.src = '';
-  subtitleTrack.track.mode = 'hidden';
-
-  videoPlayer.style.display = 'none';
-  iframePlayer.style.display = 'none';
-  clapprDiv.style.display = 'none';
+  if (!initialURL) {
+    console.error('⛔ Δεν δόθηκε αρχικό URL!');
+    return;
+  }
 
   let streamURL = initialURL;
+  let playerUsed = '';
+  let proxyUsed = '';
 
+  // 1. Cache
   const cached = streamPerfMap[initialURL];
   if (cached) {
-    const success = await safeTryPlay(initialURL, cached.proxy, cached.proxy, cached.player);
+    const success = await safeTryPlay(initialURL, initialURL, cached.proxy, cached.player);
     if (success) {
       console.log('✅ Παίχτηκε από cache!');
       return;
@@ -890,56 +905,65 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   }
 
+  // 2. Εάν είναι STRM
   if (isSTRM(streamURL)) {
     const resolved = await resolveSTRM(streamURL);
     if (resolved) streamURL = resolved;
     else return;
   }
 
+  // 3. Εάν είναι iframe
   if (isIframeStream(streamURL)) {
     const directStream = await findM3U8inIframe(streamURL, proxyList);
     if (directStream) {
       streamURL = directStream;
     } else {
-      await safeTryPlay(initialURL, streamURL, null, 'iframe');
+      await safeTryPlay(initialURL, initialURL, null, 'iframe');
       logStreamUsage(initialURL, initialURL, 'iframe');
       return;
     }
   }
 
+  // 4. Proxy αν χρειάζεται
   let workingURL = await autoProxyFetch(streamURL);
-  if (!workingURL) return console.error('❌ Καμία proxy δεν λειτούργησε.');
+  if (!workingURL) {
+    console.error('❌ Καμία proxy δεν λειτούργησε.');
+    return;
+  }
 
   streamURL = workingURL;
 
-  let streamType = detectStreamType(streamURL);
-  let playerUsed = '';
-
-  if (streamType === 'hls' && Hls.isSupported()) {
-    const fixed = await fixM3U8RelativeLinks(streamURL);
-    if (fixed) {
-      const blob = new Blob([fixed], { type: 'application/vnd.apple.mpegurl' });
-      streamURL = URL.createObjectURL(blob);
+  // 5. Fix M3U8 Links αν είναι HLS
+  const streamType = detectStreamType(streamURL);
+  if (streamType === 'hls') {
+    const fixedBlobURL = await fixM3U8RelativeLinks(streamURL);
+    if (fixedBlobURL) {
+      streamURL = fixedBlobURL;
     }
-    await safeTryPlay(initialURL, streamURL, null, 'hls.js');
-    playerUsed = 'hls.js';
+  }
+
+  // 6. Επιλογή player
+  if (streamType === 'hls' && typeof Hls !== 'undefined' && Hls.isSupported()) {
+    const success = await safeTryPlay(initialURL, streamURL, null, 'hls.js');
+    if (success) playerUsed = 'hls.js';
   } else if (streamType === 'hls' && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-    await safeTryPlay(initialURL, streamURL, null, 'native-hls');
-    playerUsed = 'native-hls';
+    const success = await safeTryPlay(initialURL, streamURL, null, 'native-hls');
+    if (success) playerUsed = 'native-hls';
   } else if (streamType === 'dash') {
-    await safeTryPlay(initialURL, streamURL, null, 'dash.js');
-    playerUsed = 'dash.js';
+    const success = await safeTryPlay(initialURL, streamURL, null, 'dash.js');
+    if (success) playerUsed = 'dash.js';
   } else if (streamType === 'mp4' || streamType === 'webm') {
-    await safeTryPlay(initialURL, streamURL, null, 'native-mp4');
-    playerUsed = 'native-mp4';
+    const success = await safeTryPlay(initialURL, streamURL, null, 'native-mp4');
+    if (success) playerUsed = 'native-mp4';
   } else if (streamType === 'ts') {
     await safeTryPlay(initialURL, `player.html?url=${encodeURIComponent(streamURL)}`, null, 'iframe');
     playerUsed = 'iframe';
   } else {
-    await safeTryPlay(initialURL, streamURL, null, 'clappr');
-    playerUsed = 'clappr';
+    const success = await safeTryPlay(initialURL, streamURL, null, 'clappr');
+    if (success) playerUsed = 'clappr';
   }
 
+  // 7. Καταγραφή
   logStreamUsage(initialURL, workingURL, playerUsed);
 }
 
