@@ -672,45 +672,41 @@ async function autoProxyFetch(url) {
       if (res.ok) {
         const text = await res.text();
 
-        // Έλεγχος αν είναι .m3u8
         if (text.includes('#EXTM3U')) {
-          console.log(`✅ Το .m3u8 κατέβηκε. Έλεγχος ts κομματιού...`);
+          console.log(`✅ Το .m3u8 κατέβηκε. Ψάχνουμε ts κομμάτι...`);
 
-          // Βρες το πρώτο .ts αρχείο μέσα
           const tsMatch = text.match(/([^\s"']+\.ts)/i);
 
           if (tsMatch && tsMatch[1]) {
             const tsPath = tsMatch[1];
-            console.log(`ℹ️ Βρέθηκε ts κομμάτι: ${tsPath}`);
 
-            // Φτιάξε σωστό ts URL
+            console.log(`ℹ️ Βρέθηκε ts: ${tsPath}`);
+
             let baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
             const tsUrl = tsPath.startsWith('http') ? tsPath : baseUrl + tsPath;
             const tsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
-
-            console.log(`⏳ Δοκιμή ts κομματιού: ${tsProxyUrl}`);
 
             try {
               const tsRes = await fetch(tsProxyUrl, { method: 'HEAD', mode: 'cors' });
 
               if (tsRes.ok) {
-                console.log(`✅ Το ts υπάρχει! Επιλογή Proxy: ${proxy || 'direct'}`);
-                return testUrl; // Τέλειο proxy+url
+                console.log(`✅ Το ts υπάρχει! Επιλέγω Proxy: ${proxy || 'direct'}`);
+                return testUrl; // Τέλειο!
               } else {
-                console.warn(`❌ Το ts επέστρεψε ${tsRes.status} ➔ Απορρίπτω proxy και πάω στον επόμενο...`);
+                console.warn(`❌ Το ts έδωσε ${tsRes.status} ➔ Δοκιμάζουμε επόμενο proxy...`);
               }
             } catch (err) {
-              console.warn(`❌ Σφάλμα στο ts fetch ➔ Πάμε επόμενο proxy...`, err);
+              console.warn(`❌ Σφάλμα δοκιμής ts ➔ Επόμενος proxy...`, err);
             }
 
           } else {
-            console.warn(`⚠️ Δεν βρέθηκε ts μέσα στο m3u8 ➔ Απορρίπτω proxy...`);
+            console.warn(`⚠️ Δεν βρέθηκε ts ➔ Επόμενος proxy...`);
           }
         } else {
-          console.warn(`⚠️ Το περιεχόμενο δεν είναι .m3u8 ➔ Απορρίπτω proxy...`);
+          console.warn(`⚠️ Δεν είναι .m3u8 ➔ Επόμενος proxy...`);
         }
       } else {
-        console.warn(`❌ Proxy ${proxy || 'direct'} ➔ HTTP Status όχι OK (${res.status}) ➔ Πάμε επόμενο...`);
+        console.warn(`❌ HTTP Status ${res.status} ➔ Επόμενος proxy...`);
       }
 
     } catch (e) {
