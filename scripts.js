@@ -759,6 +759,22 @@ function detectStreamType(url) {
 
 
 
+function logStreamUsage(initialUrl, finalUrl, playerUsed) {
+  const now = new Date().toISOString();
+  const proxyUsed = (initialUrl !== finalUrl) ? finalUrl.replace(initialUrl, '') : '';
+
+  if (!globalStreamCache[initialUrl]) {
+    globalStreamCache[initialUrl] = {
+      timestamp: now,
+      proxy: proxyUsed,
+      player: playerUsed
+    };
+    console.log('📦 Καταγραφή στο globalStreamCache:', initialUrl, globalStreamCache[initialUrl]);
+  }
+}
+
+
+
 
 // Νέα βοηθητική συνάρτηση για έλεγχο Direct και Proxy σύνδεσης
 async function findWorkingUrl(url) {
