@@ -946,26 +946,19 @@ async function playStream(initialURL, subtitleURL = null) {
 }
 
 
+function logStreamUsage(initialURL, finalURL, playerUsed) {
+  if (!initialURL || !finalURL || !playerUsed) return;
 
+  streamPerfMap[initialURL] = {
+    proxy: finalURL.startsWith(initialURL) ? "" : finalURL.replace(initialURL, ""),
+    player: playerUsed
+  };
 
-
-
-
-
-
-function logStreamUsage(initialUrl, finalUrl, playerUsed) {
-  const now = new Date().toISOString();
-  const proxyUsed = finalUrl !== initialUrl ? finalUrl.replace(initialUrl, '') : '';
-
-  if (!globalStreamCache[initialUrl]) {
-    globalStreamCache[initialUrl] = {
-      timestamp: now,
-      proxy: proxyUsed,
-      player: playerUsed
-    };
-    console.log('📦 Καταγραφή στο globalStreamCache:', initialUrl, globalStreamCache[initialUrl]);
-  }
+  console.log('💾 Καταγράφηκε στο cache:', streamPerfMap[initialURL]);
 }
+
+}
+
 
 
 const CACHE_UPLOAD_URL = 'https://yellow-hulking-guan.glitch.me/update-cache';
