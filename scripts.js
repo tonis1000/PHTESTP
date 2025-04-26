@@ -662,27 +662,26 @@ async function resolveSTRM(url) {
 
 // Βρίσκει τον πρώτο λειτουργικό proxy ή direct URL
 async function autoProxyFetch(url) {
-  for (let proxy of proxyList) {
-    let testUrl = url;
-    if (proxy && !isAlreadyProxied(url)) {
-      testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
-    }
+  if (!url) return null;
 
+  // Αν είναι ήδη περασμένο μέσω proxy, δεν κάνουμε τίποτα
+  if (isAlreadyProxied(url)) return url;
+
+  for (const proxy of proxyList) {
     try {
-      let res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
+      let testURL = proxy ? (proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url) : url;
+      const response = await fetch(testURL, { method: 'HEAD', mode: 'cors' });
 
-      if (res.status === 403 || res.status === 405) {
-        res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
-      }
-
-      if (res.ok) {
-        console.log(`✅ Proxy success: ${proxy || "direct"}`);
-        return testUrl;
+      if (response.ok) {
+        console.log(`✅ Proxy OK: ${proxy || 'direct'}`);
+        return testURL;
       }
     } catch (e) {
-      console.warn(`❌ Proxy failed: ${proxy || "direct"}`, e);
+      console.warn(`⛔ Proxy FAILED: ${proxy || 'direct'}`, e);
     }
   }
+
+  console.error('❌ Δεν βρέθηκε λειτουργικό proxy.');
   return null;
 }
 
