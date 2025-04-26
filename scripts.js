@@ -658,27 +658,37 @@ async function resolveSTRM(url) {
   }
 }
 
+
+
 async function autoProxyFetch(url) {
+  debug(`🌐 Ξεκινάω δοκιμές proxy για: ${url}`);
+
   for (let proxy of proxyList) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
     try {
       let res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
 
-      // Fallback για proxies που δεν υποστηρίζουν HEAD
       if (res.status === 403 || res.status === 405) {
+        debug(`⚠️ Proxy ${proxy || "direct"} δεν υποστηρίζει HEAD, δοκιμή με GET...`);
         res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
       }
 
       if (res.ok) {
-        console.log(`✅ Proxy success: ${proxy || "direct"}`);
+        debug(`✅ Proxy πέτυχε: ${proxy || "direct"}`);
         return testUrl;
+      } else {
+        debug(`⛔ Proxy απέτυχε: ${proxy || "direct"} (status ${res.status})`);
       }
     } catch (e) {
-      console.warn(`❌ Proxy failed: ${proxy || "direct"}`, e);
+      debug(`⛔ Proxy απέτυχε: ${proxy || "direct"} (${e.message})`);
     }
   }
-  return null; // Τίποτα δεν δούλεψε
+
+  debug('❌ Κανένας proxy δεν λειτούργησε.');
+  return null;
 }
+
+
 
 
 
