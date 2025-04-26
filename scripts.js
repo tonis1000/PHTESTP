@@ -661,12 +661,17 @@ async function resolveSTRM(url) {
 
 
 async function autoProxyFetch(url) {
+  // Αν ήδη ξεκινάει με κάποιον proxy, μην τον ξαναπροσθέσεις
+  if (proxyList.some(proxy => url.startsWith(proxy))) {
+    console.log('⚡ URL ήδη proxied:', url);
+    return url;
+  }
+
   for (let proxy of proxyList) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
     try {
       let res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
 
-      // ➔ Μερικά proxies μπορεί να μην υποστηρίζουν HEAD σωστά
       if (res.status === 403 || res.status === 405) {
         res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
       }
@@ -683,6 +688,7 @@ async function autoProxyFetch(url) {
   console.error('❌ Κανένας proxy δεν λειτούργησε για:', url);
   return null;
 }
+
 
 
 
