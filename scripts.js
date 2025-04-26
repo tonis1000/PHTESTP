@@ -662,31 +662,36 @@ async function resolveSTRM(url) {
 
 // Βρίσκει τον πρώτο λειτουργικό proxy ή direct URL
 async function autoProxyFetch(url) {
-  if (!url) return null;
-
-  if (isAlreadyProxied(url)) return url;
-
-  for (const proxy of proxyList) {
+  for (let proxy of proxyList) {
+    const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
     try {
-      let testURL = proxy
-        ? (proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url)
-        : url;
+      console.log(`🔎 Δοκιμή proxy: ${proxy || 'direct'} ➔ ${testUrl}`);
 
-      const response = await fetch(testURL, { method: 'HEAD', mode: 'cors' });
+      // Ζητάμε μικρό κομμάτι του αρχείου
+      const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
 
-      if (response.ok) {
-        console.log(`✅ Proxy OK: ${proxy || 'direct'}`);
-        return testURL;
+      if (res.ok) {
+        const text = await res.text();
+
+        // Έλεγχος αν περιέχει playable χαρακτηριστικά
+        if (text.includes('#EXTM3U') || text.includes('.m3u8') || text.includes('<video') || text.includes('autoplay') || text.includes('hls.js') || text.includes('clappr')) {
+          console.log(`✅ Proxy λειτουργεί: ${proxy || 'direct'}`);
+          return testUrl; // Βρήκαμε σωστό proxy ➔ επιστροφή
+        } else {
+          console.warn(`⚠️ Proxy ${proxy || 'direct'} ➔ Περιεχόμενο άκυρο, συνεχίζουμε...`);
+        }
+      } else {
+        console.warn(`❌ Proxy ${proxy || 'direct'} ➔ HTTP Status όχι OK (${res.status}), συνεχίζουμε...`);
       }
     } catch (e) {
-      console.warn(`⛔ Proxy FAILED: ${proxy || 'direct'}`, e);
-      // Συνεχίζει στον επόμενο proxy
+      console.warn(`❌ Proxy ${proxy || 'direct'} ➔ Σφάλμα:`, e);
     }
   }
 
-  console.error('❌ Δεν βρέθηκε λειτουργικός proxy.');
-  return null;
+  console.error('🚨 Κανένας Proxy δεν λειτούργησε για:', url);
+  return null; // Αν δεν βρεθεί κανένας
 }
+
 
 
 
