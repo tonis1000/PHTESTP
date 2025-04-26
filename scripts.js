@@ -860,6 +860,66 @@ async function playStream(initialURL, subtitleURL = null) {
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
 
+  // Λίστα adblock-prone πηγών
+  const adblockHosts = ['anacon.org', 'lakatamia.tv'];
+  const isAdblockSource = adblockHosts.some(host => initialURL.includes(host));
+
+  if (isAdblockSource) {
+    console.log('🛡️ Applying adblock bypass + CORS proxy...');
+    
+    // 1. Επιλογή CORS proxy (fallback αν το πρώτο αποτύχει)
+    const proxies = [
+      'https://cors-anywhere.herokuapp.com/',
+      'https://api.codetabs.com/v1/proxy/?quest=',
+      'https://thingproxy.freeboard.io/fetch/'
+    ];
+
+    // 2. Δοκιμή proxies μέχρι να λειτουργήσει ένα
+    for (const proxy of proxies) {
+      try {
+        const proxiedUrl = proxy + encodeURIComponent(initialURL);
+        const response = await fetch(proxiedUrl, {
+          headers: { 'Referer': 'https://www.google.com/' }
+        });
+        
+        if (response.ok) {
+          const html = await response.text();
+          const cleanedHtml = html.replace(/<script.*?adblock.*?<\/script>/gi, '');
+          
+          // 3. Φόρτωση στο iframe με adblock protection
+          iframePlayer.style.display = 'block';
+          iframePlayer.srcdoc = `
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <script>
+                  window.adblock = false;
+                  window.adblockDetected = false;
+                  document.addEventListener('DOMContentLoaded', () => {
+                    const warnings = document.querySelectorAll('[id*="adblock"], [class*="adblock"]');
+                    warnings.forEach(el => el.remove());
+                  });
+                </script>
+                <style>
+                  [id*="adblock"], [class*="adblock"] { display: none !important; }
+                </style>
+              </head>
+              <body>
+                ${cleanedHtml}
+              </body>
+            </html>
+          `;
+          return;
+        }
+      } catch (e) {
+        console.log(`❌ Proxy ${proxy} failed, trying next...`);
+      }
+    }
+    console.error('🚫 All proxies failed');
+    return;
+  }
+
+    
   const showVideoPlayer = () => {
     videoPlayer.style.display = 'block';
     if (subtitleURL) {
