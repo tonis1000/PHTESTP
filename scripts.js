@@ -664,12 +664,14 @@ async function resolveSTRM(url) {
 async function autoProxyFetch(url) {
   if (!url) return null;
 
-  // Αν είναι ήδη περασμένο μέσω proxy, δεν κάνουμε τίποτα
   if (isAlreadyProxied(url)) return url;
 
   for (const proxy of proxyList) {
     try {
-      let testURL = proxy ? (proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url) : url;
+      let testURL = proxy
+        ? (proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url)
+        : url;
+
       const response = await fetch(testURL, { method: 'HEAD', mode: 'cors' });
 
       if (response.ok) {
@@ -678,10 +680,11 @@ async function autoProxyFetch(url) {
       }
     } catch (e) {
       console.warn(`⛔ Proxy FAILED: ${proxy || 'direct'}`, e);
+      // Συνεχίζει στον επόμενο proxy
     }
   }
 
-  console.error('❌ Δεν βρέθηκε λειτουργικό proxy.');
+  console.error('❌ Δεν βρέθηκε λειτουργικός proxy.');
   return null;
 }
 
