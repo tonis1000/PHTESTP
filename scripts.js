@@ -800,99 +800,28 @@ async function fixM3U8RelativeLinks(m3u8Url) {
 
 
 
-const safeTryPlay = async (proxy, player) => {
-  try {
-    let tempURL = initialURL;
-    if (proxy) {
-      tempURL = proxy.endsWith('=') ? proxy + encodeURIComponent(initialURL) : proxy + initialURL;
-    }
 
-    console.log(`🧪 Προσπαθώ με player: ${player} μέσω ${proxy ? proxy : 'direct'}`);
 
-    let success = false;
+async function safeTryPlay(initialURL, streamURL, proxy, player) {
+  console.log(`🧪 Προσπαθώ με player: ${player} μέσω ${proxy ? proxy : 'direct'}`);
 
-    if (player === 'iframe') {
-      iframePlayer.style.display = 'block';
-      iframePlayer.src = tempURL.includes('autoplay') ? tempURL : tempURL + (tempURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      success = true; // iframe δεν έχει "playing" event, το θεωρούμε ΟΚ
-    } else if (player === 'clappr') {
-      clapprDiv.style.display = 'block';
-      clapprPlayer = new Clappr.Player({
-        source: tempURL,
-        parentId: '#clappr-player',
-        autoPlay: true,
-        width: '100%',
-        height: '100%'
-      });
-      success = true; // Clappr δεν μπορεί να γίνει σωστά await
-    } else {
-      // Για native και hls.js
-      let setupPlayer = false;
-
-      if (player === 'hls.js' && Hls.isSupported()) {
-        const hls = new Hls();
-        hls.loadSource(tempURL);
-        hls.attachMedia(videoPlayer);
-        setupPlayer = true;
-      } else if (player === 'native-hls' && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-        videoPlayer.src = tempURL;
-        setupPlayer = true;
-      } else if (player === 'dash.js' && tempURL.endsWith('.mpd')) {
-        const dashPlayer = dashjs.MediaPlayer().create();
-        dashPlayer.initialize(videoPlayer, tempURL, true);
-        setupPlayer = true;
-      } else if (player === 'native-mp4' && (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm'))) {
-        videoPlayer.src = tempURL;
-        setupPlayer = true;
-      }
-
-      if (setupPlayer) {
-        videoPlayer.style.display = 'block';
-
-        // ΤΩΡΑ: περιμένω να γίνει το playing μέσα σε 5 sec
-        success = await new Promise((resolve) => {
-          const timeout = setTimeout(() => {
-            console.warn('⏳ Χρονικό όριο έληξε χωρίς αναπαραγωγή.');
-            resolve(false);
-          }, 5000);
-
-          videoPlayer.addEventListener('playing', function handler() {
-            clearTimeout(timeout);
-            videoPlayer.removeEventListener('playing', handler);
-            console.log('🎬 Video ξεκίνησε πραγματικά!');
-            resolve(true);
-          });
-
-          videoPlayer.play().catch(err => {
-            console.warn('⛔ Σφάλμα play():', err);
-            clearTimeout(timeout);
-            resolve(false);
-          });
-        });
-      }
-    }
-
-    if (!success) console.warn('⛔ Απέτυχε ο player:', player);
-    return success;
-  } catch (e) {
-    console.error('⛔ Σφάλμα σε safeTryPlay:', e);
-    return false;
+  const success = await tryPlay(proxy, player);
+  if (success) {
+    logStreamUsage(initialURL, streamURL, player);
+    console.log(`✅ Παίζει με ${player}!`);
+    return true;
   }
-};
-
-
-
-
+  return false;
+}
 
 async function playStream(initialURL, subtitleURL = null) {
-  console.log('🚀 Ξεκινάω αναπαραγωγή:', initialURL);
+  console.log('▶️ Ξεκινάω αναπαραγωγή:', initialURL);
 
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  // Καθαρίζω όλους τους players
   if (clapprPlayer) clapprPlayer.destroy();
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
@@ -907,12 +836,12 @@ async function playStream(initialURL, subtitleURL = null) {
 
   let streamURL = initialURL;
 
-  // Αν υπάρχει Cache
+  // 🔵 Αν υπάρχει στο cache, προσπαθώ πρώτα από εκεί
   const cached = streamPerfMap[initialURL];
   if (cached) {
     console.log(`📦 Υπάρχει cache: Προσπαθώ πρώτα με ${cached.player}`);
-    const ok = await safeTryPlay(cached.proxy, cached.player);
-    if (ok) {
+    const success = await safeTryPlay(initialURL, streamURL, cached.proxy, cached.player);
+    if (success) {
       console.log('✅ Παίχτηκε από cache!');
       return;
     } else {
@@ -921,83 +850,69 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   }
 
-  // Αν είναι STRM
+  // 🟠 STRM αρχεία
   if (isSTRM(streamURL)) {
     const resolved = await resolveSTRM(streamURL);
-    if (resolved) streamURL = resolved;
-    else return;
+    if (resolved) {
+      streamURL = resolved;
+    } else {
+      console.error('❌ Δεν βρέθηκε URL μέσα στο STRM.');
+      return;
+    }
   }
 
-  // Αν είναι iframe
+  // 🟡 Αν είναι iframe
   if (isIframeStream(streamURL)) {
-    const directM3u8 = await findM3U8inIframe(streamURL, proxyList);
-    if (directM3u8) {
-      streamURL = directM3u8;
+    const directStream = await findM3U8inIframe(streamURL, proxyList);
+    if (directStream) {
+      streamURL = directStream;
     } else {
-      await safeTryPlay(null, 'iframe');
+      console.log('🖼️ Παίζω το iframe όπως είναι.');
+      await tryPlay(null, 'iframe');
       logStreamUsage(initialURL, initialURL, 'iframe');
       return;
     }
   }
 
-  // Proxy Try
-  const workingURL = await autoProxyFetch(streamURL);
+  // 🔵 Proxy δοκιμές
+  console.log('🌐 Ξεκινάω δοκιμές proxy για:', streamURL);
+  let workingURL = await autoProxyFetch(streamURL);
   if (!workingURL) {
     console.error('❌ Καμία proxy δεν λειτούργησε.');
     return;
   }
-
   streamURL = workingURL;
-  let playerUsed = '';
-  let proxyUsed = workingURL !== initialURL ? workingURL.replace(initialURL, '') : '';
 
+  // 🟣 Αναγνώριση τύπου Stream
   const streamType = detectStreamType(streamURL);
+  console.log('🔎 Stream Type αναγνωρίστηκε:', streamType);
 
-  console.log(`🔎 Stream Type αναγνωρίστηκε: ${streamType}`);
-
-  // ΔΟΚΙΜΕΣ παικτών
-  const playerTrials = [];
-
-  if (streamType === 'hls') {
-    playerTrials.push(['hls.js', null]);
-    playerTrials.push(['native-hls', null]);
-    playerTrials.push(['clappr', null]);
-  } else if (streamType === 'dash') {
-    playerTrials.push(['dash.js', null]);
-    playerTrials.push(['clappr', null]);
-  } else if (streamType === 'mp4' || streamType === 'webm') {
-    playerTrials.push(['native-mp4', null]);
-    playerTrials.push(['clappr', null]);
-  } else if (streamType === 'ts') {
-    // .ts streams θα φορτώνονται στο player.html μέσω iframe
+  // 🟢 Προσπάθεια με players με σειρά
+  if (streamType === 'hls' && Hls.isSupported()) {
+    if (await safeTryPlay(initialURL, streamURL, null, 'hls.js')) return;
+  }
+  if (streamType === 'hls' && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+    if (await safeTryPlay(initialURL, streamURL, null, 'native-hls')) return;
+  }
+  if (streamType === 'dash') {
+    if (await safeTryPlay(initialURL, streamURL, null, 'dash.js')) return;
+  }
+  if (streamType === 'mp4' || streamType === 'webm') {
+    if (await safeTryPlay(initialURL, streamURL, null, 'native-mp4')) return;
+  }
+  if (streamType === 'ts') {
+    console.log('🖼️ Παίζω μέσω ειδικού iframe player για TS.');
     iframePlayer.style.display = 'block';
     iframePlayer.src = `player.html?url=${encodeURIComponent(streamURL)}`;
-    playerUsed = 'iframe';
-    logStreamUsage(initialURL, streamURL, playerUsed);
-    console.log('✅ TS stream παίζει μέσω player.html');
+    logStreamUsage(initialURL, streamURL, 'iframe');
     return;
-  } else {
-    playerTrials.push(['clappr', null]);
   }
 
-  let success = false;
-  for (let [player, proxy] of playerTrials) {
-    success = await safeTryPlay(proxy, player);
-    if (success) {
-      playerUsed = player;
-      break;
-    }
-  }
+  // 🔴 Fallback αν όλα αποτύχουν
+  if (await safeTryPlay(initialURL, streamURL, null, 'clappr')) return;
 
-  if (success) {
-    console.log(`✅ Βρέθηκε λειτουργικός player: ${playerUsed}`);
-    logStreamUsage(initialURL, streamURL, playerUsed);
-  } else {
-    console.error('❌ Καμία μέθοδος δεν λειτούργησε.');
-  }
+  console.error('❌ Καμία μέθοδος δεν λειτούργησε.');
 }
-
-
 
 
 
