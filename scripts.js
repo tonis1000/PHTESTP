@@ -672,44 +672,51 @@ async function autoProxyFetch(url) {
       if (res.ok) {
         const text = await res.text();
 
-        // Έλεγχος αν είναι .m3u8 ή playable HTML
-        if (text.includes('#EXTM3U') || text.includes('.m3u8') || text.includes('<video') || text.includes('autoplay') || text.includes('hls.js') || text.includes('clappr')) {
-          console.log(`✅ .m3u8 ή playable βρέθηκε! Έλεγχος για κομμάτια...`);
+        // Έλεγχος αν είναι .m3u8
+        if (text.includes('#EXTM3U')) {
+          console.log(`✅ Βρέθηκε .m3u8 ➔ Έλεγχος ts κομματιού...`);
 
-          // Βρες το πρώτο .ts αρχείο μέσα στο κείμενο
+          // Βρες το πρώτο .ts αρχείο μέσα
           const tsMatch = text.match(/(.*\.ts)[^\s'"]*/);
           if (tsMatch && tsMatch[1]) {
-            const tsUrl = tsMatch[1].startsWith('http') ? tsMatch[1] : testUrl.replace(/[^/]+$/, '') + tsMatch[1];
+            const tsPath = tsMatch[1];
+
+            // Αν το ts path είναι σχετικό ➔ κάνε σωστό absolute URL
+            const tsUrl = tsPath.startsWith('http') ? tsPath : url.replace(/[^/]+$/, '') + tsPath;
+            const tsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
 
             try {
-              const tsRes = await fetch(tsUrl, { method: 'HEAD', mode: 'cors' });
+              console.log(`⏳ Έλεγχος ts κομματιού: ${tsProxyUrl}`);
+              const tsRes = await fetch(tsProxyUrl, { method: 'HEAD', mode: 'cors' });
+
               if (tsRes.ok) {
-                console.log(`✅ To πρώτο ts (${tsUrl}) είναι ΟΚ ➔ Χρησιμοποιούμε ${proxy || 'direct'}`);
-                return testUrl;
+                console.log(`✅ To πρώτο ts υπάρχει ➔ Επιλογή proxy: ${proxy || 'direct'}`);
+                return testUrl; // Γυρνάμε το καλό proxy url
               } else {
-                console.warn(`⚠️ To ts (${tsUrl}) δεν είναι ΟΚ ➔ Συνεχίζουμε...`);
+                console.warn(`⚠️ Το ts επέστρεψε ${tsRes.status} ➔ Συνεχίζουμε με επόμενο proxy...`);
               }
             } catch (err) {
-              console.warn(`⚠️ Σφάλμα στο ts fetch (${tsUrl}):`, err);
+              console.warn(`⚠️ Σφάλμα στο fetch ts:`, err);
             }
           } else {
-            console.log(`ℹ️ Δεν βρέθηκε ts ➔ Χρησιμοποιούμε ${proxy || 'direct'}`);
+            console.log(`ℹ️ Δεν βρέθηκε ts στο m3u8 ➔ Επιλογή proxy: ${proxy || 'direct'}`);
             return testUrl;
           }
         } else {
-          console.warn(`⚠️ Περιεχόμενο άκυρο στο proxy ${proxy || 'direct'} ➔ Συνεχίζουμε...`);
+          console.warn(`⚠️ Περιεχόμενο άκυρο ➔ Συνεχίζουμε με επόμενο proxy...`);
         }
       } else {
         console.warn(`❌ Proxy ${proxy || 'direct'} ➔ HTTP Status όχι OK (${res.status}) ➔ Συνεχίζουμε...`);
       }
     } catch (e) {
-      console.warn(`❌ Proxy ${proxy || 'direct'} ➔ Σφάλμα:`, e);
+      console.warn(`❌ Σφάλμα στο proxy:`, e);
     }
   }
 
   console.error('🚨 Κανένας Proxy δεν λειτούργησε για:', url);
   return null;
 }
+
 
 
 
