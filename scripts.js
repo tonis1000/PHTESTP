@@ -760,13 +760,43 @@ function detectStreamType(url) {
 
 
 
+// Νέα βοηθητική συνάρτηση για έλεγχο Direct και Proxy σύνδεσης
+async function findWorkingUrl(url) {
+  try {
+    const res = await fetch(url, { method: 'HEAD', mode: 'cors' });
+    if (res.ok) {
+      console.log('✅ Direct σύνδεση επιτυχής.');
+      return url; // Direct OK
+    }
+  } catch (e) {
+    console.log('🚫 Direct σύνδεση απέτυχε:', e.message);
+  }
+
+  // Αν direct απέτυχε ➔ Δοκίμασε όλους τους proxies
+  for (const proxy of proxyList) {
+    const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
+    try {
+      const res = await fetch(proxiedUrl, { method: 'HEAD', mode: 'cors' });
+      if (res.ok) {
+        console.log(`✅ Proxy OK: ${proxy}`);
+        return proxiedUrl;
+      }
+    } catch (e) {
+      console.log(`❌ Proxy αποτυχία: ${proxy}`);
+    }
+  }
+
+  console.log('🚫 Κανένας proxy δεν δούλεψε.');
+  return null;
+}
+
+// Ανανεωμένο playStream()
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  // --- Phase 1: Reset ---
   console.log('🔄 Reset players και sources');
   if (clapprPlayer) clapprPlayer.destroy();
   videoPlayer.pause();
@@ -781,7 +811,6 @@ async function playStream(initialURL, subtitleURL = null) {
 
   let streamURL = initialURL;
 
-  // --- Phase 2: Check Cache ---
   if (streamPerfMap[initialURL]) {
     console.log('⚡ Προσπάθεια μέσω Cache...');
     const cached = streamPerfMap[initialURL];
@@ -807,7 +836,6 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   }
 
-  // --- Phase 3: STRM Check ---
   if (isSTRM(streamURL)) {
     console.log('📦 STRM αρχείο εντοπίστηκε. Κατέβασμα...');
     const resolved = await resolveSTRM(streamURL);
@@ -819,7 +847,6 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   }
 
-  // --- Phase 4: Iframe Check ---
   if (isIframeStream(streamURL)) {
     console.log('🌐 Εντοπίστηκε πιθανό Iframe. Αναζήτηση .m3u8...');
     let foundStream = null;
@@ -849,39 +876,14 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   }
 
-  // --- Phase 5: m3u8 Check ---
-  if (streamURL.endsWith('.m3u8')) {
-    console.log('📥 Κατέβασμα .m3u8 playlist...');
-    try {
-      const res = await fetch(streamURL);
-      if (res.ok) {
-        const text = await res.text();
-        if (text.includes('#EXT-X-STREAM-INF')) {
-          console.log('🔀 Master Playlist: Βρίσκω το καλύτερο chunklist...');
-          const matches = [...text.matchAll(/(https?:\/\/[^"]+\.m3u8)/g)];
-          if (matches.length > 0) {
-            streamURL = matches[0][1];
-          }
-        }
-        if (text.includes('chunklist.m3u8') || text.includes('index.m3u8')) {
-          console.log('🔗 Διόρθωση Relative Paths...');
-          // Εδώ μπαίνει λογική για αντικατάσταση relative paths αν χρειάζεται
-        }
-      }
-    } catch (e) {
-      console.log('🚫 Σφάλμα κατεβάσματος .m3u8:', e);
-    }
-  }
-
-  // --- Phase 6: Proxy Detection ---
-  console.log('🌍 Έλεγχος Proxy...');
-  let workingUrl = await autoProxyFetch(streamURL);
+  console.log('🌍 Έλεγχος Direct ή Proxy προσβασιμότητας...');
+  const workingUrl = await findWorkingUrl(streamURL);
   if (workingUrl) {
     streamURL = workingUrl;
+  } else {
+    console.log('🚫 Καμία διαθέσιμη σύνδεση. Τέλος.');
+    return;
   }
-
-  // --- Phase 7: Player Trials ---
-  console.log('🎯 Δοκιμή Players με σειρά...');
 
   const showVideoPlayer = () => {
     videoPlayer.style.display = 'block';
@@ -933,6 +935,7 @@ async function playStream(initialURL, subtitleURL = null) {
   });
   logStreamUsage(initialURL, streamURL, 'clappr');
 }
+
 
 
 
