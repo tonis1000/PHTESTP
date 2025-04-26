@@ -632,15 +632,14 @@ function updateClock() {
 
 // scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
 const proxyList = [
-  "", // δοκιμή χωρίς proxy πρώτα
+  "", // ➔ Πρώτα δοκιμάζουμε direct χωρίς proxy
   'https://groovy-ossified-legal.glitch.me/?url=',
   'https://cors-anywhere-production-d9b6.up.railway.app/',
   'https://tonis-proxy.onrender.com/',
-  'https://api.allorigins.win/raw?url=',
+  'https://api.codetabs.com/v1/proxy/?quest=',
+  'https://proxy.cors.sh/',
   'https://thingproxy.freeboard.io/fetch/',
-  'https://corsproxy.io/?',
-  'https://cors.bridged.cc/',
-  'https://yacdn.org/proxy/'
+  'https://api.allorigins.win/raw?url=',
 ];
 
 let clapprPlayer = null;
