@@ -808,10 +808,6 @@ async function playStream(initialURL, subtitleURL = null) {
     try {
       let finalURL = streamURL.trim();
 
-      if (proxy && !isAlreadyProxied(finalURL)) {
-        finalURL = proxy.endsWith('=') ? proxy + encodeURIComponent(finalURL) : proxy + finalURL;
-      }
-
       finalURL = finalURL.trim(); // ➡️ Extra σιγουριά ότι δεν έχει διπλά κολλήματα
 
       if (player === 'iframe') {
