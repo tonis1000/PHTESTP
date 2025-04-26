@@ -773,23 +773,52 @@ function debug(msg) {
 // ========================================
 // 🔥 1. Συνάρτηση για διόρθωση relative links
 // ========================================
-async function fixM3U8RelativeLinks(m3u8Url) {
-  try {
-    console.log('🔧 Ξεκινάω διόρθωση relative links για:', m3u8Url);
-    const response = await fetch(m3u8Url);
-    if (!response.ok) throw new Error('Δεν μπόρεσα να κατεβάσω το m3u8 αρχείο.');
-    let text = await response.text();
-    const baseUrl = m3u8Url.substring(0, m3u8Url.lastIndexOf('/') + 1);
-    text = text.replace(/^(?!#)([^:\/\n][^\n]*)$/gm, (match) => {
-      return baseUrl + match;
-    });
-    console.log('✅ Διορθώθηκαν τα relative links!');
-    return URL.createObjectURL(new Blob([text], { type: 'application/vnd.apple.mpegurl' }));
-  } catch (e) {
-    console.error('⛔ Σφάλμα στη διόρθωση links:', e);
-    return null;
+async function fixM3U8RelativeLinks(originalM3u8Url) {
+  console.log('🔧 Ξεκινάω προσπάθεια διόρθωσης και proxy wrapping για:', originalM3u8Url);
+
+  const proxyList = [
+    '', // δοκιμή direct πρώτα
+    'https://groovy-ossified-legal.glitch.me/?url=',
+    'https://vivid-waiting-theory.glitch.me/?url=',
+    // μπορείς να προσθέσεις κι άλλους proxies εδώ
+  ];
+
+  for (let proxy of proxyList) {
+    try {
+      const urlToFetch = proxy ? proxy + encodeURIComponent(originalM3u8Url) : originalM3u8Url;
+      console.log(`🧪 Προσπαθώ να κατεβάσω m3u8 μέσω proxy: ${proxy || 'direct'}`);
+      
+      const response = await fetch(urlToFetch);
+      if (!response.ok) {
+        console.warn(`⛔ Proxy αποτυχία (status ${response.status}): ${proxy || 'direct'}`);
+        continue;
+      }
+
+      let text = await response.text();
+      console.log(`✅ Proxy επιτυχία: ${proxy || 'direct'}`);
+
+      const baseUrl = originalM3u8Url.substring(0, originalM3u8Url.lastIndexOf('/') + 1);
+
+      const fixedText = text.replace(/^(?!#)([^:\/\n][^\n]*)$/gm, (match) => {
+        const absoluteUrl = baseUrl + match;
+        const wrappedUrl = proxy + encodeURIComponent(absoluteUrl);
+        return wrappedUrl;
+      });
+
+      console.log('🎯 Διόρθωσα επιτυχώς τα relative links με:', proxy || 'direct');
+
+      return URL.createObjectURL(new Blob([fixedText], { type: 'application/vnd.apple.mpegurl' }));
+
+    } catch (e) {
+      console.warn(`⛔ Σφάλμα με proxy ${proxy || 'direct'}:`, e.message);
+      continue;
+    }
   }
+
+  console.error('❌ Δεν κατάφερα να διορθώσω το m3u8 με κανέναν proxy.');
+  return null;
 }
+
 
 
 
