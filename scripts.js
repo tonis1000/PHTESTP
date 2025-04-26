@@ -771,9 +771,7 @@ function isTSStream(url) {
 
 function detectStreamType(url) {
   if (!url) return 'unknown';
-
   const lowerUrl = url.toLowerCase();
-
   if (lowerUrl.endsWith('.m3u8')) return 'hls';
   if (lowerUrl.endsWith('.ts')) return 'ts';
   if (lowerUrl.endsWith('.mpd')) return 'dash';
@@ -781,64 +779,70 @@ function detectStreamType(url) {
   if (lowerUrl.endsWith('.webm')) return 'webm';
   if (lowerUrl.endsWith('.strm')) return 'strm';
   if (lowerUrl.includes('/embed/') || lowerUrl.endsWith('.php') || lowerUrl.endsWith('.html')) return 'iframe';
-
   return 'unknown';
 }
-
-
-
-
-
 
 // 📌 TS Support: Ενημερωμένη logStreamUsage()
 function logStreamUsage(initialUrl, finalUrl, playerUsed) {
   const now = new Date().toISOString();
   const proxyUsed = (initialUrl !== finalUrl) ? finalUrl.replace(initialUrl, '') : '';
-
   globalStreamCache[initialUrl] = {
     timestamp: now,
     proxy: proxyUsed,
     player: playerUsed,
-    type: detectStreamType(initialUrl) // Προσθήκη τύπου
+    type: detectStreamType(initialUrl)
   };
   console.log('📊 Logged stream:', initialUrl, globalStreamCache[initialUrl]);
 }
-}
 
-
-
-
-// Νέα βοηθητική συνάρτηση για έλεγχο Direct και Proxy σύνδεσης
+// ✅ Νέα Βελτιωμένη findWorkingUrl
 async function findWorkingUrl(url) {
   try {
     const res = await fetch(url, { method: 'HEAD', mode: 'cors' });
     if (res.ok) {
       console.log('✅ Direct σύνδεση επιτυχής.');
-      return url; // Direct OK
+      return url;
     }
   } catch (e) {
     console.log('🚫 Direct σύνδεση απέτυχε:', e.message);
   }
 
-  // Αν direct απέτυχε ➔ Δοκίμασε όλους τους proxies
   for (const proxy of proxyList) {
     const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
+    console.log(`🔍 Δοκιμή proxy: ${proxiedUrl}`);
     try {
-      const res = await fetch(proxiedUrl, { method: 'HEAD', mode: 'cors' });
-      if (res.ok) {
-        console.log(`✅ Proxy OK: ${proxy}`);
+      const m3u8Res = await fetch(proxiedUrl, { method: 'GET', mode: 'cors' });
+      if (!m3u8Res.ok) {
+        console.warn(`❌ m3u8 fetch status: ${m3u8Res.status}`);
+        continue;
+      }
+      const m3u8Text = await m3u8Res.text();
+      if (!m3u8Text.includes('#EXTM3U')) {
+        console.warn('⚠️ Το αρχείο δεν είναι σωστό m3u8');
+        continue;
+      }
+      const tsMatch = m3u8Text.match(/([^\s"']+\.ts)/i);
+      if (!tsMatch || !tsMatch[1]) {
+        console.warn('⚠️ Δεν βρέθηκε ts αρχείο');
+        continue;
+      }
+      const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+      const tsUrl = tsMatch[1].startsWith('http') ? tsMatch[1] : baseUrl + tsMatch[1];
+      const proxiedTsUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
+      const tsRes = await fetch(proxiedTsUrl, { method: 'HEAD', mode: 'cors' });
+      if (tsRes.ok) {
+        console.log(`✅ Επιτυχής ts! Επιλογή proxy: ${proxy}`);
         return proxiedUrl;
       }
     } catch (e) {
-      console.log(`❌ Proxy αποτυχία: ${proxy}`);
+      console.warn('❌ Proxy αποτυχία:', e.message);
     }
   }
-
   console.log('🚫 Κανένας proxy δεν δούλεψε.');
   return null;
 }
 
-// Ανανεωμένο playStream()
+// 🔥 Ανανεωμένο playStream
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
@@ -856,6 +860,14 @@ async function playStream(initialURL, subtitleURL = null) {
   videoPlayer.style.display = 'none';
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
+
+  const showVideoPlayer = () => {
+    videoPlayer.style.display = 'block';
+    if (subtitleURL) {
+      subtitleTrack.src = subtitleURL;
+      subtitleTrack.track.mode = 'showing';
+    }
+  };
 
   let streamURL = initialURL;
 
@@ -883,39 +895,36 @@ async function playStream(initialURL, subtitleURL = null) {
       delete streamPerfMap[initialURL];
     }
   }
- // 📌 TS Support: Νέα λογική για TS streams
-const streamType = detectStreamType(streamURL);
-if (streamType === 'ts') {
-  console.log('🔵 TS stream detected. Attempting playback...');
-  
-  // 1. Try hls.js (για TS σε HLS containers)
-  if (Hls.isSupported()) {
-    try {
-      const hls = new Hls();
-      hls.loadSource(streamURL);
-      hls.attachMedia(videoPlayer);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-      showVideoPlayer();
-      logStreamUsage(initialURL, streamURL, 'hls.js-ts');
-      return;
-    } catch (e) {
-      console.warn('❌ Hls.js failed for TS, trying fallback...', e);
-    }
-  }
 
-  // 2. Fallback to Clappr
-  console.log('🟠 TS stream -> Using Clappr fallback');
-  clapprDiv.style.display = 'block';
-  clapprPlayer = new Clappr.Player({
-    source: streamURL,
-    parentId: '#clappr-player',
-    autoPlay: true,
-    width: '100%',
-    height: '100%'
-  });
-  logStreamUsage(initialURL, streamURL, 'clappr-ts');
-  return;
-} // <-- Κλείνει η if (streamType === 'ts') εδώ!
+  const streamType = detectStreamType(streamURL);
+
+  if (streamType === 'ts') {
+    console.log('🔵 TS stream detected. Attempting playback...');
+    if (Hls.isSupported()) {
+      try {
+        const hls = new Hls();
+        hls.loadSource(streamURL);
+        hls.attachMedia(videoPlayer);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+        showVideoPlayer();
+        logStreamUsage(initialURL, streamURL, 'hls.js-ts');
+        return;
+      } catch (e) {
+        console.warn('❌ Hls.js failed for TS, trying fallback...', e);
+      }
+    }
+    console.log('🟠 TS stream -> Using Clappr fallback');
+    clapprDiv.style.display = 'block';
+    clapprPlayer = new Clappr.Player({
+      source: streamURL,
+      parentId: '#clappr-player',
+      autoPlay: true,
+      width: '100%',
+      height: '100%'
+    });
+    logStreamUsage(initialURL, streamURL, 'clappr-ts');
+    return;
+  }
 
   if (isIframeStream(streamURL)) {
     console.log('🌐 Εντοπίστηκε πιθανό Iframe. Αναζήτηση .m3u8...');
@@ -954,14 +963,6 @@ if (streamType === 'ts') {
     console.log('🚫 Καμία διαθέσιμη σύνδεση. Τέλος.');
     return;
   }
-
-  const showVideoPlayer = () => {
-    videoPlayer.style.display = 'block';
-    if (subtitleURL) {
-      subtitleTrack.src = subtitleURL;
-      subtitleTrack.track.mode = 'showing';
-    }
-  };
 
   try {
     if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
@@ -1005,6 +1006,7 @@ if (streamType === 'ts') {
   });
   logStreamUsage(initialURL, streamURL, 'clappr');
 }
+
 
 
 
