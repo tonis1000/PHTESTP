@@ -764,14 +764,15 @@ function isAlreadyProxied(url) {
   });
 }
 
-// === PlayStream SmartPlayer Logic (Full Professional Rewrite) ===
+// === PlayStream SmartPlayer Logic (Full Corrected Version) ===
+
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  // 1. ➔ Reset players
+  // 1. Reset players
   if (window.globalClapprPlayer) {
     window.globalClapprPlayer.destroy();
     window.globalClapprPlayer = null;
@@ -797,11 +798,10 @@ async function playStream(initialURL, subtitleURL = null) {
 
   let streamURL = initialURL;
 
-  // Προσπάθεια να παίξει με συγκεκριμένο proxy και player
+  // Helper: προσπαθεί να παίξει με proxy και player
   const tryPlay = async (proxy, player) => {
     try {
       let finalURL = streamURL;
-
       if (proxy && !isAlreadyProxied(streamURL)) {
         finalURL = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
       }
@@ -849,7 +849,7 @@ async function playStream(initialURL, subtitleURL = null) {
     return false;
   };
 
-  // 2. ➔ Cache Check
+  // 2. Cache Check
   const cached = streamPerfMap[initialURL];
   if (cached) {
     const success = await tryPlay(cached.proxy, cached.player);
@@ -857,19 +857,19 @@ async function playStream(initialURL, subtitleURL = null) {
       console.log('✅ Έπαιξε από cache!');
       return;
     } else {
-      console.warn('🔄 Λάθος cache, το διαγράφω και συνεχίζω...');
+      console.warn('🔄 Λάθος cache, διαγράφεται...');
       delete streamPerfMap[initialURL];
     }
   }
 
-  // 3. ➔ STRM Case
+  // 3. STRM Case
   if (isSTRM(streamURL)) {
     const resolved = await resolveSTRM(streamURL);
     if (resolved) streamURL = resolved;
     else return;
   }
 
-  // 4. ➔ iframe Case
+  // 4. iframe Case
   if (isIframeStream(streamURL)) {
     const directStream = await findM3U8inIframe(streamURL, proxyList);
     if (directStream) {
@@ -881,15 +881,7 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   }
 
-  // 5. ➔ Proxy Detection
-  let workingURL = await autoProxyFetch(streamURL);
-  if (!workingURL) {
-    console.error('❌ Καμία proxy δεν λειτούργησε.');
-    return;
-  }
-  streamURL = workingURL;
-
-  // 6. ➔ m3u8 Master Playlist Handling
+  // 5. Master Playlist Handling (ΠΡΩΤΑ!)
   if (streamURL.endsWith('.m3u8')) {
     try {
       const response = await fetch(streamURL);
@@ -910,11 +902,19 @@ async function playStream(initialURL, subtitleURL = null) {
         }
       }
     } catch (e) {
-      console.warn('⚠️ Αποτυχία λήψης για master playlist:', e);
+      console.warn('⚠️ Αποτυχία λήψης master playlist:', e);
     }
   }
 
-  // 7. ➔ Stream Type Detection + Player Priority
+  // 6. Proxy Detection (ΜΕΤΑ!)
+  let workingURL = await autoProxyFetch(streamURL);
+  if (!workingURL) {
+    console.error('❌ Καμία proxy δεν λειτούργησε.');
+    return;
+  }
+  streamURL = workingURL;
+
+  // 7. Stream Type Detection + Player Priority
   let playerUsed = '';
   const streamType = detectStreamType(streamURL);
 
@@ -944,6 +944,7 @@ async function playStream(initialURL, subtitleURL = null) {
     console.error('❌ Δεν μπόρεσε να παιχτεί το stream.');
   }
 }
+
 
 
 function logStreamUsage(initialURL, finalURL, playerUsed) {
