@@ -660,15 +660,14 @@ async function resolveSTRM(url) {
 
 
 
+// Βρίσκει τον πρώτο λειτουργικό proxy ή direct URL
 async function autoProxyFetch(url) {
-  // Αν ήδη ξεκινάει με κάποιον proxy ή είναι absolute .m3u8 ➔ Μην το πειράξεις
-  if (proxyList.some(proxy => url.startsWith(proxy)) || url.startsWith('https://groovy-ossified-legal.glitch.me/?url=')) {
-    console.log('⚡ Ήδη proxied ή έτοιμο URL:', url);
-    return url;
-  }
-
   for (let proxy of proxyList) {
-    const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
+    let testUrl = url;
+    if (proxy && !isAlreadyProxied(url)) {
+      testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
+    }
+
     try {
       let res = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
 
@@ -684,8 +683,6 @@ async function autoProxyFetch(url) {
       console.warn(`❌ Proxy failed: ${proxy || "direct"}`, e);
     }
   }
-
-  console.error('❌ Κανένας proxy δεν λειτούργησε για:', url);
   return null;
 }
 
@@ -759,10 +756,16 @@ function detectStreamType(url) {
 
 
 
+// Ελέγχει αν το URL είναι ήδη περασμένο από proxy
+function isAlreadyProxied(url) {
+  return proxyList.some(proxy => {
+    if (!proxy) return false; // Αγνόησε το "direct" proxy
+    const proxyBase = proxy.endsWith('=') ? proxy.slice(0, -1) : proxy;
+    return url.startsWith(proxyBase);
+  });
+}
 
-
-// === PlayStream SmartPlayer Logic (Full Rewrite) ===
-
+// === PlayStream SmartPlayer Logic (Full Professional Rewrite) ===
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
@@ -770,7 +773,18 @@ async function playStream(initialURL, subtitleURL = null) {
   const subtitleTrack = document.getElementById('subtitle-track');
 
   // 1. ➔ Reset players
-  if (clapprPlayer) clapprPlayer.destroy();
+  if (window.globalClapprPlayer) {
+    window.globalClapprPlayer.destroy();
+    window.globalClapprPlayer = null;
+  }
+  if (window.globalHls) {
+    window.globalHls.destroy();
+    window.globalHls = null;
+  }
+  if (window.globalDashPlayer) {
+    window.globalDashPlayer.reset();
+    window.globalDashPlayer = null;
+  }
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
@@ -784,11 +798,12 @@ async function playStream(initialURL, subtitleURL = null) {
 
   let streamURL = initialURL;
 
-  // Helper ➔ προσπαθεί να παίξει με συγκεκριμένο player και proxy
+  // Προσπάθεια να παίξει με συγκεκριμένο proxy και player
   const tryPlay = async (proxy, player) => {
     try {
       let finalURL = streamURL;
-      if (proxy && !streamURL.startsWith(proxy)) {
+
+      if (proxy && !isAlreadyProxied(streamURL)) {
         finalURL = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
       }
 
@@ -798,7 +813,7 @@ async function playStream(initialURL, subtitleURL = null) {
         return true;
       } else if (player === 'clappr') {
         clapprDiv.style.display = 'block';
-        clapprPlayer = new Clappr.Player({
+        window.globalClapprPlayer = new Clappr.Player({
           source: finalURL,
           parentId: '#clappr-player',
           autoPlay: true,
@@ -807,10 +822,10 @@ async function playStream(initialURL, subtitleURL = null) {
         });
         return true;
       } else if (player === 'hls.js' && Hls.isSupported()) {
-        const hls = new Hls();
-        hls.loadSource(finalURL);
-        hls.attachMedia(videoPlayer);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+        window.globalHls = new Hls();
+        globalHls.loadSource(finalURL);
+        globalHls.attachMedia(videoPlayer);
+        globalHls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
         videoPlayer.style.display = 'block';
         return true;
       } else if (player === 'native-hls' && videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
@@ -819,8 +834,8 @@ async function playStream(initialURL, subtitleURL = null) {
         videoPlayer.style.display = 'block';
         return true;
       } else if (player === 'dash.js' && finalURL.endsWith('.mpd')) {
-        const dashPlayer = dashjs.MediaPlayer().create();
-        dashPlayer.initialize(videoPlayer, finalURL, true);
+        window.globalDashPlayer = dashjs.MediaPlayer().create();
+        globalDashPlayer.initialize(videoPlayer, finalURL, true);
         videoPlayer.style.display = 'block';
         return true;
       } else if (player === 'native-mp4' && (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm'))) {
@@ -930,8 +945,6 @@ async function playStream(initialURL, subtitleURL = null) {
     console.error('❌ Δεν μπόρεσε να παιχτεί το stream.');
   }
 }
-
-
 
 
 
