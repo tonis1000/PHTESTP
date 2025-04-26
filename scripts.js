@@ -667,21 +667,40 @@ async function autoProxyFetch(url) {
     try {
       console.log(`🔎 Δοκιμή proxy: ${proxy || 'direct'} ➔ ${testUrl}`);
 
-      // Ζητάμε μικρό κομμάτι του αρχείου
       const res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
 
       if (res.ok) {
         const text = await res.text();
 
-        // Έλεγχος αν περιέχει playable χαρακτηριστικά
+        // Έλεγχος αν είναι .m3u8 ή playable HTML
         if (text.includes('#EXTM3U') || text.includes('.m3u8') || text.includes('<video') || text.includes('autoplay') || text.includes('hls.js') || text.includes('clappr')) {
-          console.log(`✅ Proxy λειτουργεί: ${proxy || 'direct'}`);
-          return testUrl; // Βρήκαμε σωστό proxy ➔ επιστροφή
+          console.log(`✅ .m3u8 ή playable βρέθηκε! Έλεγχος για κομμάτια...`);
+
+          // Βρες το πρώτο .ts αρχείο μέσα στο κείμενο
+          const tsMatch = text.match(/(.*\.ts)[^\s'"]*/);
+          if (tsMatch && tsMatch[1]) {
+            const tsUrl = tsMatch[1].startsWith('http') ? tsMatch[1] : testUrl.replace(/[^/]+$/, '') + tsMatch[1];
+
+            try {
+              const tsRes = await fetch(tsUrl, { method: 'HEAD', mode: 'cors' });
+              if (tsRes.ok) {
+                console.log(`✅ To πρώτο ts (${tsUrl}) είναι ΟΚ ➔ Χρησιμοποιούμε ${proxy || 'direct'}`);
+                return testUrl;
+              } else {
+                console.warn(`⚠️ To ts (${tsUrl}) δεν είναι ΟΚ ➔ Συνεχίζουμε...`);
+              }
+            } catch (err) {
+              console.warn(`⚠️ Σφάλμα στο ts fetch (${tsUrl}):`, err);
+            }
+          } else {
+            console.log(`ℹ️ Δεν βρέθηκε ts ➔ Χρησιμοποιούμε ${proxy || 'direct'}`);
+            return testUrl;
+          }
         } else {
-          console.warn(`⚠️ Proxy ${proxy || 'direct'} ➔ Περιεχόμενο άκυρο, συνεχίζουμε...`);
+          console.warn(`⚠️ Περιεχόμενο άκυρο στο proxy ${proxy || 'direct'} ➔ Συνεχίζουμε...`);
         }
       } else {
-        console.warn(`❌ Proxy ${proxy || 'direct'} ➔ HTTP Status όχι OK (${res.status}), συνεχίζουμε...`);
+        console.warn(`❌ Proxy ${proxy || 'direct'} ➔ HTTP Status όχι OK (${res.status}) ➔ Συνεχίζουμε...`);
       }
     } catch (e) {
       console.warn(`❌ Proxy ${proxy || 'direct'} ➔ Σφάλμα:`, e);
@@ -689,8 +708,9 @@ async function autoProxyFetch(url) {
   }
 
   console.error('🚨 Κανένας Proxy δεν λειτούργησε για:', url);
-  return null; // Αν δεν βρεθεί κανένας
+  return null;
 }
+
 
 
 
