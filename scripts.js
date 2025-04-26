@@ -790,18 +790,19 @@ function detectStreamType(url) {
 
 
 
+// 📌 TS Support: Ενημερωμένη logStreamUsage()
 function logStreamUsage(initialUrl, finalUrl, playerUsed) {
   const now = new Date().toISOString();
   const proxyUsed = (initialUrl !== finalUrl) ? finalUrl.replace(initialUrl, '') : '';
 
-  if (!globalStreamCache[initialUrl]) {
-    globalStreamCache[initialUrl] = {
-      timestamp: now,
-      proxy: proxyUsed,
-      player: playerUsed
-    };
-    console.log('📦 Καταγραφή στο globalStreamCache:', initialUrl, globalStreamCache[initialUrl]);
-  }
+  globalStreamCache[initialUrl] = {
+    timestamp: now,
+    proxy: proxyUsed,
+    player: playerUsed,
+    type: detectStreamType(initialUrl) // Προσθήκη τύπου
+  };
+  console.log('📊 Logged stream:', initialUrl, globalStreamCache[initialUrl]);
+}
 }
 
 
@@ -882,17 +883,39 @@ async function playStream(initialURL, subtitleURL = null) {
       delete streamPerfMap[initialURL];
     }
   }
-
-  if (isSTRM(streamURL)) {
-    console.log('📦 STRM αρχείο εντοπίστηκε. Κατέβασμα...');
-    const resolved = await resolveSTRM(streamURL);
-    if (resolved) {
-      streamURL = resolved;
-    } else {
-      console.log('🚫 STRM δεν έχει έγκυρο URL. ΤΕΛΟΣ.');
+ // 📌 TS Support: Νέα λογική για TS streams
+const streamType = detectStreamType(streamURL);
+if (streamType === 'ts') {
+  console.log('🔵 TS stream detected. Attempting playback...');
+  
+  // 1. Try hls.js (για TS σε HLS containers)
+  if (Hls.isSupported()) {
+    try {
+      const hls = new Hls();
+      hls.loadSource(streamURL);
+      hls.attachMedia(videoPlayer);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+      showVideoPlayer();
+      logStreamUsage(initialURL, streamURL, 'hls.js-ts');
       return;
+    } catch (e) {
+      console.warn('❌ Hls.js failed for TS, trying fallback...', e);
     }
   }
+
+  // 2. Fallback to Clappr
+  console.log('🟠 TS stream -> Using Clappr fallback');
+  clapprDiv.style.display = 'block';
+  clapprPlayer = new Clappr.Player({
+    source: streamURL,
+    parentId: '#clappr-player',
+    autoPlay: true,
+    width: '100%',
+    height: '100%'
+  });
+  logStreamUsage(initialURL, streamURL, 'clappr-ts');
+  return;
+} // <-- Κλείνει η if (streamType === 'ts') εδώ!
 
   if (isIframeStream(streamURL)) {
     console.log('🌐 Εντοπίστηκε πιθανό Iframe. Αναζήτηση .m3u8...');
