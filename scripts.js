@@ -633,10 +633,8 @@ function updateClock() {
 // scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
 const proxyList = [
   "", // ➔ Πρώτα δοκιμάζουμε direct χωρίς proxy
-  'https://groovy-ossified-legal.glitch.me/?url=',
-  'https://cors-anywhere-production-d9b6.up.railway.app/',
+  'https://groovy-ossified-legal.glitch.me/?url=',  
   'https://corsproxy.io/?',
-  'https://tonis-proxy.onrender.com/',
   'https://api.codetabs.com/v1/proxy/?quest=',
   'https://proxy.cors.sh/',
   'https://thingproxy.freeboard.io/fetch/',
