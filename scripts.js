@@ -795,86 +795,44 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
 
 // ✅ Νέα Βελτιωμένη findWorkingUrl
 async function findWorkingUrl(url) {
-  // 1. Δοκιμή απευθείας σύνδεσης (αν το SSL επιτρέπει)
+  // 1. Direct connection
   try {
-    const directRes = await fetch(url, { method: 'GET', mode: 'cors' });
-    if (directRes.ok) {
-      const text = await directRes.text();
-      if (text.includes('#EXTM3U')) {
-        const chunksUrl = extractChunksUrl(text, url);
-        if (chunksUrl) {
-          console.log('✅ Direct master playlist -> chunks URL:', chunksUrl);
-          return chunksUrl;
-        }
-      }
-      console.log('✅ Direct σύνδεση επιτυχής:', url);
-      return url;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Origin': window.location.origin }
+    });
+    if (res.ok) {
+      const text = await res.text();
+      const chunksUrl = extractChunksUrl(text, url);
+      return chunksUrl || url;
     }
   } catch (e) {
-    console.log('🚫 Direct σύνδεση απέτυχε:', e.message);
+    console.log('Direct failed:', e.message);
   }
 
-  // 2. Δοκιμή με proxies
-  for (const proxy of proxyList) {
-    const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
-    console.log(`🔍 Δοκιμή proxy: ${proxy}`);
-
+  // 2. Proxy fallback
+  for (const proxy of proxyList.filter(p => p)) {
+    const proxyUrl = proxy + encodeURIComponent(url);
     try {
-      // Α. Φόρτωση playlist (master ή chunks)
-      const m3u8Res = await fetch(proxiedUrl, { method: 'GET', mode: 'cors' });
-      if (!m3u8Res.ok) {
-        console.warn(`❌ m3u8 fetch status: ${m3u8Res.status}`);
-        continue;
-      }
-
-      const m3u8Text = await m3u8Res.text();
-      if (!m3u8Text.includes('#EXTM3U')) {
-        console.warn('⚠️ Το αρχείο δεν είναι σωστό m3u8');
-        continue;
-      }
-
-      // Β. Αν είναι master playlist, βρες chunks URL
-      if (m3u8Text.includes('EXT-X-STREAM-INF')) {
-        const chunksUrl = extractChunksUrl(m3u8Text, proxiedUrl);
-        if (!chunksUrl) {
-          console.warn('⚠️ Δεν βρέθηκε chunks.m3u8 στο master playlist');
-          continue;
+      const res = await fetch(proxyUrl, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Origin': window.location.origin
         }
-
-        // Γ. Δοκιμή chunks URL
-        const proxiedChunksUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(chunksUrl) : proxy + chunksUrl;
-        const chunksRes = await fetch(proxiedChunksUrl, { method: 'HEAD', mode: 'cors' });
-        if (chunksRes.ok) {
-          console.log(`✅ Βρέθηκε chunks.m3u8 via proxy: ${proxy}`);
-          return proxiedChunksUrl;
-        }
-      } 
-      // Δ. Αν είναι απλό playlist με TS, δοκιμή πρώτου TS segment
-      else {
-        const tsMatch = m3u8Text.match(/([^\s"']+\.ts)/i);
-        if (!tsMatch) {
-          console.warn('⚠️ Δεν βρέθηκε TS segment');
-          continue;
-        }
-
-        const baseUrl = proxiedUrl.substring(0, proxiedUrl.lastIndexOf('/') + 1);
-        const tsUrl = tsMatch[1].startsWith('http') ? tsMatch[1] : baseUrl + tsMatch[1];
-        const proxiedTsUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
-        
-        const tsRes = await fetch(proxiedTsUrl, { method: 'HEAD', mode: 'cors' });
-        if (tsRes.ok) {
-          console.log(`✅ Επιτυχής TS segment via proxy: ${proxy}`);
-          return proxiedUrl;
-        }
+      });
+      if (res.ok) {
+        const text = await res.text();
+        const chunksUrl = extractChunksUrl(text, proxyUrl);
+        return chunksUrl || proxyUrl;
       }
     } catch (e) {
-      console.warn('❌ Proxy error:', e.message);
+      console.log(`Proxy ${proxy} failed:`, e.message);
     }
   }
-
-  console.log('🚫 Κανένας proxy δεν δούλεψε.');
   return null;
 }
+
+
 
 // Βοηθητική συνάρτηση για εξαγωγή chunks URL
 function extractChunksUrl(m3uText, baseUrl) {
