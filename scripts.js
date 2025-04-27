@@ -670,26 +670,47 @@ async function resolveSTRM(url) {
 
 
 async function findM3U8inIframe(url) {
-  const foundUrl = await findWorkingUrl(url);
-  if (!foundUrl) return null;
+  console.log('🌐 Σκανάρισμα iframe για .m3u8:', url);
 
-  try {
-    const res = await fetch(foundUrl);
-    if (res.ok) {
-      const html = await res.text();
-      const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/i);
-      if (match) {
-        console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', match[1]);
-        return match[1];
+  const proxyListWithDirect = ["", ...proxyList.filter(p => p)];
+
+  for (let proxy of proxyListWithDirect) {
+    const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
+
+    try {
+      const res = await fetch(proxiedUrl);
+      if (res.ok) {
+        const html = await res.text();
+
+        // Πρώτη προσπάθεια: άμεσο m3u8 μέσα στο HTML
+        const m3u8Match = html.match(/(https?:\/\/[^"'\s]+\.m3u8)/i);
+        if (m3u8Match) {
+          console.log('✅ Βρέθηκε απευθείας .m3u8:', m3u8Match[1]);
+          return m3u8Match[1];
+        }
+
+        // Δεύτερη προσπάθεια: player config, Clappr, hls.js μέσα σε script
+        const playlistMatch = html.match(/(https?:\/\/[^\s"']+playlist\.m3u8)/i);
+        if (playlistMatch) {
+          console.log('✅ Βρέθηκε πιθανό playlist .m3u8:', playlistMatch[1]);
+          return playlistMatch[1];
+        }
+
+        // Τρίτη προσπάθεια: εσωτερικά embeded players
+        if (html.includes('hls.js') || html.includes('Clappr') || html.includes('jwplayer')) {
+          console.log('🧐 Βρέθηκαν αναφορές σε players αλλά όχι άμεσο m3u8...');
+        }
+
       }
+    } catch (e) {
+      console.warn('❌ Σφάλμα ανάγνωσης iframe:', e.message);
     }
-  } catch (e) {
-    console.warn('❌ Σφάλμα ανάλυσης iframe:', e.message);
   }
 
-  console.warn('❌ Δεν βρέθηκε απευθείας .m3u8 στο iframe');
+  console.warn('🚫 Δεν βρέθηκε m3u8 σε κανένα proxy για:', url);
   return null;
 }
+
 
 
 
