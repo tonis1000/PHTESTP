@@ -658,65 +658,6 @@ async function resolveSTRM(url) {
 
 
 
-// Βρίσκει τον πρώτο λειτουργικό proxy ή direct URL
-async function autoProxyFetch(url) {
-  for (let proxy of proxyList) {
-    const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
-    console.log(`🔍 Δοκιμή proxy: ${proxy || 'direct'} ➔ ${testUrl}`);
-    
-    try {
-      const m3u8Res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
-      if (!m3u8Res.ok) {
-        console.warn(`❌ .m3u8 fetch status: ${m3u8Res.status}`);
-        continue; // πάμε επόμενο proxy
-      }
-
-      const m3u8Text = await m3u8Res.text();
-      if (!m3u8Text.includes('#EXTM3U')) {
-        console.warn(`⚠️ Το περιεχόμενο δεν είναι .m3u8`);
-        continue; // πάμε επόμενο proxy
-      }
-
-      // Αναζήτηση πρώτου .ts μέσα στο m3u8
-      const tsMatch = m3u8Text.match(/([^\s"']+\.ts)/i);
-      if (!tsMatch || !tsMatch[1]) {
-        console.warn(`⚠️ Δεν βρέθηκε ts κομμάτι`);
-        continue; // πάμε επόμενο proxy
-      }
-
-      // Φτιάχνουμε πλήρες ts URL
-      const tsPath = tsMatch[1];
-      const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
-      const tsUrl = tsPath.startsWith('http') ? tsPath : baseUrl + tsPath;
-      const tsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
-
-      console.log(`⏳ Έλεγχος ts: ${tsProxyUrl}`);
-      
-      try {
-        const tsRes = await fetch(tsProxyUrl, { method: 'HEAD', mode: 'cors' });
-        if (tsRes.ok) {
-          console.log(`✅ Βρέθηκε ts! Επιλογή proxy: ${proxy || 'direct'}`);
-          return testUrl; // επιλέγουμε τον σωστό proxy
-        } else {
-          console.warn(`❌ Το ts γύρισε ${tsRes.status} ➔ Δοκιμή επόμενου proxy`);
-        }
-      } catch (tsErr) {
-        console.warn(`❌ Σφάλμα στο ts check:`, tsErr);
-      }
-
-    } catch (err) {
-      console.warn(`❌ Σφάλμα proxy:`, err);
-    }
-  }
-
-  console.error('🚨 Κανένας proxy δεν δούλεψε για:', url);
-  return null;
-}
-
-
-
-
-
 
 
 
