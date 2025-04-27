@@ -495,6 +495,19 @@ function updatePlayerDescription(title, description) {
 
 
 
+// Fetch με timeout
+function fetchWithTimeout(resource, options = {}) {
+  const { timeout = 7000 } = options;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  return fetch(resource, {
+    ...options,
+    signal: controller.signal
+  }).finally(() => clearTimeout(id));
+}
+
+
+
 
 
 
@@ -581,7 +594,7 @@ function checkStreamStatus() {
     sidebarChannels.forEach(channel => {
         const streamURL = channel.dataset.stream;
         if (streamURL) {
-            fetch(streamURL)
+            fetchWithTimeout(streamURL, { timeout: 7000 })
                 .then(response => {
                     if (response.ok) {
                         channel.classList.add('online'); // Markiere den gesamten Sidebar-Eintrag
