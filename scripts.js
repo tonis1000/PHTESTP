@@ -640,14 +640,7 @@ const proxyList = [
   'https://thingproxy.freeboard.io/fetch/',
   'https://api.allorigins.win/raw?url=',
 ];
-function cleanProxyFromUrl(url) {
-  for (const proxy of proxyList) {
-    if (url.startsWith(proxy)) {
-      return decodeURIComponent(url.replace(proxy, ''));
-    }
-  }
-  return url;
-}
+
 
 
 
@@ -746,94 +739,98 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
 
 
 
+// Βρίσκει τον σωστό τρόπο να φορτώσει m3u8 ή nested chunks
 async function findWorkingUrl(url) {
+  const proxyList = [
+    "", // direct first
+    'https://groovy-ossified-legal.glitch.me/?url=',
+    'https://corsproxy.io/?',
+    'https://api.codetabs.com/v1/proxy/?quest=',
+    'https://proxy.cors.sh/',
+    'https://thingproxy.freeboard.io/fetch/',
+    'https://api.allorigins.win/raw?url=',
+  ];
+  
   const proxyListWithDirect = ["", ...proxyList.filter(p => p)];
 
   for (let proxy of proxyListWithDirect) {
-    const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
-    console.log(`🔍 Δοκιμή proxy: ${proxy || 'direct'} ➔ ${proxiedUrl}`);
+    const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
+    console.log(`🔍 Δοκιμή: ${proxy || 'direct'} ➔ ${testUrl}`);
 
     try {
-      const res = await fetch(proxiedUrl, { method: 'GET', mode: 'cors' });
-      if (!res.ok) {
-        console.warn(`❌ Αποτυχία fetch m3u8: ${res.status}`);
+      const m3u8Res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+      if (!m3u8Res.ok) {
+        console.warn(`❌ .m3u8 fetch status: ${m3u8Res.status}`);
         continue;
       }
-      const m3u8Text = await res.text();
+
+      const m3u8Text = await m3u8Res.text();
       if (!m3u8Text.includes('#EXTM3U')) {
-        console.warn('⚠️ Δεν είναι έγκυρο .m3u8');
+        console.warn('⚠️ Δεν είναι έγκυρο m3u8');
         continue;
       }
 
-      // Πρώτα ψάχνουμε για ts στο πρώτο επίπεδο
-      const tsMatch = m3u8Text.match(/([^\s"']+\.ts(\?.*)?)/i);
-      if (tsMatch) {
+      // ➡️ Έλεγχος για nested m3u8 (chunks)
+      const nestedM3u8 = extractChunksUrl(m3u8Text, testUrl);
+      if (nestedM3u8) {
+        console.log(`📂 Βρέθηκε nested m3u8 ➔ ${nestedM3u8}`);
+
+        const nestedTestUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(nestedM3u8) : proxy + nestedM3u8;
+        const nestedRes = await fetch(nestedTestUrl, { method: 'GET', mode: 'cors' });
+        if (!nestedRes.ok) {
+          console.warn(`❌ Nested fetch status: ${nestedRes.status}`);
+          continue;
+        }
+
+        const nestedText = await nestedRes.text();
+        const tsMatch = nestedText.match(/([^\s"']+\.ts)/i);
+
+        if (!tsMatch || !tsMatch[1]) {
+          console.warn('⚠️ Δεν βρέθηκε ts στο nested m3u8');
+          continue;
+        }
+
         const tsPath = tsMatch[1];
-        const baseUrl = cleanProxyFromUrl(url).replace(/\/[^\/]+$/, '/');
-        const fullTsUrl = tsPath.startsWith('http') ? tsPath : baseUrl + tsPath;
-        const fullTsProxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(fullTsUrl) : proxy + fullTsUrl;
-        console.log(`⏳ HEAD έλεγχος στο ts: ${fullTsProxiedUrl}`);
+        const baseNestedUrl = cleanProxyFromUrl(nestedM3u8).substring(0, cleanProxyFromUrl(nestedM3u8).lastIndexOf('/') + 1);
+        const tsUrl = tsPath.startsWith('http') ? tsPath : baseNestedUrl + tsPath;
+        const tsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
 
-        try {
-          const headRes = await fetch(fullTsProxiedUrl, { method: 'HEAD', mode: 'cors' });
-          if (headRes.ok) {
-            console.log('✅ Βρέθηκε άμεσα ts!');
-            return proxiedUrl;
-          }
-        } catch (e) {
-          console.warn('❌ Σφάλμα HEAD ts:', e.message);
+        console.log(`⏳ HEAD check nested ts: ${tsProxyUrl}`);
+        const tsRes = await fetch(tsProxyUrl, { method: 'HEAD', mode: 'cors' });
+        if (tsRes.ok) {
+          console.log('✅ Nested ts OK!');
+          return nestedTestUrl;
+        }
+
+      } else {
+        // ➡️ Έλεγχος ts στο κύριο m3u8
+        console.log('📂 Δεν βρέθηκε nested. Έλεγχος ts στο κύριο m3u8...');
+        const tsMatch = m3u8Text.match(/([^\s"']+\.ts)/i);
+
+        if (!tsMatch || !tsMatch[1]) {
+          console.warn('⚠️ Δεν βρέθηκε ts στο κύριο m3u8');
+          continue;
+        }
+
+        const tsPath = tsMatch[1];
+        const baseMainUrl = cleanProxyFromUrl(url).substring(0, cleanProxyFromUrl(url).lastIndexOf('/') + 1);
+        const tsUrl = tsPath.startsWith('http') ? tsPath : baseMainUrl + tsPath;
+        const tsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
+
+        console.log(`⏳ HEAD check main ts: ${tsProxyUrl}`);
+        const tsRes = await fetch(tsProxyUrl, { method: 'HEAD', mode: 'cors' });
+        if (tsRes.ok) {
+          console.log('✅ Main ts OK!');
+          return testUrl;
         }
       }
 
-      // Αν δεν βρέθηκε ts ➔ ψάχνουμε nested .m3u8
-      const nestedM3u8Match = m3u8Text.match(/([^\s"']+\.m3u8(\?.*)?)/i);
-      if (nestedM3u8Match) {
-        const nestedPath = nestedM3u8Match[1];
-        const baseUrl = cleanProxyFromUrl(url).replace(/\/[^\/]+$/, '/');
-        const fullNestedUrl = nestedPath.startsWith('http') ? nestedPath : baseUrl + nestedPath;
-        const fullNestedProxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(fullNestedUrl) : proxy + fullNestedUrl;
-        console.log(`🔎 Βρέθηκε nested m3u8 ➔ ${fullNestedProxiedUrl}`);
-
-        try {
-          const nestedRes = await fetch(fullNestedProxiedUrl, { method: 'GET', mode: 'cors' });
-          if (!nestedRes.ok) {
-            console.warn(`❌ Αποτυχία fetch nested: ${nestedRes.status}`);
-            continue;
-          }
-          const nestedText = await nestedRes.text();
-
-          // Ψάχνουμε ts μέσα στο nested m3u8
-          const tsInNestedMatch = nestedText.match(/([^\s"']+\.ts(\?.*)?)/i);
-          if (tsInNestedMatch) {
-            const tsPathNested = tsInNestedMatch[1];
-            const baseNestedUrl = fullNestedUrl.replace(/\/[^\/]+$/, '/');
-            const fullTsNestedUrl = tsPathNested.startsWith('http') ? tsPathNested : baseNestedUrl + tsPathNested;
-            const fullTsNestedProxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(fullTsNestedUrl) : proxy + fullTsNestedUrl;
-            console.log(`⏳ HEAD έλεγχος nested ts: ${fullTsNestedProxiedUrl}`);
-
-            try {
-              const headNestedRes = await fetch(fullTsNestedProxiedUrl, { method: 'HEAD', mode: 'cors' });
-              if (headNestedRes.ok) {
-                console.log('✅ Βρέθηκε ts μέσα στο nested!');
-                return fullNestedProxiedUrl;
-              }
-            } catch (e) {
-              console.warn('❌ Σφάλμα HEAD nested ts:', e.message);
-            }
-          }
-        } catch (e) {
-          console.warn('❌ Σφάλμα fetch nested m3u8:', e.message);
-        }
-      }
-
-      console.warn('⚠️ Δεν βρέθηκε ούτε ts ούτε nested ts για:', proxiedUrl);
-
-    } catch (e) {
-      console.warn('❌ Σφάλμα fetch proxy:', e.message);
+    } catch (err) {
+      console.warn('❌ Σφάλμα fetch:', err.message);
     }
   }
 
-  console.error('🚨 Τέλος: Κανένα proxy δεν δούλεψε για', url);
+  console.error('🚨 Κανένας proxy δεν δούλεψε για:', url);
   return null;
 }
 
@@ -845,11 +842,12 @@ async function findWorkingUrl(url) {
 
 
 
+// Βρίσκει nested chunks.m3u8 μέσα σε playlist
 function extractChunksUrl(m3uText, baseUrl) {
-  baseUrl = cleanProxyFromUrl(baseUrl);
+  baseUrl = cleanProxyFromUrl(baseUrl); // ✨ Σωστό καθάρισμα
   const lines = m3uText.split('\n');
   for (const line of lines) {
-    if (line.trim() && !line.startsWith('#') && line.endsWith('.m3u8')) {
+    if (line.trim() && !line.startsWith('#') && line.trim().endsWith('.m3u8')) {
       return new URL(line.trim(), baseUrl).href;
     }
   }
