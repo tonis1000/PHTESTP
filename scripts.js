@@ -739,6 +739,28 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
 
 
 
+// Καθαρίζει οποιοδήποτε proxy από το URL
+function cleanProxyFromUrl(url) {
+  const proxies = [
+    'https://groovy-ossified-legal.glitch.me/?url=',
+    'https://corsproxy.io/?',
+    'https://api.codetabs.com/v1/proxy/?quest=',
+    'https://proxy.cors.sh/',
+    'https://thingproxy.freeboard.io/fetch/',
+    'https://api.allorigins.win/raw?url='
+  ];
+  for (const proxy of proxies) {
+    if (url.startsWith(proxy)) {
+      return decodeURIComponent(url.replace(proxy, ''));
+    }
+  }
+  return url;
+}
+
+
+
+
+
 // Βρίσκει τον σωστό τρόπο να φορτώσει m3u8 ή nested chunks
 async function findWorkingUrl(url) {
   const proxyList = [
