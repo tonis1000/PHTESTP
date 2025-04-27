@@ -657,33 +657,29 @@ async function resolveSTRM(url) {
 }
 
 
+async function findM3U8inIframe(url) {
+  const foundUrl = await findWorkingUrl(url);
+  if (!foundUrl) return null;
 
-
-
-
-
-
-
-async function findM3U8inIframe(url, proxyList) {
-  for (let proxy of proxyList) {
-    const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
-    try {
-      const response = await fetch(proxiedUrl);
-      if (response.ok) {
-        const html = await response.text();
-        const m3u8Match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/i);
-        if (m3u8Match) {
-          console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', m3u8Match[1]);
-          return m3u8Match[1];
-        }
+  try {
+    const res = await fetch(foundUrl);
+    if (res.ok) {
+      const html = await res.text();
+      const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/i);
+      if (match) {
+        console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', match[1]);
+        return match[1];
       }
-    } catch (error) {
-      console.warn('⚠️ Σφάλμα προσπάθειας ανάκτησης από proxy:', proxy, error);
     }
+  } catch (e) {
+    console.warn('❌ Σφάλμα ανάλυσης iframe:', e.message);
   }
-  console.warn('❌ Δεν βρέθηκε απευθείας .m3u8 στο iframe, θα παίξουμε το iframe όπως είναι.');
+
+  console.warn('❌ Δεν βρέθηκε απευθείας .m3u8 στο iframe');
   return null;
 }
+
+
 
 
 
