@@ -882,15 +882,8 @@ async function findWorkingUrl(url) {
 function extractChunksUrl(m3uText, baseUrl) {
   const lines = m3uText.split('\n');
   for (const line of lines) {
-    // Προσθήκη ελέγχου για σχετικά URLs (όπως chunks.m3u8?nimblesessionid=xxx)
-    if ((line.endsWith('.m3u8') || line.includes('.m3u8?')) && !line.startsWith('#')) {
-      try {
-        // Διόρθωση για relative URLs με query parameters
-        const chunksPath = line.trim();
-        return new URL(chunksPath, baseUrl).href;
-      } catch (e) {
-        console.warn('⚠️ Error parsing chunks URL:', e);
-      }
+    if (line.endsWith('.m3u8') && !line.startsWith('#')) {
+      return new URL(line, baseUrl).href;
     }
   }
   return null;
