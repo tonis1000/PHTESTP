@@ -1128,16 +1128,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-function hasStreamCacheChanged() {
-  return JSON.stringify(globalStreamCache) !== JSON.stringify(lastSentCache);
-}
-
-function sendStreamCacheToServer() {
-  if (!hasStreamCacheChanged()) {
-    console.log('📭 Καμία αλλαγή στο cache, δεν έγινε αποστολή.');
-    return;
-  }
-
   fetch('https://yellow-hulking-guan.glitch.me/update', {
     method: 'POST',
     headers: {
