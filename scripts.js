@@ -805,17 +805,26 @@ async function findWorkingUrl(initialUrl) {
 
 
 
-
-// Βοηθητική συνάρτηση για εξαγωγή chunks URL
 function extractChunksUrl(m3uText, baseUrl) {
   const lines = m3uText.split('\n');
-  for (const line of lines) {
-    if (line.endsWith('.m3u8') && !line.startsWith('#')) {
-      return new URL(line, baseUrl).href;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line && !line.startsWith('#') && line.includes('.m3u8')) {
+      // Αν βρεθεί γραμμή που έχει μέσα .m3u8 και δεν είναι σχόλιο
+      try {
+        return new URL(line, baseUrl).href;
+      } catch (e) {
+        console.warn('⚠️ extractChunksUrl error με:', line, e);
+      }
     }
   }
   return null;
 }
+
+
+
+
+
 
 // 🔥 Ανανεωμένο playStream
 async function playStream(initialURL, subtitleURL = null) {
