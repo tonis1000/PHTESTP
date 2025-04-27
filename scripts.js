@@ -733,7 +733,6 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
 
 async function findWorkingUrl(url) {
   const proxyListWithDirect = ["", ...proxyList.filter(p => p)]; // direct + proxies
-  const now = new Date().toISOString();
 
   for (let proxy of proxyListWithDirect) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
@@ -746,29 +745,28 @@ async function findWorkingUrl(url) {
         continue;
       }
 
-      const m3u8Text = await m3u8Res.text();
-      if (!m3u8Text.includes('#EXTM3U')) {
-        console.warn('⚠️ Δεν είναι σωστό m3u8');
-        continue;
-      }
+      let m3u8Text = await m3u8Res.text();
 
-      // ➔ 1η προσπάθεια: Βρες ts άμεσα
-      const tsMatch = m3u8Text.match(/([^\s"']+\.ts)/i);
+      // 📋 Βρες άμεσα ts
+      let tsMatch = m3u8Text.match(/([^\s"']+\.ts)/i);
+
+      // ✅ Αν ΒΡΕΙ ts εδώ ➔ έτοιμο
       if (tsMatch && tsMatch[1]) {
         const tsPath = tsMatch[1];
         const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
         const tsUrl = tsPath.startsWith('http') ? tsPath : baseUrl + tsPath;
         const tsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
 
-        console.log(`⏳ Έλεγχος ts άμεσα: ${tsProxyUrl}`);
+        console.log(`⏳ Έλεγχος ts: ${tsProxyUrl}`);
+
         try {
           const tsRes = await fetch(tsProxyUrl, { method: 'HEAD', mode: 'cors' });
           if (tsRes.ok) {
-            console.log(`✅ Βρέθηκε ts άμεσα! Επιλογή: ${proxy || 'direct'}`);
-            // 📌 Εγγραφή στο globalStreamCache
+            console.log(`✅ Επιτυχία ts στο πρώτο επίπεδο! (${proxy || 'direct'})`);
+            // 📥 Καταγραφή στο cache
             globalStreamCache[url] = {
-              timestamp: now,
-              proxy: proxy || '',
+              timestamp: new Date().toISOString(),
+              proxy: proxy || '', // άδειο αν direct
               player: 'hls.js',
               type: 'hls'
             };
@@ -779,45 +777,55 @@ async function findWorkingUrl(url) {
         }
       }
 
-      // ➔ 2η προσπάθεια: Βρες nested chunks.m3u8
-      const nestedM3u8Url = extractChunksUrl(m3u8Text, url);
-      if (nestedM3u8Url) {
-        const nestedTestUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(nestedM3u8Url) : proxy + nestedM3u8Url;
-        console.log(`⏳ Έλεγχος nested m3u8: ${nestedTestUrl}`);
+      // 📋 Αν δεν βρήκε ts ➔ Ψάξε nested m3u8 (π.χ. chunks.m3u8)
+      const nestedMatch = m3u8Text.match(/([^\s"']+\.m3u8)/i);
+      if (nestedMatch && nestedMatch[1]) {
+        const nestedPath = nestedMatch[1];
+        const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+        const nestedUrl = nestedPath.startsWith('http') ? nestedPath : baseUrl + nestedPath;
+        const nestedProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(nestedUrl) : proxy + nestedUrl;
+
+        console.log(`🔎 Βρέθηκε nested m3u8: ${nestedUrl}`);
 
         try {
-          const nestedRes = await fetch(nestedTestUrl, { method: 'GET', mode: 'cors' });
+          const nestedRes = await fetch(nestedProxyUrl, { method: 'GET', mode: 'cors' });
           if (nestedRes.ok) {
             const nestedText = await nestedRes.text();
             const nestedTsMatch = nestedText.match(/([^\s"']+\.ts)/i);
-            if (nestedTsMatch && nestedTsMatch[1]) {
-              const tsPath = nestedTsMatch[1];
-              const baseUrl = nestedM3u8Url.substring(0, nestedM3u8Url.lastIndexOf('/') + 1);
-              const tsUrl = tsPath.startsWith('http') ? tsPath : baseUrl + tsPath;
-              const tsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
 
-              console.log(`⏳ Έλεγχος ts nested: ${tsProxyUrl}`);
+            if (nestedTsMatch && nestedTsMatch[1]) {
+              const nestedTsPath = nestedTsMatch[1];
+              const nestedBaseUrl = nestedUrl.substring(0, nestedUrl.lastIndexOf('/') + 1);
+              const nestedTsUrl = nestedTsPath.startsWith('http') ? nestedTsPath : nestedBaseUrl + nestedTsPath;
+              const nestedTsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(nestedTsUrl) : proxy + nestedTsUrl;
+
+              console.log(`⏳ Έλεγχος ts από nested m3u8: ${nestedTsProxyUrl}`);
+
               try {
-                const tsRes = await fetch(tsProxyUrl, { method: 'HEAD', mode: 'cors' });
-                if (tsRes.ok) {
-                  console.log(`✅ Βρέθηκε ts nested! Επιλογή: ${proxy || 'direct'}`);
-                  // 📌 Εγγραφή στο globalStreamCache
+                const nestedTsRes = await fetch(nestedTsProxyUrl, { method: 'HEAD', mode: 'cors' });
+                if (nestedTsRes.ok) {
+                  console.log(`✅ Επιτυχία ts σε nested m3u8! (${proxy || 'direct'})`);
+                  // 📥 Καταγραφή στο cache
                   globalStreamCache[url] = {
-                    timestamp: now,
+                    timestamp: new Date().toISOString(),
                     proxy: proxy || '',
                     player: 'hls.js',
-                    type: 'hls-nested'
+                    type: 'hls'
                   };
-                  return nestedTestUrl;
+                  return testUrl; // πάντα επιστρέφουμε το αρχικό testUrl
                 }
               } catch (nestedTsErr) {
-                console.warn('❌ Σφάλμα στο nested ts HEAD:', nestedTsErr.message);
+                console.warn('❌ Σφάλμα nested ts HEAD:', nestedTsErr.message);
               }
+            } else {
+              console.warn('⚠️ Δεν βρέθηκε ts στο nested m3u8');
             }
           }
         } catch (nestedErr) {
-          console.warn('❌ Σφάλμα nested fetch:', nestedErr.message);
+          console.warn('❌ Σφάλμα fetch nested m3u8:', nestedErr.message);
         }
+      } else {
+        console.warn('⚠️ Δεν βρέθηκε nested m3u8');
       }
 
     } catch (err) {
@@ -825,9 +833,13 @@ async function findWorkingUrl(url) {
     }
   }
 
-  console.error('🚨 Κανένας δεν δούλεψε:', url);
+  console.error('🚨 Κανένας proxy δεν δούλεψε για:', url);
   return null;
 }
+
+
+
+
 
 
 
