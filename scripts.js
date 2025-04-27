@@ -911,16 +911,25 @@ async function playStream(initialUrl) {
   } catch (e) {
     console.warn('⚠️ Σφάλμα player. Πάω σε Clappr...', e);
   }
+// 🔥 Αν απέτυχαν όλα και το αρχικό URL ήταν iframe, δοκίμασε να το παίξεις ως iframe
+if (isIframeStream(initialUrl)) {
+  console.log('🌐 Fallback σε iframe αναπαραγωγή λόγω αποτυχίας player');
+  iframePlayer.style.display = 'block';
+  iframePlayer.src = initialUrl.includes('autoplay') ? initialUrl : initialUrl + (initialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+  return;
+}
 
-  console.log('▶️ Clappr fallback');
-  clapprDiv.style.display = 'block';
-  clapprPlayer = new Clappr.Player({
-    source: workingUrl,
-    parentId: '#clappr-player',
-    autoPlay: true,
-    width: '100%',
-    height: '100%'
-  });
+// Αν δεν ήταν iframe ➔ πάμε σε Clappr
+console.log('▶️ Clappr fallback');
+clapprDiv.style.display = 'block';
+clapprPlayer = new Clappr.Player({
+  source: workingUrl,
+  parentId: '#clappr-player',
+  autoPlay: true,
+  width: '100%',
+  height: '100%'
+});
+
 }
 
 
