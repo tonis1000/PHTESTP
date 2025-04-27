@@ -1146,7 +1146,7 @@ document.addEventListener('DOMContentLoaded', function() {
   .catch(err => {
     console.error('⚠️ Σφάλμα σύνδεσης με το Glitch server:', err);
   });
-}
+
 
 
 
