@@ -797,47 +797,49 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
 // ✅ Νέα Βελτιωμένη findWorkingUrl
 async function findWorkingUrl(url) {
   try {
-    const res = await fetch(url, { method: 'HEAD', mode: 'cors' });
+    // Δοκιμή direct connection (αν το SSL επιτρέπεται)
+    const res = await fetch(url, { method: 'GET', mode: 'cors' });
     if (res.ok) {
-      console.log('✅ Direct σύνδεση επιτυχής.');
+      const text = await res.text();
+      if (text.includes('#EXTM3U')) {
+        // Αν είναι master playlist, εξαγωγή chunks.m3u8
+        const chunksUrl = extractChunksUrl(text, url);
+        return chunksUrl || url; // Fallback στο αρχικό URL αν αποτύχει
+      }
       return url;
     }
   } catch (e) {
-    console.log('🚫 Direct σύνδεση απέτυχε:', e.message);
+    console.log('🚫 Direct connection failed:', e.message);
   }
 
+  // Δοκιμή proxies
   for (const proxy of proxyList) {
     const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
-    console.log(`🔍 Δοκιμή proxy: ${proxiedUrl}`);
     try {
-      const m3u8Res = await fetch(proxiedUrl, { method: 'GET', mode: 'cors' });
-      if (!m3u8Res.ok) {
-        console.warn(`❌ m3u8 fetch status: ${m3u8Res.status}`);
-        continue;
-      }
-      const m3u8Text = await m3u8Res.text();
-      if (!m3u8Text.includes('#EXTM3U')) {
-        console.warn('⚠️ Το αρχείο δεν είναι σωστό m3u8');
-        continue;
-      }
-      const tsMatch = m3u8Text.match(/([^\s"']+\.ts)/i);
-      if (!tsMatch || !tsMatch[1]) {
-        console.warn('⚠️ Δεν βρέθηκε ts αρχείο');
-        continue;
-      }
-      const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
-      const tsUrl = tsMatch[1].startsWith('http') ? tsMatch[1] : baseUrl + tsMatch[1];
-      const proxiedTsUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
-      const tsRes = await fetch(proxiedTsUrl, { method: 'HEAD', mode: 'cors' });
-      if (tsRes.ok) {
-        console.log(`✅ Επιτυχής ts! Επιλογή proxy: ${proxy}`);
+      const res = await fetch(proxiedUrl, { method: 'GET', mode: 'cors' });
+      if (res.ok) {
+        const text = await res.text();
+        if (text.includes('#EXTM3U')) {
+          const chunksUrl = extractChunksUrl(text, proxiedUrl);
+          if (chunksUrl) return chunksUrl;
+        }
         return proxiedUrl;
       }
     } catch (e) {
-      console.warn('❌ Proxy αποτυχία:', e.message);
+      console.log(`❌ Proxy failed: ${proxy}`, e);
     }
   }
-  console.log('🚫 Κανένας proxy δεν δούλεψε.');
+  return null;
+}
+
+// Βοηθητική συνάρτηση για εξαγωγή chunks.m3u8
+function extractChunksUrl(m3uText, baseUrl) {
+  const lines = m3uText.split('\n');
+  for (const line of lines) {
+    if (line.endsWith('.m3u8') && !line.startsWith('#')) {
+      return new URL(line, baseUrl).href;
+    }
+  }
   return null;
 }
 
