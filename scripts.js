@@ -733,6 +733,7 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
 
 async function findWorkingUrl(url) {
   const proxyListWithDirect = ["", ...proxyList.filter(p => p)]; // direct + proxies
+  const now = new Date().toISOString();
 
   for (let proxy of proxyListWithDirect) {
     const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
@@ -742,39 +743,81 @@ async function findWorkingUrl(url) {
       const m3u8Res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
       if (!m3u8Res.ok) {
         console.warn(`❌ .m3u8 fetch status: ${m3u8Res.status}`);
-        continue; // πάμε στον επόμενο proxy
+        continue;
       }
 
       const m3u8Text = await m3u8Res.text();
       if (!m3u8Text.includes('#EXTM3U')) {
         console.warn('⚠️ Δεν είναι σωστό m3u8');
-        continue; // πάμε στον επόμενο proxy
+        continue;
       }
 
-      // Βρες το πρώτο ts αρχείο μέσα στο m3u8
+      // ➔ 1η προσπάθεια: Βρες ts άμεσα
       const tsMatch = m3u8Text.match(/([^\s"']+\.ts)/i);
-      if (!tsMatch || !tsMatch[1]) {
-        console.warn('⚠️ Δεν βρέθηκε ts αρχείο');
-        continue; // πάμε στον επόμενο proxy
+      if (tsMatch && tsMatch[1]) {
+        const tsPath = tsMatch[1];
+        const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+        const tsUrl = tsPath.startsWith('http') ? tsPath : baseUrl + tsPath;
+        const tsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
+
+        console.log(`⏳ Έλεγχος ts άμεσα: ${tsProxyUrl}`);
+        try {
+          const tsRes = await fetch(tsProxyUrl, { method: 'HEAD', mode: 'cors' });
+          if (tsRes.ok) {
+            console.log(`✅ Βρέθηκε ts άμεσα! Επιλογή: ${proxy || 'direct'}`);
+            // 📌 Εγγραφή στο globalStreamCache
+            globalStreamCache[url] = {
+              timestamp: now,
+              proxy: proxy || '',
+              player: 'hls.js',
+              type: 'hls'
+            };
+            return testUrl;
+          }
+        } catch (tsErr) {
+          console.warn('❌ Σφάλμα στο ts HEAD:', tsErr.message);
+        }
       }
 
-      const tsPath = tsMatch[1];
-      const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
-      const tsUrl = tsPath.startsWith('http') ? tsPath : baseUrl + tsPath;
-      const tsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
+      // ➔ 2η προσπάθεια: Βρες nested chunks.m3u8
+      const nestedM3u8Url = extractChunksUrl(m3u8Text, url);
+      if (nestedM3u8Url) {
+        const nestedTestUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(nestedM3u8Url) : proxy + nestedM3u8Url;
+        console.log(`⏳ Έλεγχος nested m3u8: ${nestedTestUrl}`);
 
-      console.log(`⏳ Έλεγχος ts: ${tsProxyUrl}`);
+        try {
+          const nestedRes = await fetch(nestedTestUrl, { method: 'GET', mode: 'cors' });
+          if (nestedRes.ok) {
+            const nestedText = await nestedRes.text();
+            const nestedTsMatch = nestedText.match(/([^\s"']+\.ts)/i);
+            if (nestedTsMatch && nestedTsMatch[1]) {
+              const tsPath = nestedTsMatch[1];
+              const baseUrl = nestedM3u8Url.substring(0, nestedM3u8Url.lastIndexOf('/') + 1);
+              const tsUrl = tsPath.startsWith('http') ? tsPath : baseUrl + tsPath;
+              const tsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
 
-      try {
-        const tsRes = await fetch(tsProxyUrl, { method: 'HEAD', mode: 'cors' });
-        if (tsRes.ok) {
-          console.log(`✅ Επιτυχής ts! Επιλογή: ${proxy || 'direct'}`);
-          return testUrl; // ΤΕΛΟΣ! Επιστρέφει τον working σύνδεσμο
-        } else {
-          console.warn(`❌ ts γύρισε status ${tsRes.status}`);
+              console.log(`⏳ Έλεγχος ts nested: ${tsProxyUrl}`);
+              try {
+                const tsRes = await fetch(tsProxyUrl, { method: 'HEAD', mode: 'cors' });
+                if (tsRes.ok) {
+                  console.log(`✅ Βρέθηκε ts nested! Επιλογή: ${proxy || 'direct'}`);
+                  // 📌 Εγγραφή στο globalStreamCache
+                  globalStreamCache[url] = {
+                    timestamp: now,
+                    proxy: proxy || '',
+                    player: 'hls.js',
+                    type: 'hls-nested'
+                  };
+                  return nestedTestUrl;
+                }
+              } catch (nestedTsErr) {
+                console.warn('❌ Σφάλμα στο nested ts HEAD:', nestedTsErr.message);
+              }
+            }
+          }
+        } catch (nestedErr) {
+          console.warn('❌ Σφάλμα nested fetch:', nestedErr.message);
         }
-      } catch (tsErr) {
-        console.warn('❌ Σφάλμα στο ts HEAD:', tsErr.message);
       }
 
     } catch (err) {
