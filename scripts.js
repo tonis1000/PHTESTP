@@ -495,19 +495,6 @@ function updatePlayerDescription(title, description) {
 
 
 
-// Fetch με timeout
-function fetchWithTimeout(resource, options = {}) {
-  const { timeout = 7000 } = options;
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-  return fetch(resource, {
-    ...options,
-    signal: controller.signal
-  }).finally(() => clearTimeout(id));
-}
-
-
-
 
 
 
@@ -594,7 +581,7 @@ function checkStreamStatus() {
     sidebarChannels.forEach(channel => {
         const streamURL = channel.dataset.stream;
         if (streamURL) {
-            fetchWithTimeout(streamURL, { timeout: 7000 })
+            fetch(streamURL)
                 .then(response => {
                     if (response.ok) {
                         channel.classList.add('online'); // Markiere den gesamten Sidebar-Eintrag
@@ -683,47 +670,26 @@ async function resolveSTRM(url) {
 
 
 async function findM3U8inIframe(url) {
-  console.log('🌐 Σκανάρισμα iframe για .m3u8:', url);
+  const foundUrl = await findWorkingUrl(url);
+  if (!foundUrl) return null;
 
-  const proxyListWithDirect = ["", ...proxyList.filter(p => p)];
-
-  for (let proxy of proxyListWithDirect) {
-    const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
-
-    try {
-      const res = await fetch(proxiedUrl);
-      if (res.ok) {
-        const html = await res.text();
-
-        // Πρώτη προσπάθεια: άμεσο m3u8 μέσα στο HTML
-        const m3u8Match = html.match(/(https?:\/\/[^"'\s]+\.m3u8)/i);
-        if (m3u8Match) {
-          console.log('✅ Βρέθηκε απευθείας .m3u8:', m3u8Match[1]);
-          return m3u8Match[1];
-        }
-
-        // Δεύτερη προσπάθεια: player config, Clappr, hls.js μέσα σε script
-        const playlistMatch = html.match(/(https?:\/\/[^\s"']+playlist\.m3u8)/i);
-        if (playlistMatch) {
-          console.log('✅ Βρέθηκε πιθανό playlist .m3u8:', playlistMatch[1]);
-          return playlistMatch[1];
-        }
-
-        // Τρίτη προσπάθεια: εσωτερικά embeded players
-        if (html.includes('hls.js') || html.includes('Clappr') || html.includes('jwplayer')) {
-          console.log('🧐 Βρέθηκαν αναφορές σε players αλλά όχι άμεσο m3u8...');
-        }
-
+  try {
+    const res = await fetch(foundUrl);
+    if (res.ok) {
+      const html = await res.text();
+      const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/i);
+      if (match) {
+        console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', match[1]);
+        return match[1];
       }
-    } catch (e) {
-      console.warn('❌ Σφάλμα ανάγνωσης iframe:', e.message);
     }
+  } catch (e) {
+    console.warn('❌ Σφάλμα ανάλυσης iframe:', e.message);
   }
 
-  console.warn('🚫 Δεν βρέθηκε m3u8 σε κανένα proxy για:', url);
+  console.warn('❌ Δεν βρέθηκε απευθείας .m3u8 στο iframe');
   return null;
 }
-
 
 
 
@@ -752,17 +718,16 @@ function isTSStream(url) {
 
 function detectStreamType(url) {
   if (!url) return 'unknown';
-  const u = url.toLowerCase();
-  if (u.endsWith('.m3u8')) return 'hls';
-  if (u.endsWith('.mpd')) return 'dash';
-  if (u.endsWith('.mp4')) return 'mp4';
-  if (u.endsWith('.ts') || u.includes('.ts?')) return 'ts';
-  if (u.endsWith('.webm')) return 'webm';
-  if (u.endsWith('.strm')) return 'strm';
-  if (u.includes('/embed/') || u.endsWith('.php') || u.endsWith('.html')) return 'iframe';
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.endsWith('.m3u8')) return 'hls';
+  if (lowerUrl.endsWith('.ts')) return 'ts';
+  if (lowerUrl.endsWith('.mpd')) return 'dash';
+  if (lowerUrl.endsWith('.mp4')) return 'mp4';
+  if (lowerUrl.endsWith('.webm')) return 'webm';
+  if (lowerUrl.endsWith('.strm')) return 'strm';
+  if (lowerUrl.includes('/embed/') || lowerUrl.endsWith('.php') || lowerUrl.endsWith('.html')) return 'iframe';
   return 'unknown';
 }
-
 
 // 📌 TS Support: Ενημερωμένη logStreamUsage()
 function logStreamUsage(initialUrl, finalUrl, playerUsed) {
@@ -782,40 +747,93 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
 
 
 async function findWorkingUrl(url) {
-  if (!url) return null;
-
   const proxyListWithDirect = ["", ...proxyList.filter(p => p)];
 
   for (let proxy of proxyListWithDirect) {
     const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
-    console.log(`🔍 Δοκιμή: ${proxiedUrl}`);
+    console.log(`🔍 Δοκιμή proxy: ${proxy || 'direct'} ➔ ${proxiedUrl}`);
 
     try {
       const res = await fetch(proxiedUrl, { method: 'GET', mode: 'cors' });
       if (!res.ok) {
-        console.warn(`❌ Fetch αποτυχία: ${res.status}`);
+        console.warn(`❌ Αποτυχία fetch m3u8: ${res.status}`);
         continue;
       }
-      const text = await res.text();
+      const m3u8Text = await res.text();
+      if (!m3u8Text.includes('#EXTM3U')) {
+        console.warn('⚠️ Δεν είναι έγκυρο .m3u8');
+        continue;
+      }
 
-      // Ελέγχουμε αν είναι αρχείο M3U8
-      if (text.includes('#EXTM3U')) {
-        console.log('✅ Βρέθηκε .m3u8');
-        
-        // Ψάχνουμε αν έχει .ts αρχεία μέσα
-        if (text.match(/\.ts(\?.*)?/)) {
-          console.log('✅ Περιέχει ts ➔ Παίζεται κανονικά');
-          return proxiedUrl;
-        } else {
-          console.warn('⚠️ Δεν βρέθηκαν ts κομμάτια μέσα');
+      // Πρώτα ψάχνουμε για ts στο πρώτο επίπεδο
+      const tsMatch = m3u8Text.match(/([^\s"']+\.ts(\?.*)?)/i);
+      if (tsMatch) {
+        const tsPath = tsMatch[1];
+        const baseUrl = cleanProxyFromUrl(url).replace(/\/[^\/]+$/, '/');
+        const fullTsUrl = tsPath.startsWith('http') ? tsPath : baseUrl + tsPath;
+        const fullTsProxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(fullTsUrl) : proxy + fullTsUrl;
+        console.log(`⏳ HEAD έλεγχος στο ts: ${fullTsProxiedUrl}`);
+
+        try {
+          const headRes = await fetch(fullTsProxiedUrl, { method: 'HEAD', mode: 'cors' });
+          if (headRes.ok) {
+            console.log('✅ Βρέθηκε άμεσα ts!');
+            return proxiedUrl;
+          }
+        } catch (e) {
+          console.warn('❌ Σφάλμα HEAD ts:', e.message);
         }
       }
+
+      // Αν δεν βρέθηκε ts ➔ ψάχνουμε nested .m3u8
+      const nestedM3u8Match = m3u8Text.match(/([^\s"']+\.m3u8(\?.*)?)/i);
+      if (nestedM3u8Match) {
+        const nestedPath = nestedM3u8Match[1];
+        const baseUrl = cleanProxyFromUrl(url).replace(/\/[^\/]+$/, '/');
+        const fullNestedUrl = nestedPath.startsWith('http') ? nestedPath : baseUrl + nestedPath;
+        const fullNestedProxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(fullNestedUrl) : proxy + fullNestedUrl;
+        console.log(`🔎 Βρέθηκε nested m3u8 ➔ ${fullNestedProxiedUrl}`);
+
+        try {
+          const nestedRes = await fetch(fullNestedProxiedUrl, { method: 'GET', mode: 'cors' });
+          if (!nestedRes.ok) {
+            console.warn(`❌ Αποτυχία fetch nested: ${nestedRes.status}`);
+            continue;
+          }
+          const nestedText = await nestedRes.text();
+
+          // Ψάχνουμε ts μέσα στο nested m3u8
+          const tsInNestedMatch = nestedText.match(/([^\s"']+\.ts(\?.*)?)/i);
+          if (tsInNestedMatch) {
+            const tsPathNested = tsInNestedMatch[1];
+            const baseNestedUrl = fullNestedUrl.replace(/\/[^\/]+$/, '/');
+            const fullTsNestedUrl = tsPathNested.startsWith('http') ? tsPathNested : baseNestedUrl + tsPathNested;
+            const fullTsNestedProxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(fullTsNestedUrl) : proxy + fullTsNestedUrl;
+            console.log(`⏳ HEAD έλεγχος nested ts: ${fullTsNestedProxiedUrl}`);
+
+            try {
+              const headNestedRes = await fetch(fullTsNestedProxiedUrl, { method: 'HEAD', mode: 'cors' });
+              if (headNestedRes.ok) {
+                console.log('✅ Βρέθηκε ts μέσα στο nested!');
+                return fullNestedProxiedUrl;
+              }
+            } catch (e) {
+              console.warn('❌ Σφάλμα HEAD nested ts:', e.message);
+            }
+          }
+        } catch (e) {
+          console.warn('❌ Σφάλμα fetch nested m3u8:', e.message);
+        }
+      }
+
+      console.warn('⚠️ Δεν βρέθηκε ούτε ts ούτε nested ts για:', proxiedUrl);
+
     } catch (e) {
-      console.warn('❌ Σφάλμα fetch:', e.message);
+      console.warn('❌ Σφάλμα fetch proxy:', e.message);
     }
   }
 
-  console.error('🚨 Καμία λειτουργική πηγή για:', url);
+  console.error('🚨 Τέλος: Κανένα proxy δεν δούλεψε για', url);
   return null;
 }
 
@@ -845,104 +863,169 @@ function extractChunksUrl(m3uText, baseUrl) {
 
 
 // 🔥 Ανανεωμένο playStream
-async function playStream(initialUrl) {
+async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
+  const subtitleTrack = document.getElementById('subtitle-track');
 
-  // Καθαρίζουμε τα πάντα
+  console.log('🔄 Reset players και sources');
   if (clapprPlayer) clapprPlayer.destroy();
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
   iframePlayer.src = '';
+  subtitleTrack.src = '';
+  subtitleTrack.track.mode = 'hidden';
   videoPlayer.style.display = 'none';
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
 
-  let url = initialUrl;
-  const type = detectStreamType(url);
+    
+  const showVideoPlayer = () => {
+    videoPlayer.style.display = 'block';
+    if (subtitleURL) {
+      subtitleTrack.src = subtitleURL;
+      subtitleTrack.track.mode = 'showing';
+    }
+  };
 
-  if (type === 'strm') {
-    console.log('📄 Είναι .strm ➔ Κατεβάζω...');
-    url = await resolveSTRM(url);
-  }
+  let streamURL = initialURL;
 
-  if (!url) {
-    console.error('🚫 Άκυρη URL.');
-    return;
-  }
-
-  if (type === 'iframe') {
-    console.log('🌐 Εντοπίστηκε iframe. Ψάχνω .m3u8...');
-    const m3u8 = await findM3U8inIframe(url);
-    if (m3u8) {
-      url = m3u8;
-    } else {
-      console.log('▶️ Παίζω κανονικά το iframe.');
-      iframePlayer.style.display = 'block';
-      iframePlayer.src = url.includes('autoplay') ? url : url + (url.includes('?') ? '&' : '?') + 'autoplay=1';
-      return;
+  if (streamPerfMap[initialURL]) {
+    console.log('⚡ Προσπάθεια μέσω Cache...');
+    const cached = streamPerfMap[initialURL];
+    try {
+      if (cached.player === 'iframe') {
+        iframePlayer.style.display = 'block';
+        iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+        return;
+      } else if (cached.player === 'clappr') {
+        clapprDiv.style.display = 'block';
+        clapprPlayer = new Clappr.Player({
+          source: initialURL,
+          parentId: '#clappr-player',
+          autoPlay: true,
+          width: '100%',
+          height: '100%'
+        });
+        return;
+      }
+    } catch (e) {
+      console.log('🚫 Cache αποτυχημένο. Διαγραφή εγγραφής...');
+      delete streamPerfMap[initialURL];
     }
   }
 
-  // Τελική αναζήτηση μέσω direct/proxy
-  const workingUrl = await findWorkingUrl(url);
-  if (!workingUrl) {
-    console.warn('🛑 Δεν βρέθηκε πηγή. Fallback σε Clappr με αρχικό URL.');
+  const streamType = detectStreamType(streamURL);
+
+  if (streamType === 'ts') {
+    console.log('🔵 TS stream detected. Attempting playback...');
+    if (Hls.isSupported()) {
+      try {
+        const hls = new Hls();
+        hls.loadSource(streamURL);
+        hls.attachMedia(videoPlayer);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+        showVideoPlayer();
+        logStreamUsage(initialURL, streamURL, 'hls.js-ts');
+        return;
+      } catch (e) {
+        console.warn('❌ Hls.js failed for TS, trying fallback...', e);
+      }
+    }
+    console.log('🟠 TS stream -> Using Clappr fallback');
     clapprDiv.style.display = 'block';
     clapprPlayer = new Clappr.Player({
-      source: initialUrl,
+      source: streamURL,
       parentId: '#clappr-player',
       autoPlay: true,
       width: '100%',
       height: '100%'
     });
+    logStreamUsage(initialURL, streamURL, 'clappr-ts');
     return;
   }
 
-  // Παίζουμε
+  if (isIframeStream(streamURL)) {
+    console.log('🌐 Εντοπίστηκε πιθανό Iframe. Αναζήτηση .m3u8...');
+    let foundStream = null;
+    for (let proxy of proxyList) {
+      const proxied = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
+      try {
+        const res = await fetch(proxied);
+        if (res.ok) {
+          const html = await res.text();
+          const match = html.match(/(https?:\/\/[^"]+\.m3u8)/);
+          if (match) {
+            foundStream = match[1];
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+    if (foundStream) {
+      console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe!');
+      streamURL = foundStream;
+    } else {
+      console.log('▶️ Δεν βρέθηκε. Παίζω το iframe κανονικά.');
+      iframePlayer.style.display = 'block';
+      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      logStreamUsage(initialURL, streamURL, 'iframe');
+      return;
+    }
+  }
+
+  console.log('🌍 Έλεγχος Direct ή Proxy προσβασιμότητας...');
+  const workingUrl = await findWorkingUrl(streamURL);
+  if (workingUrl) {
+    streamURL = workingUrl;
+  } else {
+    console.log('🚫 Καμία διαθέσιμη σύνδεση. Τέλος.');
+    return;
+  }
+
   try {
-    if (Hls.isSupported() && workingUrl.endsWith('.m3u8')) {
+    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
       const hls = new Hls();
-      hls.loadSource(workingUrl);
+      hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-      videoPlayer.style.display = 'block';
+      showVideoPlayer();
+      logStreamUsage(initialURL, streamURL, 'hls.js');
       return;
     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-      videoPlayer.src = workingUrl;
+      videoPlayer.src = streamURL;
       videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
-      videoPlayer.style.display = 'block';
+      showVideoPlayer();
+      logStreamUsage(initialURL, streamURL, 'native-hls');
       return;
-    } else if (workingUrl.endsWith('.mp4') || workingUrl.endsWith('.webm')) {
-      videoPlayer.src = workingUrl;
+    } else if (streamURL.endsWith('.mpd')) {
+      const dashPlayer = dashjs.MediaPlayer().create();
+      dashPlayer.initialize(videoPlayer, streamURL, true);
+      showVideoPlayer();
+      logStreamUsage(initialURL, streamURL, 'dash.js');
+      return;
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+      videoPlayer.src = streamURL;
       videoPlayer.play();
-      videoPlayer.style.display = 'block';
+      showVideoPlayer();
+      logStreamUsage(initialURL, streamURL, 'native-mp4');
       return;
     }
   } catch (e) {
-    console.warn('⚠️ Σφάλμα player. Πάω σε Clappr...', e);
+    console.log('⚠️ Σφάλμα player. Συνεχίζω με Clappr...', e);
   }
-// 🔥 Αν απέτυχαν όλα και το αρχικό URL ήταν iframe, δοκίμασε να το παίξεις ως iframe
-if (isIframeStream(initialUrl)) {
-  console.log('🌐 Fallback σε iframe αναπαραγωγή λόγω αποτυχίας player');
-  iframePlayer.style.display = 'block';
-  iframePlayer.src = initialUrl.includes('autoplay') ? initialUrl : initialUrl + (initialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
-  return;
-}
 
-// Αν δεν ήταν iframe ➔ πάμε σε Clappr
-console.log('▶️ Clappr fallback');
-clapprDiv.style.display = 'block';
-clapprPlayer = new Clappr.Player({
-  source: workingUrl,
-  parentId: '#clappr-player',
-  autoPlay: true,
-  width: '100%',
-  height: '100%'
-});
-
+  clapprDiv.style.display = 'block';
+  clapprPlayer = new Clappr.Player({
+    source: streamURL,
+    parentId: '#clappr-player',
+    autoPlay: true,
+    width: '100%',
+    height: '100%'
+  });
+  logStreamUsage(initialURL, streamURL, 'clappr');
 }
 
 
@@ -975,26 +1058,34 @@ function hasNewEntries(current, previous) {
 
 // Στέλνει το cache στον Glitch Server
 async function sendGlobalCacheIfUpdated(force = false) {
-  if (!force && JSON.stringify(globalStreamCache) === JSON.stringify(lastSentCache)) return 'no-change';
+  if (!force && !hasNewEntries(globalStreamCache, lastSentCache)) {
+    console.log('⏸️ Καμία αλλαγή, δεν στάλθηκε τίποτα στο Glitch.');
+    return 'no-change';
+  }
 
   try {
     const response = await fetch(CACHE_UPLOAD_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(globalStreamCache)
     });
 
     if (response.ok) {
-      lastSentCache = JSON.parse(JSON.stringify(globalStreamCache));
+      console.log('✅ Το globalStreamCache στάλθηκε επιτυχώς στο Glitch API');
+      lastSentCache = JSON.parse(JSON.stringify(globalStreamCache)); // βαθύ αντίγραφο
       return 'success';
     } else {
+      console.warn('❌ Αποτυχία αποστολής στο API:', await response.text());
       return 'error';
     }
   } catch (err) {
-    console.error('🚫 Σφάλμα αποστολής cache:', err);
+    console.error('🚫 Σφάλμα κατά την αποστολή στο Glitch API:', err);
     return 'error';
   }
 }
+
 
 
 
@@ -1128,6 +1219,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+function hasStreamCacheChanged() {
+  return JSON.stringify(globalStreamCache) !== JSON.stringify(lastSentCache);
+}
+
+function sendStreamCacheToServer() {
+  if (!hasStreamCacheChanged()) {
+    console.log('📭 Καμία αλλαγή στο cache, δεν έγινε αποστολή.');
+    return;
+  }
+
   fetch('https://yellow-hulking-guan.glitch.me/update', {
     method: 'POST',
     headers: {
@@ -1146,7 +1247,7 @@ document.addEventListener('DOMContentLoaded', function() {
   .catch(err => {
     console.error('⚠️ Σφάλμα σύνδεσης με το Glitch server:', err);
   });
-
+}
 
 
 
