@@ -718,16 +718,17 @@ function isTSStream(url) {
 
 function detectStreamType(url) {
   if (!url) return 'unknown';
-  const lowerUrl = url.toLowerCase();
-  if (lowerUrl.endsWith('.m3u8')) return 'hls';
-  if (lowerUrl.endsWith('.ts')) return 'ts';
-  if (lowerUrl.endsWith('.mpd')) return 'dash';
-  if (lowerUrl.endsWith('.mp4')) return 'mp4';
-  if (lowerUrl.endsWith('.webm')) return 'webm';
-  if (lowerUrl.endsWith('.strm')) return 'strm';
-  if (lowerUrl.includes('/embed/') || lowerUrl.endsWith('.php') || lowerUrl.endsWith('.html')) return 'iframe';
+  const u = url.toLowerCase();
+  if (u.endsWith('.m3u8')) return 'hls';
+  if (u.endsWith('.mpd')) return 'dash';
+  if (u.endsWith('.mp4')) return 'mp4';
+  if (u.endsWith('.ts') || u.includes('.ts?')) return 'ts';
+  if (u.endsWith('.webm')) return 'webm';
+  if (u.endsWith('.strm')) return 'strm';
+  if (u.includes('/embed/') || u.endsWith('.php') || u.endsWith('.html')) return 'iframe';
   return 'unknown';
 }
+
 
 // 📌 TS Support: Ενημερωμένη logStreamUsage()
 function logStreamUsage(initialUrl, finalUrl, playerUsed) {
