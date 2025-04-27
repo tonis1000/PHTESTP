@@ -734,42 +734,59 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
   console.log('📊 Logged stream:', initialUrl, globalStreamCache[initialUrl]);
 }
 
-// ✅ Νέα Βελτιωμένη findWorkingUrl
+
 async function findWorkingUrl(url) {
-  // 1. Direct connection
-  try {
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: { 'Origin': window.location.origin }
-    });
-    if (res.ok) {
-      const text = await res.text();
-      const chunksUrl = extractChunksUrl(text, url);
-      return chunksUrl || url;
+  const proxyListWithDirect = ["", ...proxyList.filter(p => p)]; // direct + proxies
+
+  for (let proxy of proxyListWithDirect) {
+    const testUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
+    console.log(`🔍 Δοκιμή: ${proxy || 'direct'} ➔ ${testUrl}`);
+
+    try {
+      const m3u8Res = await fetch(testUrl, { method: 'GET', mode: 'cors' });
+      if (!m3u8Res.ok) {
+        console.warn(`❌ .m3u8 fetch status: ${m3u8Res.status}`);
+        continue; // πάμε στον επόμενο proxy
+      }
+
+      const m3u8Text = await m3u8Res.text();
+      if (!m3u8Text.includes('#EXTM3U')) {
+        console.warn('⚠️ Δεν είναι σωστό m3u8');
+        continue; // πάμε στον επόμενο proxy
+      }
+
+      // Βρες το πρώτο ts αρχείο μέσα στο m3u8
+      const tsMatch = m3u8Text.match(/([^\s"']+\.ts)/i);
+      if (!tsMatch || !tsMatch[1]) {
+        console.warn('⚠️ Δεν βρέθηκε ts αρχείο');
+        continue; // πάμε στον επόμενο proxy
+      }
+
+      const tsPath = tsMatch[1];
+      const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+      const tsUrl = tsPath.startsWith('http') ? tsPath : baseUrl + tsPath;
+      const tsProxyUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(tsUrl) : proxy + tsUrl;
+
+      console.log(`⏳ Έλεγχος ts: ${tsProxyUrl}`);
+
+      try {
+        const tsRes = await fetch(tsProxyUrl, { method: 'HEAD', mode: 'cors' });
+        if (tsRes.ok) {
+          console.log(`✅ Επιτυχής ts! Επιλογή: ${proxy || 'direct'}`);
+          return testUrl; // ΤΕΛΟΣ! Επιστρέφει τον working σύνδεσμο
+        } else {
+          console.warn(`❌ ts γύρισε status ${tsRes.status}`);
+        }
+      } catch (tsErr) {
+        console.warn('❌ Σφάλμα στο ts HEAD:', tsErr.message);
+      }
+
+    } catch (err) {
+      console.warn('❌ Σφάλμα fetch:', err.message);
     }
-  } catch (e) {
-    console.log('Direct failed:', e.message);
   }
 
-  // 2. Proxy fallback
-  for (const proxy of proxyList.filter(p => p)) {
-    const proxyUrl = proxy + encodeURIComponent(url);
-    try {
-      const res = await fetch(proxyUrl, {
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'Origin': window.location.origin
-        }
-      });
-      if (res.ok) {
-        const text = await res.text();
-        const chunksUrl = extractChunksUrl(text, proxyUrl);
-        return chunksUrl || proxyUrl;
-      }
-    } catch (e) {
-      console.log(`Proxy ${proxy} failed:`, e.message);
-    }
-  }
+  console.error('🚨 Κανένας δεν δούλεψε:', url);
   return null;
 }
 
