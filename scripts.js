@@ -640,14 +640,15 @@ const proxyList = [
   'https://thingproxy.freeboard.io/fetch/',
   'https://api.allorigins.win/raw?url=',
 ];
-  for (const proxy of proxies) {
+function cleanProxyFromUrl(url) {
+  for (const proxy of proxyList) {
     if (url.startsWith(proxy)) {
-      const decoded = decodeURIComponent(url.replace(proxy, ''));
-      return decoded;
+      return decodeURIComponent(url.replace(proxy, ''));
     }
   }
   return url;
 }
+
 
 
 
