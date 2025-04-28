@@ -22,8 +22,6 @@ function loadExternalPlaylist() {
 }
 
 
-
-
 // Αντιγράφεις αυτό το κομμάτι στην αρχή του scripts.js
 function adjustHourForGermany(timeStr) {
   let [h, m] = timeStr.split(':').map(Number);
@@ -120,7 +118,6 @@ a.addEventListener('click', (e) => {
 });
 
 
-
 // 🟢 Ανίχνευση LIVE preview από iframe (π.χ. .m3u8 μέσα στο HTML)
 try {
   const html = await fetch(proxy + link).then(res => res.text());
@@ -199,9 +196,6 @@ if (dateMatch) {
   continue;
 }
 
-            
-
-
 
 
       const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^\/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)];
@@ -225,9 +219,6 @@ if (dateMatch) {
     sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης αθλητικών γεγονότων.</li>';
   }
 }
-
-
-  
 
 
 
@@ -496,8 +487,6 @@ function updatePlayerDescription(title, description) {
 
 
 
-
-
 // Funktion zum Aktualisieren der Sidebar von einer M3U-Datei
 async function updateSidebarFromM3U(data) {
     const sidebarList = document.getElementById('sidebar-list');
@@ -572,9 +561,6 @@ async function updateSidebarFromM3U(data) {
 
 
 
-
-
-
 // Funktion zum Überprüfen des Status der Streams und Markieren der gesamten Sidebar-Einträge
 function checkStreamStatus() {
     const sidebarChannels = document.querySelectorAll('.channel-info');
@@ -605,9 +591,6 @@ function checkStreamStatus() {
 
 
 
-
-
-
 // Funktion zum Setzen des aktuellen Sendernamens und der URL
 function setCurrentChannel(channelName, streamUrl) {
     const currentChannelName = document.getElementById('current-channel-name');
@@ -629,7 +612,6 @@ function updateClock() {
 
 
 
-
 // scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
 const proxyList = [
   "", // ➔ Πρώτα δοκιμάζουμε direct χωρίς proxy
@@ -648,9 +630,6 @@ function cleanProxyFromUrl(url) {
   }
   return url;
 }
-
-
-
 
 
 let clapprPlayer = null;
@@ -693,8 +672,6 @@ async function findM3U8inIframe(url) {
 
 
 
-
-
 function isIframeStream(url) {
   return /embed|\.php$|\.html$/i.test(url);
 }
@@ -710,9 +687,6 @@ function isSTRM(url) {
 function isTSStream(url) {
   return url.toLowerCase().endsWith('.ts') || url.toLowerCase().endsWith('.m2ts') || url.toLowerCase().includes('mpeg.2ts');
 }
-
-
-
 
 
 
@@ -741,9 +715,6 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
   };
   console.log('📊 Logged stream:', initialUrl, globalStreamCache[initialUrl]);
 }
-
-
-
 
 
 async function findWorkingUrl(url) {
@@ -839,12 +810,6 @@ async function findWorkingUrl(url) {
 
 
 
-
-
-
-
-
-
 function extractChunksUrl(m3uText, baseUrl) {
   baseUrl = cleanProxyFromUrl(baseUrl);
   const lines = m3uText.split('\n');
@@ -855,9 +820,6 @@ function extractChunksUrl(m3uText, baseUrl) {
   }
   return null;
 }
-
-
-
 
 
 
@@ -1123,10 +1085,6 @@ function convertSrtToVtt(srtContent) {
 }
 
 
-
-
-
-
 // foothubhd-Wetter
 function toggleContent(contentId) {
     const allContents = document.querySelectorAll('.content-body');
@@ -1215,7 +1173,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Element für den Klick-Event-Listener wurde nicht gefunden.');
     }
 });
-
 
 
 
