@@ -497,7 +497,7 @@ function loadPlaylistUrls() {
 
 // Φόρτωση προσωπικής playlist
 function loadMyPlaylist() {
-    fetch('my-playlist.m3u')
+    fetch('playlist.m3u')
         .then(response => response.text())
         .then(data => {
             updateSidebarFromM3U(data);
@@ -509,7 +509,7 @@ function loadMyPlaylist() {
 
 // Φόρτωση εξωτερικής playlist
 function loadExternalPlaylist() {
-    const url = prompt('Εισάγετε το URL της εξωτερικής playlist:');
+    const url = prompt('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR');
     if (!url) return;
     
     fetch(url)
@@ -525,15 +525,68 @@ function loadExternalPlaylist() {
 
 // Φόρτωση αθλητικής playlist
 function loadSportPlaylist() {
-    fetch('sport-playlist.m3u')
-        .then(response => response.text())
-        .then(data => {
-            updateSidebarFromM3U(data);
-        })
-        .catch(err => {
-            console.error('Σφάλμα φόρτωσης αθλητικής playlist:', err);
-        });
-}
+  const sidebarList = document.getElementById('sidebar-list');
+  sidebarList.innerHTML = '';
+
+  const proxy = 'https://cors-anywhere-production-d9b6.up.railway.app/';
+  const sourceUrl = 'https://foothubhd.online/program.txt';
+  const finalUrl = proxy + sourceUrl;
+
+  try {
+    const response = await fetch(finalUrl);
+    if (!response.ok) throw new Error('Λήψη απέτυχε');
+
+    const text = await response.text();
+    const lines = text.split('\n');
+
+    let currentDate = '';
+    let currentDateWithDay = '';
+    let matchesForDay = [];
+
+    const flushDay = () => {
+      if (currentDate && matchesForDay.length) {
+        matchesForDay.sort((a, b) => a.time.localeCompare(b.time));
+        const dateHeader = document.createElement('li');
+        dateHeader.textContent = `--- ${currentDateWithDay.toUpperCase()} ---`;
+        dateHeader.style.fontWeight = 'bold';
+        dateHeader.style.color = '#ff4d4d';
+        dateHeader.style.margin = '10px 0';
+        sidebarList.appendChild(dateHeader);
+
+        matchesForDay.forEach(match => {
+          const li = document.createElement('li');
+          li.style.marginBottom = '8px';
+
+          const title = document.createElement('div');
+          const isLive = isLiveGame(match.time, match.date);
+          const liveIcon = isLive ? '🔴 ' : '';
+          title.textContent = `${liveIcon}${match.time} ${match.title}`;
+          title.style.color = 'white';
+          title.style.marginBottom = '3px';
+
+          const linksDiv = document.createElement('div');
+          match.links.forEach(async (link, idx) => {
+            const a = document.createElement('a');
+            a.textContent = `[Link${idx + 1}]`;
+            a.href = '#';
+            a.style.marginRight = '6px';
+
+            if (isLive) {
+              a.style.color = 'limegreen';
+              a.style.fontWeight = 'bold';
+            }
+
+a.addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('stream-url').value = link;
+  document.getElementById('current-channel-name').textContent = match.title;
+
+  // ➕ Εμφάνιση ποιο link πατήθηκε
+  const logoContainer = document.getElementById('current-channel-logo');
+  logoContainer.innerHTML = `<span style="color: gold; font-weight: bold;">🔗 ${a.textContent}</span>`;
+
+  playStream(link);
+});
 
 // Ενημέρωση του sidebar με δεδομένα από M3U
 function updateSidebarFromM3U(m3uContent) {
