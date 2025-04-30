@@ -1246,6 +1246,16 @@ function sendStreamCacheToServer() {
   });
 }
 
+window.toggleContent = function(contentId) {
+    const allContents = document.querySelectorAll('.content-body');
+    allContents.forEach(content => {
+        if (content.id === contentId) {
+            content.classList.toggle('expanded');
+        } else {
+            content.classList.remove('expanded');
+        }
+    });
+};
 
 
 // Ο ενιαίος και σωστός DOMContentLoaded block με όλα τα event listeners
