@@ -913,6 +913,7 @@ async function playStream(initialURL, subtitleURL = null) {
 
   let streamURL = initialURL;
 
+    const normalizedUrl = initialURL.replace(/^http:/, 'https:');
 if (streamPerfMap[initialURL]) {
   const cached = streamPerfMap[initialURL];
   console.log('⚡ Προσπάθεια μέσω Cache...', cached);
