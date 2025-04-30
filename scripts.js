@@ -1208,14 +1208,7 @@ function loadPlaylistUrls() {
 
 
 // Event-Listener für den Klick auf den Playlist-URLs-Titel
-document.addEventListener('DOMContentLoaded', function() {
-    const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
-    if (playlistUrlsTitle) {
-        playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
-    } else {
-        console.error('Element für den Klick-Event-Listener wurde nicht gefunden.');
-    }
-});
+
 
 
 
@@ -1224,30 +1217,15 @@ function hasStreamCacheChanged() {
   return JSON.stringify(globalStreamCache) !== JSON.stringify(lastSentCache);
 }
 
-fetch('https://yellow-hulking-guan.glitch.me/update', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(globalStreamCache)
-  })
-  .then(res => {
-    if (res.ok) {
-      console.log('✅ Αποστολή cache στο Glitch επιτυχής.');
-      lastSentCache = JSON.parse(JSON.stringify(globalStreamCache)); // βαθύ αντίγραφο
-    } else {
-      console.error('❌ Σφάλμα κατά την αποστολή στο Glitch:', res.status);
-    }
-  })
-  .catch(err => {
-    console.error('⚠️ Σφάλμα σύνδεσης με το Glitch server:', err);
-  });
-}
+);
 
-
-
-// Ο ενιαίος και σωστός DOMContentLoaded block με όλα τα event listeners
 document.addEventListener('DOMContentLoaded', function () {
+  const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
+    if (playlistUrlsTitle) {
+        playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
+    } else {
+        console.error('Element für den Klick-Event-Listener wurde nicht gefunden.');
+    }
   // 🔄 Φόρτωση proxy-map.json
   fetch('https://yellow-hulking-guan.glitch.me/proxy-map.json')
     .then(res => res.json())
@@ -1257,103 +1235,4 @@ document.addEventListener('DOMContentLoaded', function () {
     })
     .catch(err => {
       console.warn('⚠️ Fehler beim Laden des proxy-map.json:', err);
-    });
-
-  loadEPGData();
-  updateClock();
-  setInterval(updateClock, 1000);
-
-  document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
-  document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
-  document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
-
-  const sidebarList = document.getElementById('sidebar-list');
-  sidebarList.addEventListener('click', function (event) {
-    const channelInfo = event.target.closest('.channel-info');
-    if (channelInfo) {
-      const streamURL = channelInfo.dataset.stream;
-      const channelId = channelInfo.dataset.channelId;
-      const programInfo = getCurrentProgram(channelId);
-
-      setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
-      playStream(streamURL);
-
-      updatePlayerDescription(programInfo.title, programInfo.description);
-      updateNextPrograms(channelId);
-
-      const logoContainer = document.getElementById('current-channel-logo');
-      const logoImg = channelInfo.querySelector('.logo-container img').src;
-      logoContainer.src = logoImg;
-    }
-  });
-
-  setInterval(checkStreamStatus, 60000);
-
-  const playButton = document.getElementById('play-button');
-  const streamUrlInput = document.getElementById('stream-url');
-  const subtitleFileInput = document.getElementById('subtitle-file');
-
-  const playStreamFromInput = () => {
-    const streamUrl = streamUrlInput.value;
-    const subtitleFile = subtitleFileInput?.files?.[0];
-    if (streamUrl) {
-      if (subtitleFile) {
-        handleSubtitleFile(subtitleFile);
-      }
-      playStream(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
-    }
-  };
-
-  playButton.addEventListener('click', playStreamFromInput);
-  streamUrlInput.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') playStreamFromInput();
-  });
-  subtitleFileInput?.addEventListener('change', (event) => {
-    const subtitleFile = event.target.files[0];
-    if (subtitleFile) handleSubtitleFile(subtitleFile);
-  });
-
-  // 🔍 Αναζήτηση
-  const searchInput = document.getElementById('search-input');
-  searchInput.addEventListener('input', function () {
-    const filter = searchInput.value.toLowerCase();
-    const items = document.querySelectorAll('#sidebar-list li');
-    items.forEach(item => {
-      const text = item.textContent || item.innerText;
-      item.style.display = text.toLowerCase().includes(filter) ? '' : 'none';
-    });
-  });
-
-  searchInput.addEventListener('keydown', function (event) {
-    if (event.key === 'Enter') {
-      const firstVisibleItem = document.querySelector('#sidebar-list li[style=""]');
-      if (firstVisibleItem) {
-        const streamURL = firstVisibleItem.querySelector('.channel-info').dataset.stream;
-        playStream(streamURL);
-      }
-    }
-  });
-
-  // Φίλτρο μόνο Online
-  const filterOnlineButton = document.getElementById('filter-online-button');
-  filterOnlineButton.addEventListener('click', function () {
-    const items = document.querySelectorAll('#sidebar-list li');
-    items.forEach(item => {
-      const channelInfo = item.querySelector('.channel-info');
-      item.style.display = (channelInfo && channelInfo.classList.contains('online')) ? '' : 'none';
-    });
-  });
-
-  // Εμφάνιση Όλων
-  const showAllButton = document.getElementById('show-all-button');
-  showAllButton.addEventListener('click', function () {
-    const items = document.querySelectorAll('#sidebar-list li');
-    items.forEach(item => item.style.display = '');
-  });
-
-  // Playlist-URLs φορτώνουν όταν κάνεις κλικ στο playlist-urls panel
-  const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
-  if (playlistUrlsTitle) {
-    playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
-  }
 });
