@@ -1,5 +1,5 @@
 
-const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URL
+const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
 
 let streamPerfMap = {};
 
@@ -1058,9 +1058,6 @@ function hasNewEntries(current, previous) {
 
 // Στέλνει το cache στον Glitch Server
 async function sendGlobalCacheIfUpdated(force = false) {
-  // ✅ Κύρια συνάρτηση αποστολής cache
-  // Αντικαθιστά πλήρως την sendStreamCacheToServer
-  // και περιέχει πιο ακριβή έλεγχο μεταβολών (proxy, timestamp, player).
   if (!force && !hasNewEntries(globalStreamCache, lastSentCache)) {
     console.log('⏸️ Καμία αλλαγή, δεν στάλθηκε τίποτα στο Glitch.');
     return 'no-change';
@@ -1222,7 +1219,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-fetch('https://yellow-hulking-guan.glitch.me/update', {
+
+function sendStreamCacheToServer() {
+  if (!hasNewEntries(globalStreamCache, lastSentCache)) {
+    console.log('📭 Καμία αλλαγή στο cache, δεν έγινε αποστολή.');
+    return;
+  }
+
+  fetch('https://yellow-hulking-guan.glitch.me/update', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -1242,6 +1246,16 @@ fetch('https://yellow-hulking-guan.glitch.me/update', {
   });
 }
 
+window.toggleContent = function(contentId) {
+    const allContents = document.querySelectorAll('.content-body');
+    allContents.forEach(content => {
+        if (content.id === contentId) {
+            content.classList.toggle('expanded');
+        } else {
+            content.classList.remove('expanded');
+        }
+    });
+};
 
 
 // Ο ενιαίος και σωστός DOMContentLoaded block με όλα τα event listeners
