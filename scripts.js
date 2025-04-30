@@ -1207,7 +1207,26 @@ function loadPlaylistUrls() {
 
 
 // Event-Listener für den Klick auf den Playlist-URLs-Titel
-// 🔥 Αφαιρέθηκε διπλό DOMContentLoaded block για playlistUrlsTitle (υπάρχει ήδη στο ενιαίο)// 🔥 Αφαιρέθηκε η sendStreamCacheToServer (υπερκαλύπτεται από sendGlobalCacheIfUpdated)fetch('https://yellow-hulking-guan.glitch.me/update', {
+document.addEventListener('DOMContentLoaded', function() {
+    const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
+    if (playlistUrlsTitle) {
+        playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
+    } else {
+        console.error('Element für den Klick-Event-Listener wurde nicht gefunden.');
+    }
+});
+
+
+
+
+
+function sendStreamCacheToServer() {
+  if (!hasNewEntries(globalStreamCache, lastSentCache)) {
+    console.log('📭 Καμία αλλαγή στο cache, δεν έγινε αποστολή.');
+    return;
+  }
+
+  fetch('https://yellow-hulking-guan.glitch.me/update', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -1227,7 +1246,16 @@ function loadPlaylistUrls() {
   });
 }
 
-// 🔥 Αφαιρέθηκε διπλότυπη window.toggleContent (υπήρχε ήδη ως function toggleContent)
+window.toggleContent = function(contentId) {
+    const allContents = document.querySelectorAll('.content-body');
+    allContents.forEach(content => {
+        if (content.id === contentId) {
+            content.classList.toggle('expanded');
+        } else {
+            content.classList.remove('expanded');
+        }
+    });
+};
 
 
 // Ο ενιαίος και σωστός DOMContentLoaded block με όλα τα event listeners
