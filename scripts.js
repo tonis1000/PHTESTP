@@ -913,30 +913,40 @@ async function playStream(initialURL, subtitleURL = null) {
 
   let streamURL = initialURL;
 
-  if (streamPerfMap[initialURL]) {
-    console.log('⚡ Προσπάθεια μέσω Cache...');
-    const cached = streamPerfMap[initialURL];
-    try {
-      if (cached.player === 'iframe') {
-        iframePlayer.style.display = 'block';
-        iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
-        return;
-      } else if (cached.player === 'clappr') {
-        clapprDiv.style.display = 'block';
-        clapprPlayer = new Clappr.Player({
-          source: initialURL,
-          parentId: '#clappr-player',
-          autoPlay: true,
-          width: '100%',
-          height: '100%'
-        });
+if (streamPerfMap[initialURL]) {
+  const cached = streamPerfMap[initialURL];
+  console.log('⚡ Προσπάθεια μέσω Cache...', cached);
+
+  try {
+    if (cached.player === 'iframe') {
+      iframePlayer.style.display = 'block';
+      iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      return;
+    } else if (cached.player === 'clappr') {
+      clapprDiv.style.display = 'block';
+      clapprPlayer = new Clappr.Player({
+        source: initialURL,
+        parentId: '#clappr-player',
+        autoPlay: true,
+        width: '100%',
+        height: '100%'
+      });
+      return;
+    } else if (cached.player === 'hls.js' || cached.player === 'hls.js-ts') {
+      if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(initialURL);
+        hls.attachMedia(videoPlayer);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+        videoPlayer.style.display = 'block';
         return;
       }
-    } catch (e) {
-      console.log('🚫 Cache αποτυχημένο. Διαγραφή εγγραφής...');
-      delete streamPerfMap[initialURL];
     }
+  } catch (e) {
+    console.warn('❌ Αποτυχία αναπαραγωγής από cache. Συνεχίζω κανονικά...');
   }
+}
+
 
   const streamType = detectStreamType(streamURL);
 
