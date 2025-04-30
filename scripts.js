@@ -733,13 +733,34 @@ function detectStreamType(url) {
 function logStreamUsage(initialUrl, finalUrl, playerUsed) {
   const now = new Date().toISOString();
   const proxyUsed = (initialUrl !== finalUrl) ? finalUrl.replace(initialUrl, '') : '';
+  const type = detectStreamType(initialUrl);
+
+  const previous = globalStreamCache[initialUrl];
+
+  // ✅ Αν υπάρχει ήδη και δεν έχει αλλάξει τίποτα ➜ δεν το ξαναγράφουμε
+  if (
+    previous &&
+    previous.proxy === proxyUsed &&
+    previous.player === playerUsed &&
+    previous.type === type
+  ) {
+    console.log(`ℹ️ Stream ήδη καταγεγραμμένο χωρίς αλλαγές: ${initialUrl}`);
+    return;
+  }
+
+  // ✅ Αν είναι νέο ή έχει αλλαγές ➜ ενημέρωση
   globalStreamCache[initialUrl] = {
     timestamp: now,
     proxy: proxyUsed,
     player: playerUsed,
-    type: detectStreamType(initialUrl)
+    type: type
   };
-  console.log('📊 Logged stream:', initialUrl, globalStreamCache[initialUrl]);
+
+  if (previous) {
+    console.log(`♻️ Ενημερώθηκε stream στο cache: ${initialUrl}`);
+  } else {
+    console.log(`➕ Νέα καταγραφή stream: ${initialUrl}`);
+  }
 }
 
 
