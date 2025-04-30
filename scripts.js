@@ -1219,45 +1219,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-
-function sendStreamCacheToServer() {
-  if (!hasNewEntries(globalStreamCache, lastSentCache)) {
-    console.log('📭 Καμία αλλαγή στο cache, δεν έγινε αποστολή.');
-    return;
-  }
-
-  fetch('https://yellow-hulking-guan.glitch.me/update', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(globalStreamCache)
-  })
-  .then(res => {
-    if (res.ok) {
-      console.log('✅ Αποστολή cache στο Glitch επιτυχής.');
-      lastSentCache = JSON.parse(JSON.stringify(globalStreamCache)); // βαθύ αντίγραφο
-    } else {
-      console.error('❌ Σφάλμα κατά την αποστολή στο Glitch:', res.status);
-    }
-  })
-  .catch(err => {
-    console.error('⚠️ Σφάλμα σύνδεσης με το Glitch server:', err);
-  });
-}
-
-window.toggleContent = function(contentId) {
-    const allContents = document.querySelectorAll('.content-body');
-    allContents.forEach(content => {
-        if (content.id === contentId) {
-            content.classList.toggle('expanded');
-        } else {
-            content.classList.remove('expanded');
-        }
-    });
-};
-
-
 // Ο ενιαίος και σωστός DOMContentLoaded block με όλα τα event listeners
 document.addEventListener('DOMContentLoaded', function () {
   // 🔄 Φόρτωση proxy-map.json
