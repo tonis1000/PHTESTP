@@ -914,8 +914,9 @@ async function playStream(initialURL, subtitleURL = null) {
   let streamURL = initialURL;
 
     const normalizedUrl = initialURL.replace(/^http:/, 'https:');
-if (streamPerfMap[initialURL]) {
-  const cached = streamPerfMap[initialURL];
+if (streamPerfMap[normalizedUrl]) {
+  const cached = streamPerfMap[normalizedUrl];
+
   console.log('⚡ Προσπάθεια μέσω Cache...', cached);
 
   try {
