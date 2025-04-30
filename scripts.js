@@ -1,5 +1,5 @@
 
-const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
+const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URL
 
 let streamPerfMap = {};
 
