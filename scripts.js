@@ -504,6 +504,8 @@ async function updateSidebarFromM3U(data) {
   sidebarList.innerHTML = '';
 
   const lines = data.split('\n');
+  const foundGroups = new Set(); // 🆕 Ομάδες για group-title
+  const groupSelect = document.getElementById('group-select');
 
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].startsWith('#EXTINF')) {
@@ -529,10 +531,13 @@ async function updateSidebarFromM3U(data) {
         try {
           const programInfo = await getCurrentProgram(channelId);
 
+          // 🧠 Εύρεση από cache
           const perf = streamPerfMap[streamURL.replace(/^http:/, 'https:')] || {};
           const playerBadge = perf.player
             ? `<span class="badge" style="font-size: 0.7em; color: gold; margin-left: 6px;">[${perf.player}]</span>`
             : '';
+
+          if (group) foundGroups.add(group); // 🆕 Προσθήκη group
 
           const listItem = document.createElement('li');
           listItem.innerHTML = `
@@ -558,8 +563,26 @@ async function updateSidebarFromM3U(data) {
     }
   }
 
+  // 🧩 Γέμισμα dropdown group-select με ομάδες
+  if (groupSelect) {
+    if (foundGroups.size > 0) {
+      groupSelect.disabled = false;
+      groupSelect.innerHTML = '<option value="__all__">Όλα</option>';
+      [...foundGroups].sort().forEach(group => {
+        const opt = document.createElement('option');
+        opt.value = group;
+        opt.textContent = group;
+        groupSelect.appendChild(opt);
+      });
+    } else {
+      groupSelect.disabled = true;
+      groupSelect.innerHTML = '<option value="__all__">-- Δεν υπάρχουν κατηγορίες --</option>';
+    }
+  }
+
   checkStreamStatus();
 }
+
 
 
 
