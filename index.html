@@ -29,7 +29,13 @@
         </div>
         <div class="sidebar" id="sidebar">
             <div class="search-bar">
-                <h2>Senderliste</h2>
+                <div id="group-filter-container" style="margin-bottom: 10px;">
+  <label for="group-select" style="font-weight: bold;">📺 Επιλογή Κατηγορίας:</label>
+  <select id="group-select" disabled>
+    <option value="__all__">-- Δεν υπάρχουν κατηγορίες --</option>
+  </select>
+</div>
+
                 <input type="text" id="search-input" placeholder="Suche Sender">
                 <button id="filter-online-button">Online</button>
                 <button id="show-all-button">Alle</button>
