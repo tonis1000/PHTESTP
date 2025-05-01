@@ -308,6 +308,22 @@ document.getElementById('copy-button').addEventListener('click', function() {
 });
 
 
+
+document.getElementById('group-select').addEventListener('change', function () {
+  const selectedGroup = this.value;
+  const allItems = document.querySelectorAll('#sidebar-list .channel-info');
+  allItems.forEach(el => {
+    const li = el.closest('li');
+    if (!li) return;
+    const group = el.dataset.group || '';
+    li.style.display = (selectedGroup === '__all__' || group === selectedGroup) ? '' : 'none';
+  });
+});
+
+
+
+
+
   // ⬇️ Χειροκίνητη αποστολή cache ⬇️
 document.getElementById('send-cache-button')?.addEventListener('click', async () => {
   console.log('⏩ Χειροκίνητη αποστολή cache...');
