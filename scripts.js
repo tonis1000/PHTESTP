@@ -500,54 +500,67 @@ function updatePlayerDescription(title, description) {
 
 // Funktion zum Aktualisieren der Sidebar von einer M3U-Datei
 async function updateSidebarFromM3U(data) {
-    const sidebarList = document.getElementById('sidebar-list');
-    sidebarList.innerHTML = '';
+  const sidebarList = document.getElementById('sidebar-list');
+  sidebarList.innerHTML = '';
 
-    const lines = data.split('\n');
+  const lines = data.split('\n');
 
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('#EXTINF')) {
-            const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
-            const channelId = idMatch ? idMatch[1] : null;
-            const nameMatch = lines[i].match(/,(.*)$/);
-            const name = nameMatch ? nameMatch[1].trim() : 'Unbekannt';
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('#EXTINF')) {
+      const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
+      const nameMatch = lines[i].match(/,(.*)$/);
+      const nameTagMatch = lines[i].match(/tvg-name="([^"]+)"/);
+      const groupMatch = lines[i].match(/group-title="([^"]+)"/);
+      const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
 
-            const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
-            const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
+      const channelId = idMatch ? idMatch[1] : null;
+      const name = nameTagMatch
+        ? nameTagMatch[1].trim()
+        : nameMatch
+        ? nameMatch[1].trim()
+        : 'Unbekannt';
+      const group = groupMatch ? groupMatch[1].trim() : '';
+      const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
 
-            const nextLine = lines[i + 1] || '';
-            const streamURL = nextLine.trim().startsWith('http') ? nextLine.trim() : null;
+      const streamLine = lines[i + 1] || '';
+      const streamURL = streamLine.trim().startsWith('http') ? streamLine.trim() : null;
 
-            if (streamURL) {
-                try {
-                    const programInfo = await getCurrentProgram(channelId);
+      if (streamURL) {
+        try {
+          const programInfo = await getCurrentProgram(channelId);
 
-                    const listItem = document.createElement('li');
-                    listItem.innerHTML = `
-                        <div class="channel-info" data-stream="${streamURL}" data-channel-id="${channelId}">
-                            <div class="logo-container">
-                                <img src="${imgURL}" alt="${name} Logo">
-                            </div>
-                            <span class="sender-name">${name}</span>
-                            <span class="epg-channel">
-                                <span>${programInfo.title}</span>
-                                <div class="epg-timeline">
-                                    <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
-                                    <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
-                                </div>
-                            </span>
-                        </div>
-                    `;
-                    sidebarList.appendChild(listItem);
-                } catch (error) {
-                    console.error(`Fehler beim Abrufen der EPG-Daten für Kanal-ID ${channelId}:`, error);
-                }
-            }
+          const perf = streamPerfMap[streamURL.replace(/^http:/, 'https:')] || {};
+          const playerBadge = perf.player
+            ? `<span class="badge" style="font-size: 0.7em; color: gold; margin-left: 6px;">[${perf.player}]</span>`
+            : '';
+
+          const listItem = document.createElement('li');
+          listItem.innerHTML = `
+            <div class="channel-info ${perf.player ? 'cached-stream' : ''}" data-stream="${streamURL}" data-channel-id="${channelId}" data-group="${group}">
+              <div class="logo-container">
+                <img src="${imgURL}" alt="${name} Logo">
+              </div>
+              <span class="sender-name">${name}${playerBadge}</span>
+              <span class="epg-channel">
+                <span>${programInfo.title}</span>
+                <div class="epg-timeline">
+                  <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+                  <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+                </div>
+              </span>
+            </div>
+          `;
+          sidebarList.appendChild(listItem);
+        } catch (error) {
+          console.error(`Fehler beim Abrufen der EPG-Daten für Kanal-ID ${channelId}:`, error);
         }
+      }
     }
+  }
 
-    checkStreamStatus();
+  checkStreamStatus();
 }
+
 
 
 
