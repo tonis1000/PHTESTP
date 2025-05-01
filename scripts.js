@@ -1371,23 +1371,34 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Φίλτρο μόνο Online
-  const filterOnlineButton = document.getElementById('filter-online-button');
-  filterOnlineButton.addEventListener('click', function () {
-    const items = document.querySelectorAll('#sidebar-list li');
-    items.forEach(item => {
-      const channelInfo = item.querySelector('.channel-info');
-      item.style.display = (channelInfo && channelInfo.classList.contains('online')) ? '' : 'none';
-    });
-  });
 
-  // Εμφάνιση Όλων
-  const showAllButton = document.getElementById('show-all-button');
-  showAllButton.addEventListener('click', function () {
-    const items = document.querySelectorAll('#sidebar-list li');
-    items.forEach(item => item.style.display = '');
-  });
 
+const groupSelect = document.getElementById('group-select');
+
+function applyGroupAndStatusFilter(filterOnlineOnly = false) {
+  const selectedGroup = groupSelect?.value || '__all__';
+  const allItems = document.querySelectorAll('#sidebar-list .channel-info');
+
+  allItems.forEach(el => {
+    const li = el.closest('li');
+    if (!li) return;
+
+    const group = el.dataset.group || '';
+    const isOnline = el.classList.contains('online');
+
+    const groupMatch = (selectedGroup === '__all__' || group === selectedGroup);
+    const onlineMatch = !filterOnlineOnly || isOnline;
+
+    li.style.display = (groupMatch && onlineMatch) ? '' : 'none';
+  });
+}
+
+groupSelect?.addEventListener('change', () => applyGroupAndStatusFilter(false));
+document.getElementById('filter-online-button').addEventListener('click', () => applyGroupAndStatusFilter(true));
+document.getElementById('show-all-button').addEventListener('click', () => applyGroupAndStatusFilter(false));
+
+
+    
   // Playlist-URLs φορτώνουν όταν κάνεις κλικ στο playlist-urls panel
   const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
   if (playlistUrlsTitle) {
