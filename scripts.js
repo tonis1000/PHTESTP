@@ -503,28 +503,6 @@ async function updateSidebarFromM3U(data) {
     const sidebarList = document.getElementById('sidebar-list');
     sidebarList.innerHTML = '';
 
-    const extractStreamURLs = (data) => {
-        const urls = {};
-        const lines = data.split('\n');
-        let currentChannelId = null;
-
-        lines.forEach(line => {
-            if (line.startsWith('#EXTINF')) {
-                const idMatch = line.match(/tvg-id="([^"]+)"/);
-                currentChannelId = idMatch ? idMatch[1] : null;
-                if (currentChannelId && !urls[currentChannelId]) {
-                    urls[currentChannelId] = [];
-                }
-            } else if (currentChannelId && line.startsWith('http')) {
-                urls[currentChannelId].push(line);
-                currentChannelId = null;
-            }
-        });
-
-        return urls;
-    };
-
-    const streamURLs = extractStreamURLs(data);
     const lines = data.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
@@ -537,7 +515,8 @@ async function updateSidebarFromM3U(data) {
             const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
             const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
 
-            const streamURL = lines[i + 1].startsWith('http') ? lines[i + 1].trim() : null;
+            const nextLine = lines[i + 1] || '';
+            const streamURL = nextLine.trim().startsWith('http') ? nextLine.trim() : null;
 
             if (streamURL) {
                 try {
