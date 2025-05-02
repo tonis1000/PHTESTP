@@ -232,7 +232,9 @@ button:disabled {
     flex-direction: column;
     margin-right: 10px;
     min-width: 1000px;
+    position: relative; /* ✅ για να δουλέψει το απόλυτο position του label */
 }
+
 
 .player-header {
     display: flex;
