@@ -952,9 +952,10 @@ if (streamPerfMap[normalizedUrl]) {
 
   try {
     if (cached.player === 'iframe') {
-      iframePlayer.style.display = 'block';
-      iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      return;
+  iframePlayer.style.display = 'block';
+  iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+  showPlayerInfo('iframe', true);
+  return;
     } else if (cached.player === 'clappr') {
       clapprDiv.style.display = 'block';
       clapprPlayer = new Clappr.Player({
@@ -964,7 +965,8 @@ if (streamPerfMap[normalizedUrl]) {
         width: '100%',
         height: '100%'
       });
-      return;
+        showPlayerInfo('clappr', true);
+  return;
     } else if (cached.player === 'hls.js' || cached.player === 'hls.js-ts') {
       if (Hls.isSupported()) {
         const hls = new Hls();
@@ -972,7 +974,8 @@ if (streamPerfMap[normalizedUrl]) {
         hls.attachMedia(videoPlayer);
         hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
         videoPlayer.style.display = 'block';
-        return;
+          showPlayerInfo('hls.js', true);
+  return;
       }
     }
   } catch (e) {
@@ -993,6 +996,8 @@ if (streamPerfMap[normalizedUrl]) {
         hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
         showVideoPlayer();
         logStreamUsage(initialURL, streamURL, 'hls.js-ts');
+        showPlayerInfo('HLS.js (TS)');
+
         return;
       } catch (e) {
         console.warn('❌ Hls.js failed for TS, trying fallback...', e);
@@ -1008,6 +1013,8 @@ if (streamPerfMap[normalizedUrl]) {
       height: '100%'
     });
     logStreamUsage(initialURL, streamURL, 'clappr-ts');
+    showPlayerInfo('Clappr (TS)');
+
     return;
   }
 
@@ -1036,6 +1043,8 @@ if (streamPerfMap[normalizedUrl]) {
       iframePlayer.style.display = 'block';
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       logStreamUsage(initialURL, streamURL, 'iframe');
+      showPlayerInfo('Iframe');
+
       return;
     }
   }
@@ -1057,18 +1066,24 @@ if (streamPerfMap[normalizedUrl]) {
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
       showVideoPlayer();
       logStreamUsage(initialURL, streamURL, 'hls.js');
+      showPlayerInfo('HLS.js');
+
       return;
     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
       videoPlayer.src = streamURL;
       videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
       showVideoPlayer();
       logStreamUsage(initialURL, streamURL, 'native-hls');
+      showPlayerInfo('Native HLS');
+
       return;
     } else if (streamURL.endsWith('.mpd')) {
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
       showVideoPlayer();
       logStreamUsage(initialURL, streamURL, 'dash.js');
+      showPlayerInfo('Dash.js');
+
       return;
 
 } else if (streamURL.endsWith('.m3u8')) {
@@ -1083,6 +1098,8 @@ if (streamPerfMap[normalizedUrl]) {
     height: '100%'
   });
   logStreamUsage(initialURL, streamURL, 'clappr-hls-fallback');
+  showPlayerInfo('Clappr fallback');
+
   return;
 }
 
@@ -1100,6 +1117,19 @@ if (streamPerfMap[normalizedUrl]) {
     height: '100%'
   });
   logStreamUsage(initialURL, streamURL, 'clappr');
+  showPlayerInfo('Clappr');
+
+}
+function showPlayerInfo(playerName, fromCache = false) {
+  const label = document.getElementById('player-info-label');
+  if (!label) return;
+  label.textContent = `${fromCache ? '🧠 Από Cache: ' : '🎯 Player: '}${playerName}`;
+  label.style.display = 'block';
+
+  clearTimeout(label.hideTimeout);
+  label.hideTimeout = setTimeout(() => {
+    label.style.display = 'none';
+  }, 4000);
 }
 
 
