@@ -1070,13 +1070,23 @@ if (streamPerfMap[normalizedUrl]) {
       showVideoPlayer();
       logStreamUsage(initialURL, streamURL, 'dash.js');
       return;
-    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
-      videoPlayer.src = streamURL;
-      videoPlayer.play();
-      showVideoPlayer();
-      logStreamUsage(initialURL, streamURL, 'native-mp4');
-      return;
-    }
+
+} else if (streamURL.endsWith('.m3u8')) {
+  // Fallback σε Clappr αν δεν δουλεύει native
+  console.warn('⚠️ Native HLS πιθανό να μη λειτουργεί. Προσπάθεια με Clappr fallback.');
+  clapprDiv.style.display = 'block';
+  clapprPlayer = new Clappr.Player({
+    source: streamURL,
+    parentId: '#clappr-player',
+    autoPlay: true,
+    width: '100%',
+    height: '100%'
+  });
+  logStreamUsage(initialURL, streamURL, 'clappr-hls-fallback');
+  return;
+}
+
+        
   } catch (e) {
     console.log('⚠️ Σφάλμα player. Συνεχίζω με Clappr...', e);
   }
