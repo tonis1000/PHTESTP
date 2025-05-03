@@ -17,36 +17,32 @@ function loadMyPlaylist() {
 }
 
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
-document.addEventListener("DOMContentLoaded", () => {
+async function loadExternalPlaylist() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.innerHTML = '<div class="loading">Φόρτωση...</div>';
 
-    document.getElementById('externalPlaylist').onclick = async () => {
-        const sidebar = document.getElementById('sidebar');
-        sidebar.innerHTML = '<div class="loading">Φόρτωση...</div>';
+  let channelsMap = await loadSelectedChannels();
+  sidebar.innerHTML = '';
 
-        let channelsMap = await loadSelectedChannels();
-        sidebar.innerHTML = '';
+  for (let tvgId in channelsMap) {
+    let bestLink = await getBestStream(channelsMap[tvgId]);
 
-        for (let tvgId in channelsMap) {
-            let bestLink = await getBestStream(channelsMap[tvgId]);
+    if (bestLink) {
+      let channelElement = document.createElement('div');
+      channelElement.className = 'sidebar-item';
+      channelElement.innerHTML = `
+        <div class="logo-container"><img src="logos/${tvgId}.png"></div>
+        <div class="sender-name">${bestLink.senderName}</div>
+        <div class="epg-channel">Φόρτωση EPG...</div>
+        <div class="epg-timeline"></div>
+      `;
 
-            if (bestLink) {
-                let channelElement = document.createElement('div');
-                channelElement.className = 'sidebar-item';
-                channelElement.innerHTML = `
-                    <div class="logo-container"><img src="logos/${tvgId}.png"></div>
-                    <div class="sender-name">${bestLink.senderName}</div>
-                    <div class="epg-channel">Φόρτωση EPG...</div>
-                    <div class="epg-timeline"></div>
-                `;
+      channelElement.onclick = () => playStream(bestLink.url);
 
-                channelElement.onclick = () => playStream(bestLink.url);
-
-                sidebar.appendChild(channelElement);
-            }
-        }
-    };
-
-});
+      sidebar.appendChild(channelElement);
+    }
+  }
+}
 
 
 
