@@ -1,3 +1,16 @@
+import { getCombinedM3UFromExternalSources } from './playlist-loader.js';
+
+document.getElementById('externalPlaylist').addEventListener('click', async () => {
+  try {
+    const m3uData = await getCombinedM3UFromExternalSources();
+    await updateSidebarFromM3U(m3uData);
+  } catch (err) {
+    console.error("Fehler beim Laden externer Playlists:", err);
+    alert("Fehler beim Laden der externen Kanäle.");
+  }
+});
+
+
 
 const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
 
