@@ -1,4 +1,7 @@
 
+import { loadSelectedChannels, getBestStream } from './playlist-loader.js';
+
+
 const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
 
 let streamPerfMap = {};
@@ -14,8 +17,6 @@ function loadMyPlaylist() {
 }
 
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
-import { loadSelectedChannels, getBestStream } from './playlist-loader.js';
-
 document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('externalPlaylist').onclick = async () => {
