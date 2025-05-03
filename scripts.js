@@ -14,13 +14,38 @@ function loadMyPlaylist() {
 }
 
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
-function loadExternalPlaylist() {
-    fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
-        .then(response => response.text())
-        .then(data => updateSidebarFromM3U(data))
-        .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
-}
+import { loadSelectedChannels, getBestStream } from './playlist-loader.js';
 
+document.addEventListener("DOMContentLoaded", () => {
+
+    document.getElementById('externalPlaylist').onclick = async () => {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.innerHTML = '<div class="loading">Φόρτωση...</div>';
+
+        let channelsMap = await loadSelectedChannels();
+        sidebar.innerHTML = '';
+
+        for (let tvgId in channelsMap) {
+            let bestLink = await getBestStream(channelsMap[tvgId]);
+
+            if (bestLink) {
+                let channelElement = document.createElement('div');
+                channelElement.className = 'sidebar-item';
+                channelElement.innerHTML = `
+                    <div class="logo-container"><img src="logos/${tvgId}.png"></div>
+                    <div class="sender-name">${bestLink.senderName}</div>
+                    <div class="epg-channel">Φόρτωση EPG...</div>
+                    <div class="epg-timeline"></div>
+                `;
+
+                channelElement.onclick = () => playStream(bestLink.url);
+
+                sidebar.appendChild(channelElement);
+            }
+        }
+    };
+
+});
 
 
 
@@ -1341,7 +1366,6 @@ document.addEventListener('DOMContentLoaded', function () {
   setInterval(updateClock, 1000);
 
   document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
-  document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
   document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
 
   const sidebarList = document.getElementById('sidebar-list');
