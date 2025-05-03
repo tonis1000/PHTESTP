@@ -1,16 +1,3 @@
-import { getCombinedM3UFromExternalSources } from './playlist-loader.js';
-
-document.getElementById('externalPlaylist').addEventListener('click', async () => {
-  try {
-    const m3uData = await getCombinedM3UFromExternalSources();
-    await updateSidebarFromM3U(m3uData);
-  } catch (err) {
-    console.error("Fehler beim Laden externer Playlists:", err);
-    alert("Fehler beim Laden der externen Kanäle.");
-  }
-});
-
-
 
 const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
 
@@ -26,7 +13,13 @@ function loadMyPlaylist() {
         .catch(error => console.error('Fehler beim Laden der Playlist:', error));
 }
 
-
+// Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
+function loadExternalPlaylist() {
+    fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
+        .then(response => response.text())
+        .then(data => updateSidebarFromM3U(data))
+        .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
+}
 
 
 
@@ -1348,7 +1341,7 @@ document.addEventListener('DOMContentLoaded', function () {
   setInterval(updateClock, 1000);
 
   document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
-  
+  document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
   document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
 
   const sidebarList = document.getElementById('sidebar-list');
