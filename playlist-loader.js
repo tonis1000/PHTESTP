@@ -1,13 +1,17 @@
 // playlist-loader.js
 
-// Φόρτωση και Parsing όλων των playlist URLs
 export async function loadSelectedChannels() {
     let [urlsRes, selectedRes] = await Promise.all([
         fetch('playlist-urls.txt'),
         fetch('selected-channels.txt')
     ]);
 
-    let playlistUrls = (await urlsRes.text()).split('\n').filter(Boolean);
+    let playlistUrls = (await urlsRes.text())
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => line.includes(',') ? line.split(',')[1].trim() : line); // ✅ Μόνο το URL
+
     let selectedChannels = (await selectedRes.text())
         .split('\n')
         .map(id => id.trim().toLowerCase());
@@ -42,7 +46,7 @@ export async function loadSelectedChannels() {
     return channelsMap;
 }
 
-// Εύρεση καλύτερου διαθέσιμου stream
+// ✅ Επιστροφή του καλύτερου διαθέσιμου
 export async function getBestStream(links) {
     for (let linkObj of links) {
         try {
