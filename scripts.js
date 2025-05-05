@@ -808,16 +808,26 @@ async function findWorkingUrl(url) {
     try {
       const res = await fetch(proxiedUrl, { method: 'GET', mode: 'cors' });
       if (!res.ok) {
-        console.warn(`❌ Αποτυχία fetch m3u8: ${res.status}`);
+        console.warn(`❌ Αποτυχία fetch stream: ${res.status}`);
         continue;
       }
+
+      // ✅ DASH: Αν είναι .mpd ή έχει DASH content-type ➜ αποδεκτό
+      const contentType = res.headers.get('content-type') || '';
+      if (url.endsWith('.mpd') || contentType.includes('application/dash+xml')) {
+        console.log('🎯 Εντοπίστηκε .mpd stream ➜ θεωρείται έγκυρο DASH stream');
+        return proxiedUrl;
+      }
+
       const m3u8Text = await res.text();
+
+      // ✅ HLS: Έλεγχος για .m3u8
       if (!m3u8Text.includes('#EXTM3U')) {
         console.warn('⚠️ Δεν είναι έγκυρο .m3u8');
         continue;
       }
 
-      // Πρώτα ψάχνουμε για ts στο πρώτο επίπεδο
+      // 🔎 Πρώτα ψάχνουμε για ts στο πρώτο επίπεδο
       const tsMatch = m3u8Text.match(/([^\s"']+\.ts(\?.*)?)/i);
       if (tsMatch) {
         const tsPath = tsMatch[1];
@@ -837,7 +847,7 @@ async function findWorkingUrl(url) {
         }
       }
 
-      // Αν δεν βρέθηκε ts ➔ ψάχνουμε nested .m3u8
+      // 🔄 Ψάχνουμε nested .m3u8 αν δεν βρέθηκε ts
       const nestedM3u8Match = m3u8Text.match(/([^\s"']+\.m3u8(\?.*)?)/i);
       if (nestedM3u8Match) {
         const nestedPath = nestedM3u8Match[1];
@@ -854,7 +864,6 @@ async function findWorkingUrl(url) {
           }
           const nestedText = await nestedRes.text();
 
-          // Ψάχνουμε ts μέσα στο nested m3u8
           const tsInNestedMatch = nestedText.match(/([^\s"']+\.ts(\?.*)?)/i);
           if (tsInNestedMatch) {
             const tsPathNested = tsInNestedMatch[1];
@@ -888,6 +897,7 @@ async function findWorkingUrl(url) {
   console.error('🚨 Τέλος: Κανένα proxy δεν δούλεψε για', url);
   return null;
 }
+
 
 
 
