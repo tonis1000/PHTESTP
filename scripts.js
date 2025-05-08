@@ -14,11 +14,21 @@ function loadMyPlaylist() {
 }
 
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
-function loadExternalPlaylist() {
-    fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
-        .then(response => response.text())
-        .then(data => updateSidebarFromM3U(data))
-        .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
+async function loadExternalPlaylist() {
+  const response = await fetch("playlist-urls.txt");
+  const urls = (await response.text()).split("\n").filter(line => line.trim() !== "");
+
+  // Καθαρίζουμε το sidebar
+  clearSidebar();
+
+  // Για κάθε playlist URL
+  for (const url of urls) {
+    const content = await fetchPlaylist(url); // Θα στο δώσω έτοιμο
+    parsePlaylistContent(content);
+  }
+
+  // Μετά την επεξεργασία ➜ εμφάνιση μόνο των αγαπημένων με το καλύτερο stream
+  displayFavoriteChannels();
 }
 
 
