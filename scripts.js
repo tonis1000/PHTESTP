@@ -4,6 +4,12 @@ const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα 
 let streamPerfMap = {};
 
 
+function clearSidebar() {
+  const sidebarList = document.getElementById('sidebar-list');
+  if (sidebarList) sidebarList.innerHTML = '';
+}
+
+
 
 // Funktion zum Laden der Playlist.m3u und Aktualisieren der Sidebar
 function loadMyPlaylist() {
