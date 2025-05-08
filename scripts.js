@@ -19,26 +19,37 @@ function loadMyPlaylist() {
         .catch(error => console.error('Fehler beim Laden der Playlist:', error));
 }
 
+
+
+
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
+// ✅ Τροποποιημένος Loader με υποστήριξη Τίτλου + URL
 async function loadExternalPlaylist() {
   const response = await fetch("playlist-urls.txt");
-  const urls = (await response.text()).split("\n").map(u => u.trim()).filter(Boolean);
+  const lines = (await response.text()).split("\n").map(line => line.trim()).filter(Boolean);
 
-  // Καθαρίζουμε το Sidebar
   clearSidebar();
 
-  for (const playlistUrl of urls) {
+  for (const line of lines) {
+    const [label, url] = line.split(',').map(x => x.trim());
+
+    if (!url || !url.startsWith('http')) {
+      console.warn('❌ Μη έγκυρη γραμμή (παραλείπεται):', line);
+      continue;
+    }
+
     try {
-      const res = await fetch(playlistUrl);
-      if (!res.ok) throw new Error('Δεν φορτώνεται: ' + playlistUrl);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Δεν φορτώνεται: ' + url);
+
       const content = await res.text();
-      await parseM3UandStoreStreams(content);
+      console.log(`📥 Φόρτωση playlist: ${label || url}`);
+      await updateSidebarFromM3U(content); // μπορείς να το αλλάξεις αν θες να εμφανίζεται και το label
+
     } catch (err) {
-      console.warn('❌ Σφάλμα ανάγνωσης playlist:', playlistUrl, err.message);
+      console.warn(`❌ Σφάλμα ανάγνωσης playlist "${label}":`, url, err.message);
     }
   }
-
-  displayFavoriteChannelsFromMap();
 }
 
 
