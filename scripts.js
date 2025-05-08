@@ -16,19 +16,94 @@ function loadMyPlaylist() {
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
 async function loadExternalPlaylist() {
   const response = await fetch("playlist-urls.txt");
-  const urls = (await response.text()).split("\n").filter(line => line.trim() !== "");
+  const urls = (await response.text()).split("\n").map(u => u.trim()).filter(Boolean);
 
-  // Καθαρίζουμε το sidebar
+  // Καθαρίζουμε το Sidebar
   clearSidebar();
 
-  // Για κάθε playlist URL
-  for (const url of urls) {
-    const content = await fetchPlaylist(url); // Θα στο δώσω έτοιμο
-    parsePlaylistContent(content);
+  for (const playlistUrl of urls) {
+    try {
+      const res = await fetch(playlistUrl);
+      if (!res.ok) throw new Error('Δεν φορτώνεται: ' + playlistUrl);
+      const content = await res.text();
+      await parseM3UandStoreStreams(content);
+    } catch (err) {
+      console.warn('❌ Σφάλμα ανάγνωσης playlist:', playlistUrl, err.message);
+    }
   }
 
-  // Μετά την επεξεργασία ➜ εμφάνιση μόνο των αγαπημένων με το καλύτερο stream
-  displayFavoriteChannels();
+  displayFavoriteChannelsFromMap();
+}
+
+
+
+async function parseM3UandStoreStreams(m3uText) {
+  const lines = m3uText.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('#EXTINF')) {
+      const nameMatch = lines[i].match(/,(.*)$/);
+      const name = nameMatch ? nameMatch[1].trim() : null;
+      const url = lines[i + 1]?.trim();
+
+      if (!name || !url || !url.startsWith('http')) continue;
+
+      for (const [favName] of window.favoriteChannels.entries()) {
+        if (name.toLowerCase().includes(favName.toLowerCase())) {
+          if (!window.availableStreams[favName]) window.availableStreams[favName] = [];
+
+          const status = await isStreamOnline(url);
+          window.availableStreams[favName].push({
+            url,
+            type: detectStreamType(url),
+            online: status
+          });
+        }
+      }
+    }
+  }
+}
+
+
+async function isStreamOnline(url) {
+  try {
+    const res = await fetch(url, { method: 'HEAD' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+
+
+async function displayFavoriteChannelsFromMap() {
+  const sidebarList = document.getElementById('sidebar-list');
+  sidebarList.innerHTML = '';
+
+  for (const [channelName, data] of window.favoriteChannels.entries()) {
+    const streams = (window.availableStreams[channelName] || []).filter(s => s.online);
+    if (streams.length === 0) continue;
+
+    const streamURL = streams.find(s => s.type === 'm3u8')?.url || streams[0].url;
+    const programInfo = getCurrentProgram(data.epgId);
+
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <div class="channel-info" data-stream="${streamURL}" data-channel-id="${data.epgId}">
+        <div class="logo-container"><img src="${data.logo}" alt="${channelName} Logo"></div>
+        <span class="sender-name">${channelName}</span>
+        <span class="epg-channel">
+          <span>${programInfo.title}</span>
+          <div class="epg-timeline">
+            <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+            <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+          </div>
+        </span>
+      </div>
+    `;
+    sidebarList.appendChild(li);
+  }
+
+  checkStreamStatus(); // Χρησιμοποιεί τη δική σου για να χρωματίσει το status
 }
 
 
