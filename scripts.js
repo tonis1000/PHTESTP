@@ -4,12 +4,6 @@ const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα 
 let streamPerfMap = {};
 
 
-function clearSidebar() {
-  const sidebarList = document.getElementById('sidebar-list');
-  if (sidebarList) sidebarList.innerHTML = '';
-}
-
-
 
 // Funktion zum Laden der Playlist.m3u und Aktualisieren der Sidebar
 function loadMyPlaylist() {
@@ -19,108 +13,12 @@ function loadMyPlaylist() {
         .catch(error => console.error('Fehler beim Laden der Playlist:', error));
 }
 
-
-
-
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
-// ✅ Τροποποιημένος Loader με υποστήριξη Τίτλου + URL
-async function loadExternalPlaylist() {
-  const response = await fetch("playlist-urls.txt");
-  const lines = (await response.text()).split("\n").map(line => line.trim()).filter(Boolean);
-
-  clearSidebar();
-
-  for (const line of lines) {
-    const [label, url] = line.split(',').map(x => x.trim());
-
-    if (!url || !url.startsWith('http')) {
-      console.warn('❌ Μη έγκυρη γραμμή (παραλείπεται):', line);
-      continue;
-    }
-
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Δεν φορτώνεται: ' + url);
-
-      const content = await res.text();
-      console.log(`📥 Φόρτωση playlist: ${label || url}`);
-      await updateSidebarFromM3U(content); // μπορείς να το αλλάξεις αν θες να εμφανίζεται και το label
-
-    } catch (err) {
-      console.warn(`❌ Σφάλμα ανάγνωσης playlist "${label}":`, url, err.message);
-    }
-  }
-}
-
-
-
-async function parseM3UandStoreStreams(m3uText) {
-  const lines = m3uText.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith('#EXTINF')) {
-      const nameMatch = lines[i].match(/,(.*)$/);
-      const name = nameMatch ? nameMatch[1].trim() : null;
-      const url = lines[i + 1]?.trim();
-
-      if (!name || !url || !url.startsWith('http')) continue;
-
-      for (const [favName] of window.favoriteChannels.entries()) {
-        if (name.toLowerCase().includes(favName.toLowerCase())) {
-          if (!window.availableStreams[favName]) window.availableStreams[favName] = [];
-
-          const status = await isStreamOnline(url);
-          window.availableStreams[favName].push({
-            url,
-            type: detectStreamType(url),
-            online: status
-          });
-        }
-      }
-    }
-  }
-}
-
-
-async function isStreamOnline(url) {
-  try {
-    const res = await fetch(url, { method: 'HEAD' });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-
-
-async function displayFavoriteChannelsFromMap() {
-  const sidebarList = document.getElementById('sidebar-list');
-  sidebarList.innerHTML = '';
-
-  for (const [channelName, data] of window.favoriteChannels.entries()) {
-    const streams = (window.availableStreams[channelName] || []).filter(s => s.online);
-    if (streams.length === 0) continue;
-
-    const streamURL = streams.find(s => s.type === 'm3u8')?.url || streams[0].url;
-    const programInfo = getCurrentProgram(data.epgId);
-
-    const li = document.createElement('li');
-    li.innerHTML = `
-      <div class="channel-info" data-stream="${streamURL}" data-channel-id="${data.epgId}">
-        <div class="logo-container"><img src="${data.logo}" alt="${channelName} Logo"></div>
-        <span class="sender-name">${channelName}</span>
-        <span class="epg-channel">
-          <span>${programInfo.title}</span>
-          <div class="epg-timeline">
-            <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
-            <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
-          </div>
-        </span>
-      </div>
-    `;
-    sidebarList.appendChild(li);
-  }
-
-  checkStreamStatus(); // Χρησιμοποιεί τη δική σου για να χρωματίσει το status
+function loadExternalPlaylist() {
+    fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
+        .then(response => response.text())
+        .then(data => updateSidebarFromM3U(data))
+        .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
 }
 
 
