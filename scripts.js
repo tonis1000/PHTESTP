@@ -1014,6 +1014,12 @@ function extractChunksUrl(m3uText, baseUrl) {
 
 // 🔥 Ανανεωμένο playStream
 async function playStream(initialURL, subtitleURL = null) {
+  if (window._currentlyPlaying === initialURL) {
+    console.warn("⏸️ Αποφεύγεται διπλή εκκίνηση του ίδιου stream:", initialURL);
+    return;
+  }
+  window._currentlyPlaying = initialURL;
+
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
@@ -1050,6 +1056,7 @@ async function playStream(initialURL, subtitleURL = null) {
         iframePlayer.style.display = 'block';
         iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
         showPlayerInfo('iframe', true);
+        window._currentlyPlaying = null;
         return;
       } else if (cached.player === 'clappr') {
         clapprDiv.style.display = 'block';
@@ -1061,6 +1068,7 @@ async function playStream(initialURL, subtitleURL = null) {
           height: '100%'
         });
         showPlayerInfo('clappr', true);
+        window._currentlyPlaying = null;
         return;
       } else if (cached.player === 'hls.js' || cached.player === 'hls.js-ts') {
         if (Hls.isSupported()) {
@@ -1070,6 +1078,7 @@ async function playStream(initialURL, subtitleURL = null) {
           hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
           videoPlayer.style.display = 'block';
           showPlayerInfo('hls.js', true);
+          window._currentlyPlaying = null;
           return;
         }
       }
@@ -1091,6 +1100,7 @@ async function playStream(initialURL, subtitleURL = null) {
         showVideoPlayer();
         logStreamUsage(initialURL, streamURL, 'hls.js-ts');
         showPlayerInfo('HLS.js (TS)');
+        window._currentlyPlaying = null;
         return;
       } catch (e) {
         console.warn('❌ Hls.js failed for TS, trying fallback...', e);
@@ -1108,6 +1118,7 @@ async function playStream(initialURL, subtitleURL = null) {
     });
     logStreamUsage(initialURL, streamURL, 'clappr-ts');
     showPlayerInfo('Clappr (TS)');
+    window._currentlyPlaying = null;
     return;
   }
 
@@ -1138,6 +1149,7 @@ async function playStream(initialURL, subtitleURL = null) {
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       logStreamUsage(initialURL, streamURL, 'iframe');
       showPlayerInfo('Iframe');
+      window._currentlyPlaying = null;
       return;
     }
   }
@@ -1159,6 +1171,7 @@ async function playStream(initialURL, subtitleURL = null) {
       tryNextStream(tvgId, initialURL);
     }
 
+    window._currentlyPlaying = null;
     return;
   }
 
@@ -1199,7 +1212,6 @@ async function playStream(initialURL, subtitleURL = null) {
       throw new Error('Unsupported stream type');
     }
 
-    // ➕ Αν είμαστε σε external και είναι αγαπημένο ➜ αποθήκευση στο favStreamCache
     if (
       activePlaylist === "external" &&
       window.favoriteTvgIds?.length &&
@@ -1232,8 +1244,13 @@ async function playStream(initialURL, subtitleURL = null) {
     });
     logStreamUsage(initialURL, streamURL, 'clappr');
     showPlayerInfo('Clappr');
+  } finally {
+    setTimeout(() => {
+      window._currentlyPlaying = null;
+    }, 1000);
   }
 }
+
 
 
 
