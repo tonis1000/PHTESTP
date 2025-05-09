@@ -14,12 +14,23 @@ function loadMyPlaylist() {
 }
 
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
-function loadExternalPlaylist() {
-    fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
-        .then(response => response.text())
-        .then(data => updateSidebarFromM3U(data))
-        .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
+async function loadExternalPlaylist() {
+  try {
+    const response = await fetch("my-favorite-channels.m3u");
+    const m3uText = await response.text();
+
+    // Εξάγουμε όλα τα tvg-id από το m3u
+    const tvgIds = [...m3uText.matchAll(/tvg-id="([^"]+)"/g)].map(m => m[1]);
+    window.favoriteTvgIds = tvgIds;
+
+    console.log("Αγαπημένα tvg-id:", tvgIds);
+
+    // Το επόμενο βήμα θα είναι να φορτώσουμε τα streams από το fav-streams.json
+  } catch (error) {
+    console.error("Αποτυχία ανάγνωσης my-favorite-channels.m3u:", error);
+  }
 }
+
 
 
 
