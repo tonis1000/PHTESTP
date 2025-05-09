@@ -389,7 +389,7 @@ document.getElementById('group-select').addEventListener('change', function () {
 
 
 
-  // ⬇️ Χειροκίνητη αποστολή cache ⬇️
+// ⬇️ Χειροκίνητη αποστολή cache (global + fav) ⬇️
 document.getElementById('send-cache-button')?.addEventListener('click', async () => {
   console.log('⏩ Χειροκίνητη αποστολή cache...');
 
@@ -399,6 +399,7 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
   statusEl.textContent = '⏳ Γίνεται αποστολή cache...';
 
   try {
+    // ⬆️ Αποστολή globalStreamCache
     const result = await sendGlobalCacheIfUpdated(true); // με force = true
 
     if (result === 'success') {
@@ -411,6 +412,25 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
       statusEl.style.color = 'red';
       statusEl.textContent = '❌ Σφάλμα αποστολής στο Glitch ή αποθήκευσης.';
     }
+
+    // ➕ Αποστολή favStreamCache (αν υπάρχει)
+    if (window.favStreamCache && Object.keys(window.favStreamCache).length > 0) {
+      const favResponse = await fetch("https://yellow-hulking-guan.glitch.me/uploadFavStreams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(window.favStreamCache)
+      });
+
+      if (favResponse.ok) {
+        console.log("✅ Το favStreamCache στάλθηκε επιτυχώς!");
+      } else {
+        console.warn("❌ Αποτυχία αποστολής favStreamCache:", await favResponse.text());
+      }
+
+      // 🧹 Καθαρίζουμε μετά την αποστολή
+      window.favStreamCache = {};
+    }
+
   } catch (e) {
     statusEl.style.color = 'red';
     statusEl.textContent = '🚫 Γενικό σφάλμα: ' + e.message;
@@ -421,6 +441,9 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
     statusEl.textContent = '';
   }, 3000);
 });
+
+
+
 
 
 
