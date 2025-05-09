@@ -2,6 +2,7 @@
 const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
 
 let streamPerfMap = {};
+let activePlaylist = "my"; // Default playlist (αλλάζει με κάθε κουμπί)
 
 
 
@@ -1126,8 +1127,20 @@ if (streamPerfMap[normalizedUrl]) {
   if (workingUrl) {
     streamURL = workingUrl;
   } else {
-    console.log('🚫 Καμία διαθέσιμη σύνδεση. Τέλος.');
-    return;
+    console.log('🚫 Καμία διαθέσιμη σύνδεση.');
+
+if (
+  activePlaylist === "external" &&
+  window.favoriteTvgIds?.length &&
+  document.getElementById('current-channel-name')?.textContent
+) {
+  const tvgId = document.getElementById('current-channel-name').textContent.toLowerCase();
+  console.log(`🔁 Προσπάθεια fallback ➜ ${tvgId}`);
+  tryNextStream(tvgId, initialURL);
+}
+
+return;
+
   }
 
   try {
@@ -1413,7 +1426,11 @@ document.addEventListener('DOMContentLoaded', function () {
   setInterval(updateClock, 1000);
 
   document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
-  document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
+  document.getElementById('externalPlaylist').addEventListener('click', () => {
+  activePlaylist = "external";
+  loadExternalPlaylist();
+});
+
   document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
 
   const sidebarList = document.getElementById('sidebar-list');
@@ -1519,36 +1536,44 @@ document.getElementById('show-all-button').addEventListener('click', () => apply
 });
 
 
+
+
+
+
+
+
 async function tryNextStream(tvgId, currentUrl) {
-  if (!window.favoriteTvgIds?.includes(tvgId)) return;
-  const response = await fetch("https://yellow-hulking-guan.glitch.me/fav-streams.json");
-  const favData = await response.json();
-  const allStreams = favData[tvgId];
-  if (!allStreams || allStreams.length === 0) return;
+  try {
+    const response = await fetch("https://yellow-hulking-guan.glitch.me/fav-streams.json");
+    const favData = await response.json();
+    const allStreams = favData[tvgId];
+    if (!allStreams || allStreams.length === 0) return;
 
-  let passed = false;
-  for (const entry of allStreams) {
-    const url = entry.url;
-    if (url === currentUrl) {
-      passed = true;
-      continue;
-    }
-    if (!passed) continue;
-
-    try {
-      const res = await fetch(url, { method: 'HEAD' });
-      if (res.ok) {
-        console.log(`🔁 Fallback ➜ νέο stream για ${tvgId}: ${url}`);
-        document.getElementById('stream-url').value = url;
-        document.getElementById('current-channel-name').textContent = tvgId.toUpperCase();
-        playStream(url, null); // ή υπότιτλους αν υπάρχουν
-        return;
+    let passed = false;
+    for (const entry of allStreams) {
+      const url = entry.url;
+      if (url === currentUrl) {
+        passed = true;
+        continue;
       }
-    } catch (e) {
-      console.warn(`❌ Αποτυχία fallback URL για ${tvgId}: ${url}`);
+      if (!passed) continue;
+
+      try {
+        const res = await fetch(url, { method: 'HEAD' });
+        if (res.ok) {
+          console.log(`🔁 Fallback: επόμενο διαθέσιμο stream ➜ ${url}`);
+          document.getElementById('stream-url').value = url;
+          document.getElementById('current-channel-name').textContent = tvgId.toUpperCase();
+          playStream(url);
+          return;
+        }
+      } catch (e) {
+        console.warn(`❌ Δεν ανταποκρίνεται: ${url}`);
+      }
     }
+
+    console.warn(`⚠️ Δεν υπάρχει άλλο διαθέσιμο stream για ${tvgId}`);
+  } catch (e) {
+    console.error("❌ Σφάλμα στο tryNextStream:", e);
   }
-
-  console.warn(`🚫 Δεν βρέθηκε άλλο διαθέσιμο stream για ${tvgId}`);
 }
-
