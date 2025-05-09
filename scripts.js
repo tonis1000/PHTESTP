@@ -1517,3 +1517,38 @@ document.getElementById('show-all-button').addEventListener('click', () => apply
     playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
   }
 });
+
+
+async function tryNextStream(tvgId, currentUrl) {
+  if (!window.favoriteTvgIds?.includes(tvgId)) return;
+  const response = await fetch("https://yellow-hulking-guan.glitch.me/fav-streams.json");
+  const favData = await response.json();
+  const allStreams = favData[tvgId];
+  if (!allStreams || allStreams.length === 0) return;
+
+  let passed = false;
+  for (const entry of allStreams) {
+    const url = entry.url;
+    if (url === currentUrl) {
+      passed = true;
+      continue;
+    }
+    if (!passed) continue;
+
+    try {
+      const res = await fetch(url, { method: 'HEAD' });
+      if (res.ok) {
+        console.log(`🔁 Fallback ➜ νέο stream για ${tvgId}: ${url}`);
+        document.getElementById('stream-url').value = url;
+        document.getElementById('current-channel-name').textContent = tvgId.toUpperCase();
+        playStream(url, null); // ή υπότιτλους αν υπάρχουν
+        return;
+      }
+    } catch (e) {
+      console.warn(`❌ Αποτυχία fallback URL για ${tvgId}: ${url}`);
+    }
+  }
+
+  console.warn(`🚫 Δεν βρέθηκε άλλο διαθέσιμο stream για ${tvgId}`);
+}
+
