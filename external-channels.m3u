@@ -1,22 +1,7 @@
 #EXTM3U
-
-#EXTINF:-1 tvg-id="ert1" tvg-name="ERT1" tvg-logo="logos/ert1.png" group-title="Favorites",ERT1
-#proxy
-
-#EXTINF:-1 tvg-id="mega" tvg-name="MEGA" tvg-logo="logos/mega.png" group-title="Favorites",MEGA
-#proxy
-
-#EXTINF:-1 tvg-id="ant1" tvg-name="ANT1" tvg-logo="logos/ant1.png" group-title="Favorites",ANT1
-#proxy
-
-#EXTINF:-1 tvg-id="star" tvg-name="STAR" tvg-logo="logos/star.png" group-title="Favorites",STAR
-#proxy
-
-#EXTINF:-1 tvg-id="alpha" tvg-name="ALPHA" tvg-logo="logos/alpha.png" group-title="Favorites",ALPHA
-#proxy
-
-#EXTINF:-1 tvg-id="skai" tvg-name="SKAI" tvg-logo="logos/skai.png" group-title="Favorites",SKAI
-#proxy
-
-#EXTINF:-1 tvg-id="open" tvg-name="OPEN" tvg-logo="logos/open.png" group-title="Favorites",OPEN
-#proxy
+#EXTINF:-1 tvg-id="ert1" tvg-name="ERT1" tvg-logo="logos/ert1.png", ERT1
+dummy
+#EXTINF:-1 tvg-id="mega" tvg-name="MEGA" tvg-logo="logos/mega.png", MEGA
+dummy
+#EXTINF:-1 tvg-id="star" tvg-name="STAR" tvg-logo="logos/star.png", STAR
+dummy
