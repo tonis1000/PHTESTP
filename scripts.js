@@ -1,5 +1,7 @@
 
 const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
+window.favStreamCache = {};
+
 
 let streamPerfMap = {};
 let activePlaylist = "my"; // Default playlist (αλλάζει με κάθε κουμπί)
