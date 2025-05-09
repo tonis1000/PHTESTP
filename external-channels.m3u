@@ -1,0 +1,13 @@
+#EXTM3U
+
+#EXTINF:-1 tvg-id="ert1" tvg-name="ERT1" tvg-logo="logos/ert1.png" group-title="Favorites",ERT1
+#proxy
+
+#EXTINF:-1 tvg-id="mega" tvg-name="MEGA" tvg-logo="logos/mega.png" group-title="Favorites",MEGA
+#proxy
+
+#EXTINF:-1 tvg-id="ant1" tvg-name="ANT1" tvg-logo="logos/ant1.png" group-title="Favorites",ANT1
+#proxy
+
+#EXTINF:-1 tvg-id="star" tvg-name="STAR" tvg-logo="logos/star.png" group-title="Favorites",STAR
+#proxy
