@@ -5,3 +5,7 @@ dummy
 dummy
 #EXTINF:-1 tvg-id="star" tvg-name="STAR" tvg-logo="logos/star.png", STAR
 dummy
+#EXTINF:-1 tvg-id="ant1" tvg-name="ANT1" tvg-logo="logos/ant1.png", ANT1
+dummy
+#EXTINF:-1 tvg-id="alpha" tvg-name="ALPHA" tvg-logo="logos/alpha.png", ALPHA
+dummy
