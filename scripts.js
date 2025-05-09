@@ -13,23 +13,74 @@ function loadMyPlaylist() {
         .catch(error => console.error('Fehler beim Laden der Playlist:', error));
 }
 
+
+
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
 async function loadExternalPlaylist() {
   try {
     const response = await fetch("my-favorite-channels.m3u");
     const m3uText = await response.text();
-
-    // Εξάγουμε όλα τα tvg-id από το m3u
     const tvgIds = [...m3uText.matchAll(/tvg-id="([^"]+)"/g)].map(m => m[1]);
     window.favoriteTvgIds = tvgIds;
+    console.log("📺 Αγαπημένα tvg-id:", tvgIds);
 
-    console.log("Αγαπημένα tvg-id:", tvgIds);
+    const favResp = await fetch("https://yellow-hulking-guan.glitch.me/fav-streams.json");
+    const favData = await favResp.json();
 
-    // Το επόμενο βήμα θα είναι να φορτώσουμε τα streams από το fav-streams.json
+    const sidebarList = document.getElementById('sidebar-list');
+    sidebarList.innerHTML = '';
+
+    for (const id of tvgIds) {
+      const streams = favData[id];
+      if (!streams || !Array.isArray(streams)) continue;
+
+      let bestStream = null;
+
+      for (const entry of streams) {
+        try {
+          const res = await fetch(entry.url, { method: 'HEAD' });
+          if (res.ok) {
+            bestStream = entry.url;
+            break;
+          }
+        } catch (e) {
+          console.warn(`❌ Δεν ανταποκρίνεται το stream για ${id}:`, entry.url);
+        }
+      }
+
+      if (bestStream) {
+        const channelName = id.toUpperCase();
+        const logoPath = `logos/${id}.png`;
+
+        const programInfo = getCurrentProgram(id);
+        const listItem = document.createElement('li');
+        listItem.innerHTML = `
+          <div class="channel-info" data-stream="${bestStream}" data-channel-id="${id}">
+            <div class="logo-container">
+              <img src="${logoPath}" alt="${channelName} Logo">
+            </div>
+            <span class="sender-name">${channelName}</span>
+            <span class="epg-channel">
+              <span>${programInfo.title}</span>
+              <div class="epg-timeline">
+                <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+                <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+              </div>
+            </span>
+          </div>
+        `;
+        sidebarList.appendChild(listItem);
+      } else {
+        console.log(`⚠️ Δεν βρέθηκε online stream για ${id}`);
+      }
+    }
+
+    setTimeout(checkStreamStatus, 300); // Ενεργοποιεί τον υπάρχοντα έλεγχο online status
   } catch (error) {
-    console.error("Αποτυχία ανάγνωσης my-favorite-channels.m3u:", error);
+    console.error("⛔ Σφάλμα στο externalPlaylist:", error);
   }
 }
+
 
 
 
