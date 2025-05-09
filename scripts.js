@@ -1025,7 +1025,6 @@ async function playStream(initialURL, subtitleURL = null) {
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  console.log('🔄 Reset players και sources');
   if (clapprPlayer) clapprPlayer.destroy();
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
@@ -1047,10 +1046,9 @@ async function playStream(initialURL, subtitleURL = null) {
 
   let streamURL = initialURL;
   const normalizedUrl = initialURL.replace(/^http:/, 'https:');
+
   if (streamPerfMap[normalizedUrl]) {
     const cached = streamPerfMap[normalizedUrl];
-    console.log('⚡ Προσπάθεια μέσω Cache...', cached);
-
     try {
       if (cached.player === 'iframe') {
         iframePlayer.style.display = 'block';
@@ -1083,47 +1081,29 @@ async function playStream(initialURL, subtitleURL = null) {
         }
       }
     } catch (e) {
-      console.warn('❌ Αποτυχία αναπαραγωγής από cache. Συνεχίζω κανονικά...');
+      console.warn('❌ Αποτυχία αναπαραγωγής από cache.');
     }
   }
 
   const streamType = detectStreamType(streamURL);
 
-  if (streamType === 'ts') {
-    console.log('🔵 TS stream detected. Attempting playback...');
-    if (Hls.isSupported()) {
-      try {
-        const hls = new Hls();
-        hls.loadSource(streamURL);
-        hls.attachMedia(videoPlayer);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-        showVideoPlayer();
-        logStreamUsage(initialURL, streamURL, 'hls.js-ts');
-        showPlayerInfo('HLS.js (TS)');
-        window._currentlyPlaying = null;
-        return;
-      } catch (e) {
-        console.warn('❌ Hls.js failed for TS, trying fallback...', e);
-      }
+  if (streamType === 'ts' && Hls.isSupported()) {
+    try {
+      const hls = new Hls();
+      hls.loadSource(streamURL);
+      hls.attachMedia(videoPlayer);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+      showVideoPlayer();
+      logStreamUsage(initialURL, streamURL, 'hls.js-ts');
+      showPlayerInfo('HLS.js (TS)');
+      window._currentlyPlaying = null;
+      return;
+    } catch (e) {
+      console.warn('❌ HLS.js failed for TS, using Clappr fallback');
     }
-
-    console.log('🟠 TS stream -> Using Clappr fallback');
-    clapprDiv.style.display = 'block';
-    clapprPlayer = new Clappr.Player({
-      source: streamURL,
-      parentId: '#clappr-player',
-      autoPlay: true,
-      width: '100%',
-      height: '100%'
-    });
-    logStreamUsage(initialURL, streamURL, 'clappr-ts');
-    showPlayerInfo('Clappr (TS)');
-    window._currentlyPlaying = null;
-    return;
   }
 
   if (isIframeStream(streamURL)) {
-    console.log('🌐 Εντοπίστηκε πιθανό Iframe. Αναζήτηση .m3u8...');
     let foundStream = null;
     for (let proxy of proxyList) {
       const proxied = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
@@ -1141,10 +1121,8 @@ async function playStream(initialURL, subtitleURL = null) {
     }
 
     if (foundStream) {
-      console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe!');
       streamURL = foundStream;
     } else {
-      console.log('▶️ Δεν βρέθηκε. Παίζω το iframe κανονικά.');
       iframePlayer.style.display = 'block';
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       logStreamUsage(initialURL, streamURL, 'iframe');
@@ -1154,26 +1132,21 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   }
 
-  console.log('🌍 Έλεγχος Direct ή Proxy προσβασιμότητας...');
   const workingUrl = await findWorkingUrl(streamURL);
-  if (workingUrl) {
-    streamURL = workingUrl;
-  } else {
-    console.log('🚫 Καμία διαθέσιμη σύνδεση.');
-
+  if (!workingUrl) {
     if (
       activePlaylist === "external" &&
       window.favoriteTvgIds?.length &&
       document.getElementById('current-channel-name')?.textContent
     ) {
       const tvgId = document.getElementById('current-channel-name').textContent.toLowerCase();
-      console.log(`🔁 Προσπάθεια fallback ➜ ${tvgId}`);
       tryNextStream(tvgId, initialURL);
     }
-
     window._currentlyPlaying = null;
     return;
   }
+
+  streamURL = workingUrl;
 
   try {
     if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
@@ -1197,7 +1170,6 @@ async function playStream(initialURL, subtitleURL = null) {
       logStreamUsage(initialURL, streamURL, 'dash.js');
       showPlayerInfo('Dash.js');
     } else if (streamURL.endsWith('.m3u8')) {
-      console.warn('⚠️ Native HLS πιθανό να μη λειτουργεί. Προσπάθεια με Clappr fallback.');
       clapprDiv.style.display = 'block';
       clapprPlayer = new Clappr.Player({
         source: streamURL,
@@ -1212,6 +1184,7 @@ async function playStream(initialURL, subtitleURL = null) {
       throw new Error('Unsupported stream type');
     }
 
+    // ➕ favStreamCache (μόνο στο external)
     if (
       activePlaylist === "external" &&
       window.favoriteTvgIds?.length &&
@@ -1233,7 +1206,7 @@ async function playStream(initialURL, subtitleURL = null) {
     }
 
   } catch (e) {
-    console.log('⚠️ Σφάλμα player. Συνεχίζω με Clappr...', e);
+    console.log('⚠️ Σφάλμα player. Fallback σε Clappr...');
     clapprDiv.style.display = 'block';
     clapprPlayer = new Clappr.Player({
       source: streamURL,
