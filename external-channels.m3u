@@ -11,3 +11,12 @@
 
 #EXTINF:-1 tvg-id="star" tvg-name="STAR" tvg-logo="logos/star.png" group-title="Favorites",STAR
 #proxy
+
+#EXTINF:-1 tvg-id="alpha" tvg-name="ALPHA" tvg-logo="logos/alpha.png" group-title="Favorites",ALPHA
+#proxy
+
+#EXTINF:-1 tvg-id="skai" tvg-name="SKAI" tvg-logo="logos/skai.png" group-title="Favorites",SKAI
+#proxy
+
+#EXTINF:-1 tvg-id="open" tvg-name="OPEN" tvg-logo="logos/open.png" group-title="Favorites",OPEN
+#proxy
