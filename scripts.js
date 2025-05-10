@@ -23,7 +23,7 @@ async function loadExternalPlaylist() {
   const abortToken = Symbol('externalPlaylist');
   window.activePlaylistToken = abortToken;
 
-  const myChannelsUrl = 'https://tonis1000.github.io/PHTESTP/my-channels.m3u'; // ↩️ άλλαξέ το αν χρειάζεται
+  const myChannelsUrl = 'https://tonis1000.github.io/PHTESTP/my-channels.m3u';
   const proxyUrl = 'https://yellow-hulking-guan.glitch.me/channel-streams.json';
 
   try {
@@ -45,54 +45,63 @@ async function loadExternalPlaylist() {
         const logoMatch = lines[i].match(/tvg-logo="([^"]+)"/);
 
         const tvgId = idMatch ? idMatch[1] : null;
-        const channelName = nameMatch ? nameMatch[1] : 'Unbenannt';
+        const channelName = nameMatch ? nameMatch[1] : 'Unknown';
         const logo = logoMatch ? logoMatch[1] : 'default_logo.png';
 
         if (!tvgId || !streamsData[tvgId]) continue;
 
         const urls = streamsData[tvgId];
+        const onlineList = [];
 
-        // Έλεγχος ποιο είναι online
         for (let entry of urls) {
           const isOnline = await checkIfOnline(entry.url);
-          if (window.activePlaylistToken !== abortToken) return; // αν άλλαξε playlist
+          if (window.activePlaylistToken !== abortToken) return;
 
           if (isOnline) {
-            entries.push({
-              tvgId,
-              name: channelName,
-              logo,
-              url: entry.url,
-              player: entry.player
-            });
-            break;
+            onlineList.push({ url: entry.url, player: entry.player });
           }
+        }
+
+        if (onlineList.length > 0) {
+          entries.push({
+            tvgId,
+            name: channelName,
+            logo,
+            fallbackList: onlineList
+          });
         }
       }
     }
 
-    // ✅ Εμφάνιση στο sidebar
-    for (const { tvgId, name, logo, url, player } of entries) {
+    for (const { tvgId, name, logo, fallbackList } of entries) {
+      const url = fallbackList[0].url;
+      const player = fallbackList[0].player;
+      const epgInfo = getCurrentProgram(tvgId);
+
       const li = document.createElement('li');
       li.innerHTML = `
-        <div class="channel-info cached-stream" data-stream="${url}" data-channel-id="${tvgId}">
+        <div class="channel-info cached-stream" data-stream='${JSON.stringify(fallbackList)}' data-channel-id="${tvgId}">
           <div class="logo-container">
             <img src="${logo}" alt="${name} Logo">
           </div>
           <span class="sender-name">${name}<span class="badge" style="font-size: 0.7em; color: gold; margin-left: 6px;">[${player}]</span></span>
-          <span class="epg-channel"><span>Χωρίς EPG</span></span>
+          <span class="epg-channel">
+            <span>${epgInfo.title}</span>
+            <div class="epg-timeline">
+              <div class="epg-past" style="width: ${epgInfo.pastPercentage}%"></div>
+              <div class="epg-future" style="width: ${epgInfo.futurePercentage}%"></div>
+            </div>
+          </span>
         </div>
       `;
       sidebarList.appendChild(li);
     }
-
   } catch (e) {
     console.error('❌ Σφάλμα στο externalPlaylist:', e);
     sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης καναλιών.</li>';
   }
 }
 
-// ✅ Βοηθητική για online έλεγχο
 async function checkIfOnline(url) {
   try {
     const res = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
@@ -101,6 +110,7 @@ async function checkIfOnline(url) {
     return false;
   }
 }
+
 
 
 
