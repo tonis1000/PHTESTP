@@ -926,24 +926,58 @@ function extractChunksUrl(m3uText, baseUrl) {
 
 // 🔥 Ανανεωμένο playStream
 async function playStream(initialURL, subtitleURL = null) {
+  // 📌 1. Αναφορά στοιχείων DOM
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  console.log('🔄 Reset players και sources');
-  if (clapprPlayer) clapprPlayer.destroy();
-  videoPlayer.pause();
-  videoPlayer.removeAttribute('src');
-  videoPlayer.load();
-  iframePlayer.src = '';
-  subtitleTrack.src = '';
-  subtitleTrack.track.mode = 'hidden';
-  videoPlayer.style.display = 'none';
-  iframePlayer.style.display = 'none';
-  clapprDiv.style.display = 'none';
-
+  // 📌 2. Συνάρτηση για πλήρες reset όλων των players
+  const resetAllPlayers = () => {
+    console.log('🔄 Εκκαθάριση όλων των players...');
     
+    // 🔴 Clappr Player
+    if (clapprPlayer) {
+      try {
+        clapprPlayer.destroy();
+        clapprPlayer = null;
+      } catch (e) {
+        console.error('❌ Σφάλμα καταστροφής Clappr:', e);
+      }
+    }
+
+    // 🔴 HLS.js Player
+    if (window.hls) {
+      try {
+        window.hls.destroy();
+        delete window.hls;
+      } catch (e) {
+        console.error('❌ Σφάλμα καταστροφής HLS:', e);
+      }
+    }
+
+    // 🔴 Video Player
+    videoPlayer.pause();
+    videoPlayer.removeAttribute('src');
+    videoPlayer.load();
+
+    // 🔴 Iframe Player
+    iframePlayer.src = 'about:blank';
+
+    // 🔴 Subtitles
+    subtitleTrack.src = '';
+    subtitleTrack.track.mode = 'hidden';
+
+    // 🔴 Απόκρυψη containers
+    videoPlayer.style.display = 'none';
+    iframePlayer.style.display = 'none';
+    clapprDiv.style.display = 'none';
+  };
+
+  // 📌 3. Εκτέλεση reset ΠΡΙΝ από κάθε αναπαραγωγή
+  resetAllPlayers();
+
+  // 📌 4. Βοηθητική συνάρτηση για εμφάνιση video player
   const showVideoPlayer = () => {
     videoPlayer.style.display = 'block';
     if (subtitleURL) {
@@ -952,47 +986,55 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   };
 
+  // 📌 5. Κανονικοποίηση URL για cache
   let streamURL = initialURL;
+  const normalizedUrl = initialURL.replace(/^http:/, 'https:');
 
-    const normalizedUrl = initialURL.replace(/^http:/, 'https:');
-if (streamPerfMap[normalizedUrl]) {
-  const cached = streamPerfMap[normalizedUrl];
+  // 📌 6. Προσπάθεια αναπαραγωγής από cache (με ενισχυμένο error handling)
+  if (streamPerfMap[normalizedUrl]) {
+    const cached = streamPerfMap[normalizedUrl];
+    console.log('⚡ Προσπάθεια αναπαραγωγής από cache:', cached.player);
 
-  console.log('⚡ Προσπάθεια μέσω Cache...', cached);
-
-  try {
-    if (cached.player === 'iframe') {
-  iframePlayer.style.display = 'block';
-  iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
-  showPlayerInfo('iframe', true);
-  return;
-    } else if (cached.player === 'clappr') {
-      clapprDiv.style.display = 'block';
-      clapprPlayer = new Clappr.Player({
-        source: initialURL,
-        parentId: '#clappr-player',
-        autoPlay: true,
-        width: '100%',
-        height: '100%'
-      });
-        showPlayerInfo('clappr', true);
-  return;
-    } else if (cached.player === 'hls.js' || cached.player === 'hls.js-ts') {
-      if (Hls.isSupported()) {
-        const hls = new Hls();
-        hls.loadSource(initialURL);
-        hls.attachMedia(videoPlayer);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-        videoPlayer.style.display = 'block';
-          showPlayerInfo('hls.js', true);
-  return;
+    try {
+      // 🔵 Iframe Cache
+      if (cached.player === 'iframe') {
+        iframePlayer.style.display = 'block';
+        iframePlayer.src = initialURL.includes('autoplay') 
+          ? initialURL 
+          : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+        showPlayerInfo('iframe', true);
+        return; // 📌 Σημαντικό: Τερματίζουμε εδώ!
       }
-    }
-  } catch (e) {
-    console.warn('❌ Αποτυχία αναπαραγωγής από cache. Συνεχίζω κανονικά...');
-  }
-}
 
+      // 🔵 Clappr Cache
+      else if (cached.player === 'clappr') {
+        clapprDiv.style.display = 'block';
+        clapprPlayer = new Clappr.Player({
+          source: initialURL,
+          parentId: '#clappr-player',
+          autoPlay: true,
+          width: '100%',
+          height: '100%'
+        });
+        showPlayerInfo('clappr', true);
+        return;
+      }
+
+      // 🔵 HLS.js Cache
+      else if ((cached.player === 'hls.js' || cached.player === 'hls.js-ts') && Hls.isSupported()) {
+        window.hls = new Hls();
+        window.hls.loadSource(initialURL);
+        window.hls.attachMedia(videoPlayer);
+        window.hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+        videoPlayer.style.display = 'block';
+        showPlayerInfo('hls.js', true);
+        return;
+      }
+    } catch (e) {
+      console.warn('❌ Αποτυχία αναπαραγωγής από cache. Συνέχεια με κανονική ροή...', e);
+      resetAllPlayers(); // 📌 Επιπλέον καθαρισμός σε περίπτωση σφάλματος
+    }
+  }
 
   const streamType = detectStreamType(streamURL);
 
@@ -1142,7 +1184,12 @@ function showPlayerInfo(playerName, fromCache = false) {
   }, 4000);
 }
 
-
+  // 📌 7. Τελικός έλεγχος για διπλή εμφάνιση
+  console.log('✅ Τερματισμός playStream - Έλεγχος ενεργών players:');
+  console.log('- Video Player:', videoPlayer.style.display);
+  console.log('- Iframe Player:', iframePlayer.style.display);
+  console.log('- Clappr Player:', clapprDiv.style.display);
+}
 
 
 
