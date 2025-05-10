@@ -15,6 +15,9 @@ Alpha TV
 #EXTINF:-1 tvg-id="skai" tvg-name="Skai" tvg-logo="https://i.imgur.com/mrKRFnf.png" group-title="Greece",
 Skai
 
+#EXTINF:-1 tvg-id="open" tvg-name="Open TV" tvg-logo="https://i.imgur.com/M6XG03v.png" group-title="Greece",
+Open TV
+
 #EXTINF:-1 tvg-id="ant1" tvg-name="ANT1" tvg-logo="https://i.imgur.com/V1w22Or.png" group-title="Greece",
 ANT1
 
