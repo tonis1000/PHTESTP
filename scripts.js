@@ -1390,7 +1390,7 @@ document.addEventListener('DOMContentLoaded', function () {
   setInterval(updateClock, 1000);
 
   document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
-  document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
+  document.getElementById('externalPlaylist').addEventListener('click', loadSmartExternalPlaylist);
   document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
 
   const sidebarList = document.getElementById('sidebar-list');
