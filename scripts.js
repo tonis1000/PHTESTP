@@ -986,6 +986,22 @@ function extractChunksUrl(m3uText, baseUrl) {
 
 
 
+function showPlayerInfo(playerName, fromCache = false) {
+  const label = document.getElementById('player-info-label');
+  if (!label) return;
+  label.textContent = `${fromCache ? '🧠 Από Cache: ' : '🎯 Player: '}${playerName}`;
+  label.style.display = 'block';
+
+  clearTimeout(label.hideTimeout);
+  label.hideTimeout = setTimeout(() => {
+    label.style.display = 'none';
+  }, 4000);
+}
+
+
+
+
+
 // 🔥 Ανανεωμένο playStream
 // ✅ Πλήρης, καθαρή έκδοση της playStream με υποστήριξη tvg-id και φραγή διπλής αναπαραγωγής
 async function playStream(initialURL, subtitleURL = null) {
