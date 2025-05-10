@@ -2,25 +2,25 @@
   {
     "tvg-id": "ert1",
     "tvg-name": "ERT1",
-    "tvg-logo": "logos/ert1.png",
+    "tvg-logo": "https://i.imgur.com/slE8U5m.png",
     "epg-id": "ert1"
   },
   {
     "tvg-id": "ert2",
     "tvg-name": "ERT2",
-    "tvg-logo": "logos/ert2.png",
+    "tvg-logo": "https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png",
     "epg-id": "ert2"
   },
   {
     "tvg-id": "ert3",
     "tvg-name": "ERT3",
-    "tvg-logo": "logos/ert3.png",
+    "tvg-logo": "https://i.imgur.com/f2l9bDR.png",
     "epg-id": "ert3"
   },
   {
     "tvg-id": "mega",
     "tvg-name": "MEGA",
-    "tvg-logo": "logos/mega.png",
+    "tvg-logo": "https://i.ibb.co/f2rCKjh/mega.jpg/mega.png",
     "epg-id": "mega"
   },
   {
@@ -32,7 +32,7 @@
   {
     "tvg-id": "star",
     "tvg-name": "STAR",
-    "tvg-logo": "logos/star.png",
+    "tvg-logo": "https://i.imgur.com/6NUpxhr.png",
     "epg-id": "star"
   },
   {
