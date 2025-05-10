@@ -475,10 +475,10 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
 
     const result = await response.json();
 
-    if (result.status === 'Updated') {
-      statusEl.style.color = 'lime';
-      statusEl.textContent = '✅ Το cache στάλθηκε και το channel-streams ενημερώθηκε!';
-    } else if (result.status === 'No changes') {
+if (result.status === 'Updated') {
+  statusEl.style.color = 'lime';
+  statusEl.textContent = `✅ Το cache στάλθηκε! Προστέθηκαν ${result.tvgCount || 0} κανάλια στο channel-streams.json.`;
+}else if (result.status === 'No changes') {
       statusEl.style.color = 'orange';
       statusEl.textContent = 'ℹ️ Δεν υπήρχαν αλλαγές. Το channel-streams παρέμεινε ίδιο.';
     } else {
