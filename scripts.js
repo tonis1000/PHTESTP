@@ -13,51 +13,12 @@ function loadMyPlaylist() {
         .catch(error => console.error('Fehler beim Laden der Playlist:', error));
 }
 
-
-
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
-async function loadSmartExternalPlaylist() {
-  const sidebarList = document.getElementById('sidebar-list');
-  sidebarList.innerHTML = '';
-
-  try {
-    const res = await fetch('my-channels.json');
-    const favoriteChannels = await res.json();
-
-    for (const channel of favoriteChannels) {
-      const { "tvg-id": tvgId, "tvg-name": name, "tvg-logo": logo, "epg-id": epgId } = channel;
-
-      const response = await fetch(`https://yellow-hulking-guan.glitch.me/get-best-stream?tvg-id=${tvgId}`);
-      if (!response.ok) continue;
-
-      const { best } = await response.json();
-      if (!best) continue;
-
-      const li = document.createElement('li');
-      const programInfo = getCurrentProgram(epgId);
-
-      li.innerHTML = `
-        <div class="channel-info online" data-stream="${best}" data-channel-id="${epgId}">
-          <div class="logo-container">
-            <img src="${logo}" alt="${name}">
-          </div>
-          <span class="sender-name">${name}</span>
-          <span class="epg-channel">
-            <span>${programInfo.title}</span>
-            <div class="epg-timeline">
-              <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
-              <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
-            </div>
-          </span>
-        </div>
-      `;
-
-      sidebarList.appendChild(li);
-    }
-  } catch (error) {
-    console.error('❌ Σφάλμα κατά τη φόρτωση smart external playlist:', error);
-    sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης καναλιών.</li>';
-  }
+function loadExternalPlaylist() {
+    fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
+        .then(response => response.text())
+        .then(data => updateSidebarFromM3U(data))
+        .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
 }
 
 
@@ -363,7 +324,7 @@ document.getElementById('group-select').addEventListener('change', function () {
 
 
 
-// ⬇️ Χειροκίνητη αποστολή cache + tvg-id URLs ⬇️
+  // ⬇️ Χειροκίνητη αποστολή cache ⬇️
 document.getElementById('send-cache-button')?.addEventListener('click', async () => {
   console.log('⏩ Χειροκίνητη αποστολή cache...');
 
@@ -385,10 +346,6 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
       statusEl.style.color = 'red';
       statusEl.textContent = '❌ Σφάλμα αποστολής στο Glitch ή αποθήκευσης.';
     }
-
-    // 🔁 Επέκταση: αποστολή URLs ανά tvg-id
-    await sendFavStreamsToProxy();
-
   } catch (e) {
     statusEl.style.color = 'red';
     statusEl.textContent = '🚫 Γενικό σφάλμα: ' + e.message;
@@ -804,13 +761,14 @@ function detectStreamType(url) {
 }
 
 // 📌 TS Support: Ενημερωμένη logStreamUsage()
-function logStreamUsage(initialUrl, finalUrl, playerUsed, tvgId = null) {
+function logStreamUsage(initialUrl, finalUrl, playerUsed) {
   const now = new Date().toISOString();
   const proxyUsed = (initialUrl !== finalUrl) ? finalUrl.replace(initialUrl, '') : '';
   const type = detectStreamType(initialUrl);
 
   const previous = globalStreamCache[initialUrl];
 
+  // ✅ Αν υπάρχει ήδη και δεν έχει αλλάξει τίποτα ➜ δεν το ξαναγράφουμε
   if (
     previous &&
     previous.proxy === proxyUsed &&
@@ -821,12 +779,12 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed, tvgId = null) {
     return;
   }
 
+  // ✅ Αν είναι νέο ή έχει αλλαγές ➜ ενημέρωση
   globalStreamCache[initialUrl] = {
     timestamp: now,
     proxy: proxyUsed,
     player: playerUsed,
-    type: type,
-    tvgid: tvgId || undefined
+    type: type
   };
 
   if (previous) {
@@ -835,26 +793,6 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed, tvgId = null) {
     console.log(`➕ Νέα καταγραφή stream: ${initialUrl}`);
   }
 }
-
-
-
-
-async function getFallbackStream(tvgId, excludeUrl) {
-  if (!tvgId) return null;
-
-  try {
-    const res = await fetch(`https://yellow-hulking-guan.glitch.me/get-best-stream?tvg-id=${tvgId}&exclude=${encodeURIComponent(excludeUrl)}`);
-    if (res.ok) {
-      const data = await res.json();
-      return data.best || null;
-    }
-  } catch (err) {
-    console.warn('❌ Σφάλμα fallback stream από proxy:', err.message);
-  }
-
-  return null;
-}
-
 
 
 
@@ -986,31 +924,8 @@ function extractChunksUrl(m3uText, baseUrl) {
 
 
 
-function showPlayerInfo(playerName, fromCache = false) {
-  const label = document.getElementById('player-info-label');
-  if (!label) return;
-  label.textContent = `${fromCache ? '🧠 Από Cache: ' : '🎯 Player: '}${playerName}`;
-  label.style.display = 'block';
-
-  clearTimeout(label.hideTimeout);
-  label.hideTimeout = setTimeout(() => {
-    label.style.display = 'none';
-  }, 4000);
-}
-
-
-
-
-
 // 🔥 Ανανεωμένο playStream
-// ✅ Πλήρης, καθαρή έκδοση της playStream με υποστήριξη tvg-id και φραγή διπλής αναπαραγωγής
 async function playStream(initialURL, subtitleURL = null) {
-  if (window.__currentlyPlayingStream === initialURL) {
-    console.log('⚠️ Ήδη παίζει αυτό το stream. Παράλειψη.');
-    return;
-  }
-  window.__currentlyPlayingStream = initialURL;
-
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
@@ -1028,14 +943,7 @@ async function playStream(initialURL, subtitleURL = null) {
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
 
-  let detectedTvgId = null;
-  document.querySelectorAll('.channel-info').forEach(el => {
-    const stream = el.dataset.stream;
-    if (stream === initialURL) {
-      detectedTvgId = el.dataset.channelId;
-    }
-  });
-
+    
   const showVideoPlayer = () => {
     videoPlayer.style.display = 'block';
     if (subtitleURL) {
@@ -1045,37 +953,46 @@ async function playStream(initialURL, subtitleURL = null) {
   };
 
   let streamURL = initialURL;
-  const normalizedUrl = initialURL.replace(/^http:/, 'https:');
 
-  if (streamPerfMap[normalizedUrl]) {
-    const cached = streamPerfMap[normalizedUrl];
-    console.log('⚡ Προσπάθεια μέσω Cache...', cached);
-    try {
-      if (cached.player === 'iframe') {
-        iframePlayer.style.display = 'block';
-        iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
-        showPlayerInfo('iframe', true);
-        return;
-      } else if (cached.player === 'clappr') {
-        clapprDiv.style.display = 'block';
-        clapprPlayer = new Clappr.Player({ source: initialURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
+    const normalizedUrl = initialURL.replace(/^http:/, 'https:');
+if (streamPerfMap[normalizedUrl]) {
+  const cached = streamPerfMap[normalizedUrl];
+
+  console.log('⚡ Προσπάθεια μέσω Cache...', cached);
+
+  try {
+    if (cached.player === 'iframe') {
+  iframePlayer.style.display = 'block';
+  iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+  showPlayerInfo('iframe', true);
+  return;
+    } else if (cached.player === 'clappr') {
+      clapprDiv.style.display = 'block';
+      clapprPlayer = new Clappr.Player({
+        source: initialURL,
+        parentId: '#clappr-player',
+        autoPlay: true,
+        width: '100%',
+        height: '100%'
+      });
         showPlayerInfo('clappr', true);
-        return;
-      } else if (cached.player.startsWith('hls.js')) {
-        if (Hls.isSupported()) {
-          const hls = new Hls();
-          hls.loadSource(initialURL);
-          hls.attachMedia(videoPlayer);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-          videoPlayer.style.display = 'block';
+  return;
+    } else if (cached.player === 'hls.js' || cached.player === 'hls.js-ts') {
+      if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(initialURL);
+        hls.attachMedia(videoPlayer);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+        videoPlayer.style.display = 'block';
           showPlayerInfo('hls.js', true);
-          return;
-        }
+  return;
       }
-    } catch (e) {
-      console.warn('❌ Αποτυχία αναπαραγωγής από cache. Συνεχίζω κανονικά...');
     }
+  } catch (e) {
+    console.warn('❌ Αποτυχία αναπαραγωγής από cache. Συνεχίζω κανονικά...');
   }
+}
+
 
   const streamType = detectStreamType(streamURL);
 
@@ -1088,17 +1005,26 @@ async function playStream(initialURL, subtitleURL = null) {
         hls.attachMedia(videoPlayer);
         hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
         showVideoPlayer();
-        logStreamUsage(initialURL, streamURL, 'hls.js-ts', detectedTvgId);
+        logStreamUsage(initialURL, streamURL, 'hls.js-ts');
         showPlayerInfo('HLS.js (TS)');
+
         return;
       } catch (e) {
         console.warn('❌ Hls.js failed for TS, trying fallback...', e);
       }
     }
+    console.log('🟠 TS stream -> Using Clappr fallback');
     clapprDiv.style.display = 'block';
-    clapprPlayer = new Clappr.Player({ source: streamURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
-    logStreamUsage(initialURL, streamURL, 'clappr-ts', detectedTvgId);
+    clapprPlayer = new Clappr.Player({
+      source: streamURL,
+      parentId: '#clappr-player',
+      autoPlay: true,
+      width: '100%',
+      height: '100%'
+    });
+    logStreamUsage(initialURL, streamURL, 'clappr-ts');
     showPlayerInfo('Clappr (TS)');
+
     return;
   }
 
@@ -1111,7 +1037,7 @@ async function playStream(initialURL, subtitleURL = null) {
         const res = await fetch(proxied);
         if (res.ok) {
           const html = await res.text();
-          const match = html.match(/(https?:\/\/[^"']+\.m3u8)/);
+          const match = html.match(/(https?:\/\/[^"]+\.m3u8)/);
           if (match) {
             foundStream = match[1];
             break;
@@ -1120,13 +1046,15 @@ async function playStream(initialURL, subtitleURL = null) {
       } catch (e) {}
     }
     if (foundStream) {
+      console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe!');
       streamURL = foundStream;
     } else {
+      console.log('▶️ Δεν βρέθηκε. Παίζω το iframe κανονικά.');
       iframePlayer.style.display = 'block';
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      logStreamUsage(initialURL, streamURL, 'iframe', detectedTvgId);
+      logStreamUsage(initialURL, streamURL, 'iframe');
       showPlayerInfo('Iframe');
-      window.__currentlyPlayingStream = null;
+
       return;
     }
   }
@@ -1136,15 +1064,7 @@ async function playStream(initialURL, subtitleURL = null) {
   if (workingUrl) {
     streamURL = workingUrl;
   } else {
-    console.warn('🚫 Το stream απέτυχε. Προσπάθεια fallback από proxy...');
-    const fallbackUrl = await getFallbackStream(detectedTvgId, streamURL);
-    if (fallbackUrl && fallbackUrl !== streamURL) {
-      console.log('🔁 Προσπάθεια αναπαραγωγής fallback stream...');
-      window.__currentlyPlayingStream = null;
-      return playStream(fallbackUrl);
-    }
-    console.log('❌ Κανένα fallback διαθέσιμο. Σταματάω.');
-    window.__currentlyPlayingStream = null;
+    console.log('🚫 Καμία διαθέσιμη σύνδεση. Τέλος.');
     return;
   }
 
@@ -1155,44 +1075,76 @@ async function playStream(initialURL, subtitleURL = null) {
       hls.attachMedia(videoPlayer);
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
       showVideoPlayer();
-      logStreamUsage(initialURL, streamURL, 'hls.js', detectedTvgId);
+      logStreamUsage(initialURL, streamURL, 'hls.js');
       showPlayerInfo('HLS.js');
-      window.__currentlyPlayingStream = null;
+
       return;
     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
       videoPlayer.src = streamURL;
       videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
       showVideoPlayer();
-      logStreamUsage(initialURL, streamURL, 'native-hls', detectedTvgId);
+      logStreamUsage(initialURL, streamURL, 'native-hls');
       showPlayerInfo('Native HLS');
-      window.__currentlyPlayingStream = null;
+
       return;
     } else if (streamURL.endsWith('.mpd')) {
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
       showVideoPlayer();
-      logStreamUsage(initialURL, streamURL, 'dash.js', detectedTvgId);
+      logStreamUsage(initialURL, streamURL, 'dash.js');
       showPlayerInfo('Dash.js');
-      window.__currentlyPlayingStream = null;
+
       return;
-    } else if (streamURL.endsWith('.m3u8')) {
-      clapprDiv.style.display = 'block';
-      clapprPlayer = new Clappr.Player({ source: streamURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
-      logStreamUsage(initialURL, streamURL, 'clappr-hls-fallback', detectedTvgId);
-      showPlayerInfo('Clappr fallback');
-      window.__currentlyPlayingStream = null;
-      return;
-    }
+
+} else if (streamURL.endsWith('.m3u8')) {
+  // Fallback σε Clappr αν δεν δουλεύει native
+  console.warn('⚠️ Native HLS πιθανό να μη λειτουργεί. Προσπάθεια με Clappr fallback.');
+  clapprDiv.style.display = 'block';
+  clapprPlayer = new Clappr.Player({
+    source: streamURL,
+    parentId: '#clappr-player',
+    autoPlay: true,
+    width: '100%',
+    height: '100%'
+  });
+  logStreamUsage(initialURL, streamURL, 'clappr-hls-fallback');
+  showPlayerInfo('Clappr fallback');
+
+  return;
+}
+
+        
   } catch (e) {
     console.log('⚠️ Σφάλμα player. Συνεχίζω με Clappr...', e);
   }
 
   clapprDiv.style.display = 'block';
-  clapprPlayer = new Clappr.Player({ source: streamURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
-  logStreamUsage(initialURL, streamURL, 'clappr', detectedTvgId);
+  clapprPlayer = new Clappr.Player({
+    source: streamURL,
+    parentId: '#clappr-player',
+    autoPlay: true,
+    width: '100%',
+    height: '100%'
+  });
+  logStreamUsage(initialURL, streamURL, 'clappr');
   showPlayerInfo('Clappr');
-  window.__currentlyPlayingStream = null;
+
 }
+function showPlayerInfo(playerName, fromCache = false) {
+  const label = document.getElementById('player-info-label');
+  if (!label) return;
+  label.textContent = `${fromCache ? '🧠 Από Cache: ' : '🎯 Player: '}${playerName}`;
+  label.style.display = 'block';
+
+  clearTimeout(label.hideTimeout);
+  label.hideTimeout = setTimeout(() => {
+    label.style.display = 'none';
+  }, 4000);
+}
+
+
+
+
 
 
 
@@ -1248,43 +1200,6 @@ async function sendGlobalCacheIfUpdated(force = false) {
   }
 }
 
-
-
-
-
-async function sendFavStreamsToProxy() {
-  console.log('📡 Επέκταση αποστολής cache: grouping URLs by tvg-id...');
-
-  // Αντιστρέφουμε το streamPerfMap για να εντοπίσουμε τα tvg-id
-  const tvgMap = {}; // tvg-id => [urls]
-
-  for (const url in globalStreamCache) {
-    const entry = streamPerfMap[url.replace(/^http:/, 'https:')];
-    if (!entry || !entry.tvgid) continue;
-
-    if (!tvgMap[entry.tvgid]) tvgMap[entry.tvgid] = [];
-    if (!tvgMap[entry.tvgid].includes(url)) tvgMap[entry.tvgid].push(url);
-  }
-
-  // Στέλνουμε ένα-ένα στον Proxy
-  for (const tvgId in tvgMap) {
-    try {
-      const response = await fetch('https://yellow-hulking-guan.glitch.me/update-streams', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 'tvg-id': tvgId, urls: tvgMap[tvgId] })
-      });
-
-      if (response.ok) {
-        console.log(`✅ Αποστάλθηκαν ${tvgMap[tvgId].length} URLs για ${tvgId}`);
-      } else {
-        console.warn(`❌ Σφάλμα αποστολής ${tvgId}:`, await response.text());
-      }
-    } catch (err) {
-      console.error(`🚫 Αποτυχία POST για ${tvgId}:`, err.message);
-    }
-  }
-}
 
 
 
@@ -1436,7 +1351,7 @@ document.addEventListener('DOMContentLoaded', function () {
   setInterval(updateClock, 1000);
 
   document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
-  document.getElementById('externalPlaylist').addEventListener('click', loadSmartExternalPlaylist);
+  document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
   document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
 
   const sidebarList = document.getElementById('sidebar-list');
