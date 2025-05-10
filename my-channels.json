@@ -10,6 +10,23 @@
     "tvg-name": "MEGA",
     "tvg-logo": "logos/mega.png",
     "epg-id": "mega"
+  },
+  {
+    "tvg-id": "star",
+    "tvg-name": "STAR",
+    "tvg-logo": "logos/star.png",
+    "epg-id": "star"
+  },
+  {
+    "tvg-id": "ant1",
+    "tvg-name": "ANT1",
+    "tvg-logo": "logos/ant1.png",
+    "epg-id": "ant1"
+  },
+  {
+    "tvg-id": "alpha",
+    "tvg-name": "ALPHA",
+    "tvg-logo": "logos/alpha.png",
+    "epg-id": "alpha"
   }
-  // κ.λπ.
 ]
