@@ -839,6 +839,25 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed, tvgId = null) {
 
 
 
+async function getFallbackStream(tvgId, excludeUrl) {
+  if (!tvgId) return null;
+
+  try {
+    const res = await fetch(`https://yellow-hulking-guan.glitch.me/get-best-stream?tvg-id=${tvgId}&exclude=${encodeURIComponent(excludeUrl)}`);
+    if (res.ok) {
+      const data = await res.json();
+      return data.best || null;
+    }
+  } catch (err) {
+    console.warn('❌ Σφάλμα fallback stream από proxy:', err.message);
+  }
+
+  return null;
+}
+
+
+
+
 
 
 async function findWorkingUrl(url) {
@@ -1091,13 +1110,22 @@ async function playStream(initialURL, subtitleURL = null) {
   }
 
   console.log('🌍 Έλεγχος Direct ή Proxy προσβασιμότητας...');
-  const workingUrl = await findWorkingUrl(streamURL);
-  if (workingUrl) {
-    streamURL = workingUrl;
-  } else {
-    console.log('🚫 Καμία διαθέσιμη σύνδεση. Τέλος.');
-    return;
+const workingUrl = await findWorkingUrl(streamURL);
+if (workingUrl) {
+  streamURL = workingUrl;
+} else {
+  console.warn('🚫 Το stream απέτυχε. Προσπάθεια fallback από proxy...');
+
+  const fallbackUrl = await getFallbackStream(detectedTvgId, streamURL);
+  if (fallbackUrl && fallbackUrl !== streamURL) {
+    console.log('🔁 Προσπάθεια αναπαραγωγής fallback stream...');
+    return playStream(fallbackUrl); // ➕ επαναφορά αναπαραγωγής
   }
+
+  console.log('❌ Κανένα fallback διαθέσιμο. Σταματάω.');
+  return;
+}
+
 
   try {
     if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
