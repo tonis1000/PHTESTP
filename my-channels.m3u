@@ -1,0 +1,31 @@
+#EXTM3U
+
+#EXTINF:-1 tvg-id="ert1" tvg-name="ERT1" tvg-logo="logos/ert1.png" group-title="Greek",ERT1
+http://dummy.url
+
+#EXTINF:-1 tvg-id="ert2" tvg-name="ERT2" tvg-logo="logos/ert2.png" group-title="Greek",ERT2
+http://dummy.url
+
+#EXTINF:-1 tvg-id="ert3" tvg-name="ERT3" tvg-logo="logos/ert3.png" group-title="Greek",ERT3
+http://dummy.url
+
+#EXTINF:-1 tvg-id="mega" tvg-name="MEGA" tvg-logo="logos/mega.png" group-title="Greek",MEGA
+http://dummy.url
+
+#EXTINF:-1 tvg-id="star" tvg-name="STAR" tvg-logo="logos/star.png" group-title="Greek",STAR
+http://dummy.url
+
+#EXTINF:-1 tvg-id="ant1" tvg-name="ANT1" tvg-logo="logos/ant1.png" group-title="Greek",ANT1
+http://dummy.url
+
+#EXTINF:-1 tvg-id="alpha" tvg-name="ALPHA" tvg-logo="logos/alpha.png" group-title="Greek",ALPHA
+http://dummy.url
+
+#EXTINF:-1 tvg-id="skai" tvg-name="SKAI" tvg-logo="logos/skai.png" group-title="Greek",SKAI
+http://dummy.url
+
+#EXTINF:-1 tvg-id="open" tvg-name="OPEN" tvg-logo="logos/open.png" group-title="Greek",OPEN
+http://dummy.url
+
+#EXTINF:-1 tvg-id="mad" tvg-name="MAD" tvg-logo="logos/mad.png" group-title="Greek",MAD TV
+http://dummy.url
