@@ -987,8 +987,14 @@ function extractChunksUrl(m3uText, baseUrl) {
 
 
 // 🔥 Ανανεωμένο playStream
-// ✅ Πλήρης, καθαρή έκδοση της playStream με υποστήριξη tvg-id
+// ✅ Πλήρης, καθαρή έκδοση της playStream με υποστήριξη tvg-id και φραγή διπλής αναπαραγωγής
 async function playStream(initialURL, subtitleURL = null) {
+  if (window.__currentlyPlayingStream === initialURL) {
+    console.log('⚠️ Ήδη παίζει αυτό το stream. Παράλειψη.');
+    return;
+  }
+  window.__currentlyPlayingStream = initialURL;
+
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
@@ -1006,7 +1012,6 @@ async function playStream(initialURL, subtitleURL = null) {
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
 
-  // 🔍 Εύρεση tvg-id (channelId) από το sidebar DOM
   let detectedTvgId = null;
   document.querySelectorAll('.channel-info').forEach(el => {
     const stream = el.dataset.stream;
@@ -1105,27 +1110,27 @@ async function playStream(initialURL, subtitleURL = null) {
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       logStreamUsage(initialURL, streamURL, 'iframe', detectedTvgId);
       showPlayerInfo('Iframe');
+      window.__currentlyPlayingStream = null;
       return;
     }
   }
 
   console.log('🌍 Έλεγχος Direct ή Proxy προσβασιμότητας...');
-const workingUrl = await findWorkingUrl(streamURL);
-if (workingUrl) {
-  streamURL = workingUrl;
-} else {
-  console.warn('🚫 Το stream απέτυχε. Προσπάθεια fallback από proxy...');
-
-  const fallbackUrl = await getFallbackStream(detectedTvgId, streamURL);
-  if (fallbackUrl && fallbackUrl !== streamURL) {
-    console.log('🔁 Προσπάθεια αναπαραγωγής fallback stream...');
-    return playStream(fallbackUrl); // ➕ επαναφορά αναπαραγωγής
+  const workingUrl = await findWorkingUrl(streamURL);
+  if (workingUrl) {
+    streamURL = workingUrl;
+  } else {
+    console.warn('🚫 Το stream απέτυχε. Προσπάθεια fallback από proxy...');
+    const fallbackUrl = await getFallbackStream(detectedTvgId, streamURL);
+    if (fallbackUrl && fallbackUrl !== streamURL) {
+      console.log('🔁 Προσπάθεια αναπαραγωγής fallback stream...');
+      window.__currentlyPlayingStream = null;
+      return playStream(fallbackUrl);
+    }
+    console.log('❌ Κανένα fallback διαθέσιμο. Σταματάω.');
+    window.__currentlyPlayingStream = null;
+    return;
   }
-
-  console.log('❌ Κανένα fallback διαθέσιμο. Σταματάω.');
-  return;
-}
-
 
   try {
     if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
@@ -1136,6 +1141,7 @@ if (workingUrl) {
       showVideoPlayer();
       logStreamUsage(initialURL, streamURL, 'hls.js', detectedTvgId);
       showPlayerInfo('HLS.js');
+      window.__currentlyPlayingStream = null;
       return;
     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
       videoPlayer.src = streamURL;
@@ -1143,6 +1149,7 @@ if (workingUrl) {
       showVideoPlayer();
       logStreamUsage(initialURL, streamURL, 'native-hls', detectedTvgId);
       showPlayerInfo('Native HLS');
+      window.__currentlyPlayingStream = null;
       return;
     } else if (streamURL.endsWith('.mpd')) {
       const dashPlayer = dashjs.MediaPlayer().create();
@@ -1150,12 +1157,14 @@ if (workingUrl) {
       showVideoPlayer();
       logStreamUsage(initialURL, streamURL, 'dash.js', detectedTvgId);
       showPlayerInfo('Dash.js');
+      window.__currentlyPlayingStream = null;
       return;
     } else if (streamURL.endsWith('.m3u8')) {
       clapprDiv.style.display = 'block';
       clapprPlayer = new Clappr.Player({ source: streamURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
       logStreamUsage(initialURL, streamURL, 'clappr-hls-fallback', detectedTvgId);
       showPlayerInfo('Clappr fallback');
+      window.__currentlyPlayingStream = null;
       return;
     }
   } catch (e) {
@@ -1166,8 +1175,8 @@ if (workingUrl) {
   clapprPlayer = new Clappr.Player({ source: streamURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
   logStreamUsage(initialURL, streamURL, 'clappr', detectedTvgId);
   showPlayerInfo('Clappr');
+  window.__currentlyPlayingStream = null;
 }
-
 
 
 
