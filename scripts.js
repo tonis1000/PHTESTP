@@ -14,11 +14,85 @@ function loadMyPlaylist() {
 }
 
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
-function loadExternalPlaylist() {
-    fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
-        .then(response => response.text())
-        .then(data => updateSidebarFromM3U(data))
-        .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
+async function loadExternalPlaylist() {
+  const sidebarList = document.getElementById('sidebar-list');
+  sidebarList.innerHTML = '';
+
+  const m3uUrl = 'https://raw.githubusercontent.com/tonis1000/PHTESTP/main/my-channels.m3u';
+  const streamsJsonUrl = 'https://yellow-hulking-guan.glitch.me/channel-streams.json';
+
+  try {
+    const [m3uRes, jsonRes] = await Promise.all([
+      fetch(m3uUrl),
+      fetch(streamsJsonUrl)
+    ]);
+
+    const m3uText = await m3uRes.text();
+    const streamMap = await jsonRes.json();
+    const lines = m3uText.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startsWith('#EXTINF')) {
+        const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
+        const nameMatch = lines[i].match(/,(.*)$/);
+        const nameTagMatch = lines[i].match(/tvg-name="([^"]+)"/);
+        const groupMatch = lines[i].match(/group-title="([^"]+)"/);
+        const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
+
+        const tvgId = idMatch ? idMatch[1] : null;
+        const name = nameTagMatch ? nameTagMatch[1].trim() :
+                    nameMatch ? nameMatch[1].trim() : 'Unbekannt';
+        const group = groupMatch ? groupMatch[1].trim() : '';
+        const logo = imgMatch ? imgMatch[1] : 'default_logo.png';
+
+        if (!tvgId || !streamMap[tvgId]) continue;
+
+        // ➕ Δοκιμή URLs για το συγκεκριμένο tvg-id
+        let finalUrl = null;
+        for (let url of streamMap[tvgId]) {
+          try {
+            const head = await fetch(url, { method: 'HEAD' });
+            if (head.ok) {
+              finalUrl = url;
+              break;
+            }
+          } catch (e) {
+            console.warn(`❌ Stream dead για ${tvgId}:`, url);
+          }
+        }
+
+        if (!finalUrl) {
+          console.warn(`⚠️ Δεν βρέθηκε ενεργό URL για ${tvgId}`);
+          continue;
+        }
+
+        // 📺 Από εδώ και κάτω ➜ εμφάνιση στο sidebar
+        const programInfo = getCurrentProgram(tvgId);
+        const listItem = document.createElement('li');
+        listItem.innerHTML = `
+          <div class="channel-info" data-stream="${finalUrl}" data-channel-id="${tvgId}" data-group="${group}">
+            <div class="logo-container">
+              <img src="${logo}" alt="${name} Logo">
+            </div>
+            <span class="sender-name">${name}</span>
+            <span class="epg-channel">
+              <span>${programInfo.title}</span>
+              <div class="epg-timeline">
+                <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+                <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+              </div>
+            </span>
+          </div>
+        `;
+        sidebarList.appendChild(listItem);
+      }
+    }
+
+    checkStreamStatus();
+  } catch (error) {
+    console.error('❌ Σφάλμα φόρτωσης εξωτερικής playlist:', error);
+    sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης λίστας καναλιών.</li>';
+  }
 }
 
 
