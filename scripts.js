@@ -453,7 +453,7 @@ document.getElementById('group-select').addEventListener('change', function () {
 
 
 
-  // ⬇️ Χειροκίνητη αποστολή cache ⬇️
+// ⬇️ Χειροκίνητη αποστολή cache & ενημέρωση channel-streams.json ⬇️
 document.getElementById('send-cache-button')?.addEventListener('click', async () => {
   console.log('⏩ Χειροκίνητη αποστολή cache...');
 
@@ -463,19 +463,30 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
   statusEl.textContent = '⏳ Γίνεται αποστολή cache...';
 
   try {
-    const result = await sendGlobalCacheIfUpdated(true); // με force = true
+    const response = await fetch('https://yellow-hulking-guan.glitch.me/upload-cache', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(globalStreamCache)
+    });
 
-    if (result === 'success') {
+    if (!response.ok) {
+      throw new Error('Αποτυχία απόκρισης server');
+    }
+
+    const result = await response.json();
+
+    if (result.status === 'Updated') {
       statusEl.style.color = 'lime';
-      statusEl.textContent = '✅ Το cache στάλθηκε και αποθηκεύτηκε!';
-    } else if (result === 'no-change') {
+      statusEl.textContent = '✅ Το cache στάλθηκε και το channel-streams ενημερώθηκε!';
+    } else if (result.status === 'No changes') {
       statusEl.style.color = 'orange';
-      statusEl.textContent = 'ℹ️ Δεν υπάρχουν νέες αλλαγές στο cache.';
+      statusEl.textContent = 'ℹ️ Δεν υπήρχαν αλλαγές. Το channel-streams παρέμεινε ίδιο.';
     } else {
       statusEl.style.color = 'red';
-      statusEl.textContent = '❌ Σφάλμα αποστολής στο Glitch ή αποθήκευσης.';
+      statusEl.textContent = '❌ Απροσδιόριστη απάντηση από server.';
     }
   } catch (e) {
+    console.error('❌ Σφάλμα κατά την αποστολή cache:', e);
     statusEl.style.color = 'red';
     statusEl.textContent = '🚫 Γενικό σφάλμα: ' + e.message;
   }
@@ -483,8 +494,9 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
   setTimeout(() => {
     statusEl.style.display = 'none';
     statusEl.textContent = '';
-  }, 3000);
+  }, 4000);
 });
+
 
 
 
