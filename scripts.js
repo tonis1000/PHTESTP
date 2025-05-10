@@ -768,23 +768,32 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
 
   const previous = globalStreamCache[initialUrl];
 
-  // ✅ Αν υπάρχει ήδη και δεν έχει αλλάξει τίποτα ➜ δεν το ξαναγράφουμε
+  // ✅ ➕ Απόπειρα ανάγνωσης tvg-id από DOM
+  let tvgId = null;
+  const el = document.querySelector(`.channel-info[data-stream="${initialUrl}"]`);
+  if (el && el.dataset.channelId) {
+    tvgId = el.dataset.channelId;
+  }
+
+  // ✅ Αν υπάρχει ήδη και δεν έχει αλλάξει ➜ αγνοούμε
   if (
     previous &&
     previous.proxy === proxyUsed &&
     previous.player === playerUsed &&
-    previous.type === type
+    previous.type === type &&
+    previous.tvgId === tvgId
   ) {
     console.log(`ℹ️ Stream ήδη καταγεγραμμένο χωρίς αλλαγές: ${initialUrl}`);
     return;
   }
 
-  // ✅ Αν είναι νέο ή έχει αλλαγές ➜ ενημέρωση
+  // ✅ Καταγραφή με tvgId
   globalStreamCache[initialUrl] = {
     timestamp: now,
     proxy: proxyUsed,
     player: playerUsed,
-    type: type
+    type: type,
+    tvgId: tvgId || null
   };
 
   if (previous) {
@@ -793,6 +802,7 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
     console.log(`➕ Νέα καταγραφή stream: ${initialUrl}`);
   }
 }
+
 
 
 
