@@ -1153,7 +1153,7 @@ function showPlayerInfo(playerName, fromCache = false) {
 
 
 
-const CACHE_UPLOAD_URL = 'https://yellow-hulking-guan.glitch.me/upload-cache';
+const CACHE_UPLOAD_URL = 'https://yellow-hulking-guan.glitch.me/update-cache';
 let lastSentCache = {};
 
 // Συγκρίνει αν υπάρχουν νέες εγγραφές
