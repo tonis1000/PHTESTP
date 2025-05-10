@@ -13,12 +13,93 @@ function loadMyPlaylist() {
         .catch(error => console.error('Fehler beim Laden der Playlist:', error));
 }
 
+
+
+
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
-function loadExternalPlaylist() {
-    fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
-        .then(response => response.text())
-        .then(data => updateSidebarFromM3U(data))
-        .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
+async function loadExternalPlaylist() {
+  const sidebarList = document.getElementById('sidebar-list');
+  sidebarList.innerHTML = '';
+  const abortToken = Symbol('externalPlaylist');
+  window.activePlaylistToken = abortToken;
+
+  const myChannelsUrl = 'https://tonis1000.github.io/PHTESTP/my-channels.m3u'; // ↩️ άλλαξέ το αν χρειάζεται
+  const proxyUrl = 'https://yellow-hulking-guan.glitch.me/channel-streams.json';
+
+  try {
+    const [m3uResponse, streamsResponse] = await Promise.all([
+      fetch(myChannelsUrl),
+      fetch(proxyUrl)
+    ]);
+
+    const m3uText = await m3uResponse.text();
+    const streamsData = await streamsResponse.json();
+
+    const lines = m3uText.split('\n');
+    const entries = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startsWith('#EXTINF')) {
+        const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
+        const nameMatch = lines[i].match(/tvg-name="([^"]+)"/);
+        const logoMatch = lines[i].match(/tvg-logo="([^"]+)"/);
+
+        const tvgId = idMatch ? idMatch[1] : null;
+        const channelName = nameMatch ? nameMatch[1] : 'Unbenannt';
+        const logo = logoMatch ? logoMatch[1] : 'default_logo.png';
+
+        if (!tvgId || !streamsData[tvgId]) continue;
+
+        const urls = streamsData[tvgId];
+
+        // Έλεγχος ποιο είναι online
+        for (let entry of urls) {
+          const isOnline = await checkIfOnline(entry.url);
+          if (window.activePlaylistToken !== abortToken) return; // αν άλλαξε playlist
+
+          if (isOnline) {
+            entries.push({
+              tvgId,
+              name: channelName,
+              logo,
+              url: entry.url,
+              player: entry.player
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    // ✅ Εμφάνιση στο sidebar
+    for (const { tvgId, name, logo, url, player } of entries) {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <div class="channel-info cached-stream" data-stream="${url}" data-channel-id="${tvgId}">
+          <div class="logo-container">
+            <img src="${logo}" alt="${name} Logo">
+          </div>
+          <span class="sender-name">${name}<span class="badge" style="font-size: 0.7em; color: gold; margin-left: 6px;">[${player}]</span></span>
+          <span class="epg-channel"><span>Χωρίς EPG</span></span>
+        </div>
+      `;
+      sidebarList.appendChild(li);
+    }
+
+  } catch (e) {
+    console.error('❌ Σφάλμα στο externalPlaylist:', e);
+    sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης καναλιών.</li>';
+  }
+}
+
+// ✅ Βοηθητική για online έλεγχο
+async function checkIfOnline(url) {
+  try {
+    const res = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+    return res.ok || res.status === 0;
+  } catch (e) {
+    return false;
+  }
 }
 
 
@@ -1152,6 +1233,8 @@ function hasNewEntries(current, previous) {
   });
 }
 
+
+
 // Στέλνει το cache στον Glitch Server
 async function sendGlobalCacheIfUpdated(force = false) {
   if (!force && !hasNewEntries(globalStreamCache, lastSentCache)) {
@@ -1160,6 +1243,7 @@ async function sendGlobalCacheIfUpdated(force = false) {
   }
 
   try {
+    // 1️⃣ Στέλνουμε το proxy-map.json
     const response = await fetch(CACHE_UPLOAD_URL, {
       method: 'POST',
       headers: {
@@ -1171,6 +1255,33 @@ async function sendGlobalCacheIfUpdated(force = false) {
     if (response.ok) {
       console.log('✅ Το globalStreamCache στάλθηκε επιτυχώς στο Glitch API');
       lastSentCache = JSON.parse(JSON.stringify(globalStreamCache)); // βαθύ αντίγραφο
+
+      // 2️⃣ Προετοιμασία για αποστολή των tvgId ➜ /update-channel-streams
+      const multiEntries = Object.entries(globalStreamCache)
+        .filter(([_, val]) => val.tvgId && val.player)
+        .map(([url, val]) => ({
+          tvgId: val.tvgId,
+          url: url,
+          player: val.player
+        }));
+
+      if (multiEntries.length > 0) {
+        try {
+          const res2 = await fetch("https://yellow-hulking-guan.glitch.me/update-channel-streams", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(multiEntries)
+          });
+
+          const json2 = await res2.json();
+          console.log("📥 Αποστολή multi-urls-by-id:", json2.status);
+        } catch (e) {
+          console.warn("⚠️ Σφάλμα αποστολής στο update-channel-streams:", e.message);
+        }
+      }
+
       return 'success';
     } else {
       console.warn('❌ Αποτυχία αποστολής στο API:', await response.text());
@@ -1181,6 +1292,7 @@ async function sendGlobalCacheIfUpdated(force = false) {
     return 'error';
   }
 }
+
 
 
 
