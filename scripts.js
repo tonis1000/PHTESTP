@@ -13,7 +13,62 @@ function loadMyPlaylist() {
         .catch(error => console.error('Fehler beim Laden der Playlist:', error));
 }
 
-// Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
+
+
+// 🔁 Παίζει το καλύτερο διαθέσιμο URL για tvgId με fallback
+async function playStreamByTvgId(tvgId) {
+  if (!tvgId) return;
+
+  const res = await fetch('https://yellow-hulking-guan.glitch.me/channel-streams.json');
+  const streamData = await res.json();
+  const urls = streamData[tvgId];
+
+  if (!urls || urls.length === 0) {
+    console.warn(`❌ Δεν βρέθηκαν URLs για tvgId: ${tvgId}`);
+    return;
+  }
+
+  let currentIndex = 0;
+
+  async function tryNext() {
+    if (currentIndex >= urls.length) {
+      console.warn(`🚫 Κανένα λειτουργικό stream για ${tvgId}`);
+      showPlayerInfo('❌ Κανένα stream');
+      return;
+    }
+
+    const url = urls[currentIndex];
+    currentIndex++;
+
+    try {
+      const head = await fetch(url, { method: 'HEAD' });
+      if (!head.ok) throw new Error('Not OK');
+    } catch (e) {
+      console.warn(`❌ Stream νεκρό: ${url}`);
+      return tryNext(); // ➤ επόμενο
+    }
+
+    console.log(`🎯 Παίζει stream για ${tvgId}:`, url);
+    playStream(url);
+
+    const video = document.getElementById('video-player');
+    video.onerror = () => {
+      console.warn(`⚠️ Stream κόπηκε: ${url}, δοκιμή επόμενου...`);
+      tryNext();
+    };
+
+    if (clapprPlayer) {
+      clapprPlayer.on('error', () => {
+        console.warn(`⚠️ Clappr error: ${url}, δοκιμή επόμενου...`);
+        tryNext();
+      });
+    }
+  }
+
+  tryNext();
+}
+
+// ✅ Τροποποιημένη loadExternalPlaylist για χρήση με channel-streams.json
 async function loadExternalPlaylist() {
   const sidebarList = document.getElementById('sidebar-list');
   sidebarList.innerHTML = '';
@@ -47,7 +102,6 @@ async function loadExternalPlaylist() {
 
         if (!tvgId || !streamMap[tvgId]) continue;
 
-        // ➕ Δοκιμή URLs για το συγκεκριμένο tvg-id
         let finalUrl = null;
         for (let url of streamMap[tvgId]) {
           try {
@@ -66,11 +120,10 @@ async function loadExternalPlaylist() {
           continue;
         }
 
-        // 📺 Από εδώ και κάτω ➜ εμφάνιση στο sidebar
         const programInfo = getCurrentProgram(tvgId);
         const listItem = document.createElement('li');
         listItem.innerHTML = `
-          <div class="channel-info" data-stream="${finalUrl}" data-channel-id="${tvgId}" data-group="${group}">
+          <div class="channel-info" data-stream="${finalUrl}" data-channel-id="${tvgId}" data-group="${group}" data-source="my-channels">
             <div class="logo-container">
               <img src="${logo}" alt="${name} Logo">
             </div>
@@ -94,6 +147,8 @@ async function loadExternalPlaylist() {
     sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης λίστας καναλιών.</li>';
   }
 }
+
+
 
 
 
@@ -1444,10 +1499,16 @@ document.addEventListener('DOMContentLoaded', function () {
     if (channelInfo) {
       const streamURL = channelInfo.dataset.stream;
       const channelId = channelInfo.dataset.channelId;
+      const source = channelInfo.dataset.source || 'default';
       const programInfo = getCurrentProgram(channelId);
 
       setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
-      playStream(streamURL);
+
+      if (source === 'my-channels') {
+        playStreamByTvgId(channelId);
+      } else {
+        playStream(streamURL);
+      }
 
       updatePlayerDescription(programInfo.title, programInfo.description);
       updateNextPrograms(channelId);
@@ -1505,35 +1566,32 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
+  // 🔘 Φίλτρα Ομάδας και Online
+  const groupSelect = document.getElementById('group-select');
 
+  function applyGroupAndStatusFilter(filterOnlineOnly = false) {
+    const selectedGroup = groupSelect?.value || '__all__';
+    const allItems = document.querySelectorAll('#sidebar-list .channel-info');
 
-const groupSelect = document.getElementById('group-select');
+    allItems.forEach(el => {
+      const li = el.closest('li');
+      if (!li) return;
 
-function applyGroupAndStatusFilter(filterOnlineOnly = false) {
-  const selectedGroup = groupSelect?.value || '__all__';
-  const allItems = document.querySelectorAll('#sidebar-list .channel-info');
+      const group = el.dataset.group || '';
+      const isOnline = el.classList.contains('online');
 
-  allItems.forEach(el => {
-    const li = el.closest('li');
-    if (!li) return;
+      const groupMatch = (selectedGroup === '__all__' || group === selectedGroup);
+      const onlineMatch = !filterOnlineOnly || isOnline;
 
-    const group = el.dataset.group || '';
-    const isOnline = el.classList.contains('online');
+      li.style.display = (groupMatch && onlineMatch) ? '' : 'none';
+    });
+  }
 
-    const groupMatch = (selectedGroup === '__all__' || group === selectedGroup);
-    const onlineMatch = !filterOnlineOnly || isOnline;
+  groupSelect?.addEventListener('change', () => applyGroupAndStatusFilter(false));
+  document.getElementById('filter-online-button').addEventListener('click', () => applyGroupAndStatusFilter(true));
+  document.getElementById('show-all-button').addEventListener('click', () => applyGroupAndStatusFilter(false));
 
-    li.style.display = (groupMatch && onlineMatch) ? '' : 'none';
-  });
-}
-
-groupSelect?.addEventListener('change', () => applyGroupAndStatusFilter(false));
-document.getElementById('filter-online-button').addEventListener('click', () => applyGroupAndStatusFilter(true));
-document.getElementById('show-all-button').addEventListener('click', () => applyGroupAndStatusFilter(false));
-
-
-    
-  // Playlist-URLs φορτώνουν όταν κάνεις κλικ στο playlist-urls panel
+  // 🔗 Playlist-URLs panel
   const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
   if (playlistUrlsTitle) {
     playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
