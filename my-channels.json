@@ -1,0 +1,15 @@
+[
+  {
+    "tvg-id": "ert1",
+    "tvg-name": "ERT1",
+    "tvg-logo": "logos/ert1.png",
+    "epg-id": "ert1"
+  },
+  {
+    "tvg-id": "mega",
+    "tvg-name": "MEGA",
+    "tvg-logo": "logos/mega.png",
+    "epg-id": "mega"
+  }
+  // κ.λπ.
+]
