@@ -6,16 +6,22 @@
     "epg-id": "ert1"
   },
   {
+    "tvg-id": "ert2",
+    "tvg-name": "ERT2",
+    "tvg-logo": "logos/ert2.png",
+    "epg-id": "ert2"
+  },
+  {
+    "tvg-id": "ert3",
+    "tvg-name": "ERT3",
+    "tvg-logo": "logos/ert3.png",
+    "epg-id": "ert3"
+  },
+  {
     "tvg-id": "mega",
     "tvg-name": "MEGA",
     "tvg-logo": "logos/mega.png",
     "epg-id": "mega"
-  },
-  {
-    "tvg-id": "star",
-    "tvg-name": "STAR",
-    "tvg-logo": "logos/star.png",
-    "epg-id": "star"
   },
   {
     "tvg-id": "ant1",
@@ -24,9 +30,64 @@
     "epg-id": "ant1"
   },
   {
+    "tvg-id": "star",
+    "tvg-name": "STAR",
+    "tvg-logo": "logos/star.png",
+    "epg-id": "star"
+  },
+  {
     "tvg-id": "alpha",
     "tvg-name": "ALPHA",
     "tvg-logo": "logos/alpha.png",
     "epg-id": "alpha"
+  },
+  {
+    "tvg-id": "skai",
+    "tvg-name": "SKAI",
+    "tvg-logo": "logos/skai.png",
+    "epg-id": "skai"
+  },
+  {
+    "tvg-id": "open",
+    "tvg-name": "OPEN",
+    "tvg-logo": "logos/open.png",
+    "epg-id": "open"
+  },
+  {
+    "tvg-id": "mad",
+    "tvg-name": "MAD",
+    "tvg-logo": "logos/mad.png",
+    "epg-id": "mad"
+  },
+  {
+    "tvg-id": "one",
+    "tvg-name": "One Channel",
+    "tvg-logo": "logos/one.png",
+    "epg-id": "one"
+  },
+  {
+    "tvg-id": "vouli",
+    "tvg-name": "ΒΟΥΛΗ",
+    "tvg-logo": "logos/vouli.png",
+    "epg-id": "vouli"
+  },
+  {
+    "tvg-id": "rik1",
+    "tvg-name": "RIK1",
+    "tvg-logo": "logos/rik1.png",
+    "epg-id": "rik1"
+  },
+  {
+    "tvg-id": "rik2",
+    "tvg-name": "RIK2",
+    "tvg-logo": "logos/rik2.png",
+    "epg-id": "rik2"
+  },
+  {
+    "tvg-id": "omega",
+    "tvg-name": "OMEGA",
+    "tvg-logo": "logos/omega.png",
+    "epg-id": "omega"
   }
 ]
+
