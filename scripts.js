@@ -13,12 +13,51 @@ function loadMyPlaylist() {
         .catch(error => console.error('Fehler beim Laden der Playlist:', error));
 }
 
+
+
 // Funktion zum Laden der externen Playlist und Aktualisieren der Sidebar
-function loadExternalPlaylist() {
-    fetch('https://raw.githubusercontent.com/gdiolitsis/greek-iptv/refs/heads/master/ForestRock_GR')
-        .then(response => response.text())
-        .then(data => updateSidebarFromM3U(data))
-        .catch(error => console.error('Fehler beim Laden der externen Playlist:', error));
+async function loadSmartExternalPlaylist() {
+  const sidebarList = document.getElementById('sidebar-list');
+  sidebarList.innerHTML = '';
+
+  try {
+    const res = await fetch('my-channels.json');
+    const favoriteChannels = await res.json();
+
+    for (const channel of favoriteChannels) {
+      const { "tvg-id": tvgId, "tvg-name": name, "tvg-logo": logo, "epg-id": epgId } = channel;
+
+      const response = await fetch(`https://yellow-hulking-guan.glitch.me/get-best-stream?tvg-id=${tvgId}`);
+      if (!response.ok) continue;
+
+      const { best } = await response.json();
+      if (!best) continue;
+
+      const li = document.createElement('li');
+      const programInfo = getCurrentProgram(epgId);
+
+      li.innerHTML = `
+        <div class="channel-info online" data-stream="${best}" data-channel-id="${epgId}">
+          <div class="logo-container">
+            <img src="${logo}" alt="${name}">
+          </div>
+          <span class="sender-name">${name}</span>
+          <span class="epg-channel">
+            <span>${programInfo.title}</span>
+            <div class="epg-timeline">
+              <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+              <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+            </div>
+          </span>
+        </div>
+      `;
+
+      sidebarList.appendChild(li);
+    }
+  } catch (error) {
+    console.error('❌ Σφάλμα κατά τη φόρτωση smart external playlist:', error);
+    sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης καναλιών.</li>';
+  }
 }
 
 
