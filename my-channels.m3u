@@ -1,16 +1,31 @@
 #EXTM3U
 
-#EXTINF:-1 tvg-id="ert1" tvg-name="ERT1" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/ERT1_2020_logo.svg/512px-ERT1_2020_logo.svg.png" group-title="Greece",
+#EXTINF:-1 tvg-id="ert1" tvg-name="ERT1" tvg-logo="https://i.imgur.com/slE8U5m.png" group-title="Greece",
 ERT1
 
-#EXTINF:-1 tvg-id="alpha" tvg-name="Alpha TV" tvg-logo="https://www.alphatv.gr/media/1451/logo-alpha.png" group-title="Greece",
+#EXTINF:-1 tvg-id="ert2" tvg-name="ERT2" tvg-logo=https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png" group-title="Greece",
+ERT2
+
+#EXTINF:-1 tvg-id="ert3" tvg-name="ERT3" tvg-logo="https://i.imgur.com/f2l9bDR.png" group-title="Greece",
+ERT3
+
+#EXTINF:-1 tvg-id="alpha" tvg-name="Alpha TV" tvg-logo="https://i.imgur.com/6twzd38.png" group-title="Greece",
 Alpha TV
 
-#EXTINF:-1 tvg-id="skai" tvg-name="Skai" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Skaigr-newlogo.svg/512px-Skaigr-newlogo.svg.png" group-title="Greece",
+#EXTINF:-1 tvg-id="skai" tvg-name="Skai" tvg-logo="https://i.imgur.com/mrKRFnf.png" group-title="Greece",
 Skai
 
-#EXTINF:-1 tvg-id="ant1" tvg-name="ANT1" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/ANT1_logo_2018.svg/512px-ANT1_logo_2018.svg.png" group-title="Greece",
+#EXTINF:-1 tvg-id="ant1" tvg-name="ANT1" tvg-logo="https://i.imgur.com/V1w22Or.png" group-title="Greece",
 ANT1
 
-#EXTINF:-1 tvg-id="mega" tvg-name="MEGA" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Mega_Channel_2020_logo.svg/512px-Mega_Channel_2020_logo.svg.png" group-title="Greece",
+#EXTINF:-1 tvg-id="mega" tvg-name="MEGA" tvg-logo="https://i.ibb.co/f2rCKjh/mega.jpg" group-title="Greece",
 MEGA
+
+#EXTINF:-1 tvg-id="star" tvg-name="Star TV" tvg-logo="https://i.ibb.co/f2rCKjh/mega.jpg" group-title="Greece",
+Star TV
+
+#EXTINF:-1 tvg-id="action24" tvg-name="Action 24" tvg-logo="https://i.imgur.com/Fsnz8GK.png" group-title="Greece",
+Action 24
+
+#EXTINF:-1 tvg-id="kontra" tvg-name="Kontra" tvg-logo="https://goo.gl/S96RUr" group-title="Greece",
+Kontra
