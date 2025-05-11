@@ -3,11 +3,14 @@
 #EXTINF:-1 tvg-id="ert1" tvg-logo="https://i.imgur.com/slE8U5m.png",ERT1
 https://ertflix.akamaized.net/ertlive/ert1/clrdef24723b/playlist.m3u8
 
-#EXTINF:-1 group-title="ΠΑΝΕΛΛΑΔΙΚΑ"  tvg-id="ert1" tvg-logo="https://i.ibb.co/Y71vkKs/ERT1.jpg" tvg-name="ΕΡΤ1" tvg-website="https://www.ertflix.gr" ,ΕΡΤ1
+#EXTINF:-1 tvg-id="ert1" tvg-logo="https://i.imgur.com/slE8U5m.png",ERT1
 http://www.anacon.org/app/chans/gr/ert1s2image.php
 
 #EXTINF:-1 tvg-id="ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png",ERT2
 https://ertflix.akamaized.net/ertlive/ert2/clrdef24828z/playlist.m3u8
+
+#EXTINF:-1 tvg-id="ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png",ERT2
+http://www.anacon.org/app/chans/gr/ert2s2image.php
 
 #EXTINF:-1 tvg-id="ert2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png",ERT2
 http://test.satlok.club/live/AaaMiiiGoooTrrree/eCfAKhYWxrF9u2BE/4816.ts
