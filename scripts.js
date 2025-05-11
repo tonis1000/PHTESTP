@@ -749,30 +749,54 @@ async function updateSidebarFromM3U(data) {
 
 // Funktion zum Überprüfen des Status der Streams und Markieren der gesamten Sidebar-Einträge
 function checkStreamStatus() {
-    const sidebarChannels = document.querySelectorAll('.channel-info');
-    sidebarChannels.forEach(channel => {
-        const streamURL = channel.dataset.stream;
-        if (streamURL) {
-            fetch(streamURL)
-                .then(response => {
-                    if (response.ok) {
-                        channel.classList.add('online'); // Markiere den gesamten Sidebar-Eintrag
-                        channel.querySelector('.sender-name').style.color = 'lightgreen'; // Ändere die Textfarbe des Sendernamens
-                        channel.querySelector('.sender-name').style.fontWeight = 'bold'; // Ändere die Schriftstärke des Sendernamens
-                    } else {
-                        channel.classList.remove('online'); // Entferne die Markierung
-                        channel.querySelector('.sender-name').style.color = ''; // Setze die Textfarbe des Sendernamens zurück
-                        channel.querySelector('.sender-name').style.fontWeight = ''; // Setze die Schriftstärke des Sendernamens zurück
-                    }
-                })
-                .catch(error => {
-                    console.error('Fehler beim Überprüfen des Stream-Status:', error);
-                    channel.classList.remove('online'); // Entferne die Markierung bei einem Fehler
-                    channel.querySelector('.sender-name').style.color = ''; // Setze die Textfarbe des Sendernamens zurück
-                    channel.querySelector('.sender-name').style.fontWeight = ''; // Setze die Schriftstärke des Sendernamens zurück
-                });
+  const sidebarChannels = document.querySelectorAll('.channel-info');
+  sidebarChannels.forEach(channel => {
+    const streamURL = channel.dataset.stream;
+
+    if (streamURL) {
+      // ➤ Αναγνώρισε αν είναι iframe stream από αξιόπιστο domain
+      const isIframeStream = streamURL.includes('lakatamia.tv') || streamURL.includes('anacon.org') || streamURL.includes('sportskeeda') || streamURL.includes('embed.vindral.com');
+
+      if (isIframeStream) {
+        // Θεώρησέ το ως online
+        channel.classList.add('online');
+        const senderName = channel.querySelector('.sender-name');
+        if (senderName) {
+          senderName.style.color = 'lightgreen';
+          senderName.style.fontWeight = 'bold';
         }
-    });
+        return; // Παράκαμψε το fetch()
+      }
+
+      // ➤ Κανονικός έλεγχος fetch για m3u8, mp4 κλπ
+      fetch(streamURL)
+        .then(response => {
+          const senderName = channel.querySelector('.sender-name');
+          if (response.ok) {
+            channel.classList.add('online');
+            if (senderName) {
+              senderName.style.color = 'lightgreen';
+              senderName.style.fontWeight = 'bold';
+            }
+          } else {
+            channel.classList.remove('online');
+            if (senderName) {
+              senderName.style.color = '';
+              senderName.style.fontWeight = '';
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Fehler beim Überprüfen des Stream-Status:', error);
+          channel.classList.remove('online');
+          const senderName = channel.querySelector('.sender-name');
+          if (senderName) {
+            senderName.style.color = '';
+            senderName.style.fontWeight = '';
+          }
+        });
+    }
+  });
 }
 
 
