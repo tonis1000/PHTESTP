@@ -1127,20 +1127,23 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   };
 
-  let streamURL = initialURL;
+let streamURL = initialURL;
 
-    const normalizedUrl = initialURL.replace(/^http:/, 'https:');
-if (streamPerfMap[normalizedUrl]) {
-  const cached = streamPerfMap[normalizedUrl];
+// ✅ Normalize για έλεγχο cache
+const normalizedUrl = initialURL.replace(/^http:/, 'https:');
+const cached = streamPerfMap[normalizedUrl] || streamPerfMap[initialURL];
 
+console.log('🎯 Έλεγχος αν υπάρχει στο cache:', normalizedUrl, cached);
+
+if (cached) {
   console.log('⚡ Προσπάθεια μέσω Cache...', cached);
 
   try {
     if (cached.player === 'iframe') {
-  iframePlayer.style.display = 'block';
-  iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
-  showPlayerInfo('iframe', true);
-  return;
+      iframePlayer.style.display = 'block';
+      iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      showPlayerInfo('iframe', true);
+      return;
     } else if (cached.player === 'clappr') {
       clapprDiv.style.display = 'block';
       clapprPlayer = new Clappr.Player({
@@ -1150,8 +1153,8 @@ if (streamPerfMap[normalizedUrl]) {
         width: '100%',
         height: '100%'
       });
-        showPlayerInfo('clappr', true);
-  return;
+      showPlayerInfo('clappr', true);
+      return;
     } else if (cached.player === 'hls.js' || cached.player === 'hls.js-ts') {
       if (Hls.isSupported()) {
         const hls = new Hls();
@@ -1159,14 +1162,15 @@ if (streamPerfMap[normalizedUrl]) {
         hls.attachMedia(videoPlayer);
         hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
         videoPlayer.style.display = 'block';
-          showPlayerInfo('hls.js', true);
-  return;
+        showPlayerInfo('hls.js', true);
+        return;
       }
     }
   } catch (e) {
     console.warn('❌ Αποτυχία αναπαραγωγής από cache. Συνεχίζω κανονικά...');
   }
 }
+
 
 
   const streamType = detectStreamType(streamURL);
