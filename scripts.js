@@ -72,6 +72,7 @@ async function playStreamByTvgId(tvgId) {
 
 
 // ✅ loadExternalPlaylist με έλεγχο .ts + fallback badge
+// ✅ loadExternalPlaylist με έλεγχο .ts + fallback badge
 async function loadExternalPlaylist() {
   const sidebarList = document.getElementById('sidebar-list');
   sidebarList.innerHTML = '';
@@ -110,30 +111,17 @@ async function loadExternalPlaylist() {
 
         for (let index = 0; index < streamMap[tvgId].length; index++) {
           const url = streamMap[tvgId][index];
-
           try {
             const res = await fetch(url);
             if (!res.ok) continue;
 
             const text = await res.text();
-            const tsMatch = text.match(/([^\s"']+\.ts(\?.*)?)/i);
+            const isValidM3U = text.includes('#EXTM3U') && /(\.ts|chunklist|media)/i.test(text) && !text.includes('404');
 
-            if (tsMatch) {
-              // Δημιουργούμε absolute URL για το ts
-              const tsPath = tsMatch[1];
-              const baseUrl = url.replace(/\/[^\/]+$/, '/');
-              const tsUrl = tsPath.startsWith('http') ? tsPath : baseUrl + tsPath;
-
-              try {
-                const tsRes = await fetch(tsUrl, { method: 'HEAD' });
-                if (tsRes.ok) {
-                  finalUrl = url;
-                  usedIndex = index;
-                  break;
-                }
-              } catch (err) {
-                console.warn(`❌ HEAD ts failed για ${tvgId}:`, tsUrl);
-              }
+            if (isValidM3U) {
+              finalUrl = url;
+              usedIndex = index;
+              break;
             }
           } catch (e) {
             console.warn(`❌ Stream check failed για ${tvgId}:`, url);
@@ -146,8 +134,8 @@ async function loadExternalPlaylist() {
         }
 
         const fallbackBadge = usedIndex > 0 ? `<span style="color: orange; font-size: 0.85em;"> 🔁</span>` : '';
-        const programInfo = getCurrentProgram(tvgId);
 
+        const programInfo = getCurrentProgram(tvgId);
         const listItem = document.createElement('li');
         listItem.innerHTML = `
           <div class="channel-info" data-stream="${finalUrl}" data-channel-id="${tvgId}" data-group="${group}" data-source="external">
@@ -174,6 +162,7 @@ async function loadExternalPlaylist() {
     sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης λίστας καναλιών.</li>';
   }
 }
+
 
 
 
