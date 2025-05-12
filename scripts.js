@@ -1131,7 +1131,9 @@ let streamURL = initialURL;
 
 // ✅ Normalize για έλεγχο cache
 const normalizedUrl = initialURL.replace(/^http:/, 'https:');
-const cached = streamPerfMap[normalizedUrl] || streamPerfMap[initialURL];
+const alternateUrl = initialURL.replace(/^https:/, 'http:');
+const cached = streamPerfMap[normalizedUrl] || streamPerfMap[initialURL] || streamPerfMap[alternateUrl];
+
 
 console.log('🎯 Έλεγχος αν υπάρχει στο cache:', normalizedUrl, cached);
 
