@@ -68,7 +68,10 @@ async function playStreamByTvgId(tvgId) {
   tryNext();
 }
 
-// ✅ Τροποποιημένη loadExternalPlaylist για χρήση με channel-streams.json
+
+
+
+// ✅ loadExternalPlaylist με έλεγχο .ts + fallback badge
 async function loadExternalPlaylist() {
   const sidebarList = document.getElementById('sidebar-list');
   sidebarList.innerHTML = '';
@@ -103,15 +106,24 @@ async function loadExternalPlaylist() {
         if (!tvgId || !streamMap[tvgId]) continue;
 
         let finalUrl = null;
-        for (let url of streamMap[tvgId]) {
+        let usedIndex = -1;
+
+        for (let index = 0; index < streamMap[tvgId].length; index++) {
+          const url = streamMap[tvgId][index];
           try {
-            const head = await fetch(url, { method: 'HEAD' });
-            if (head.ok) {
+            const res = await fetch(url);
+            if (!res.ok) continue;
+
+            const text = await res.text();
+            const isValidM3U = text.includes('#EXTM3U') && /(\.ts|chunklist|media)/i.test(text) && !text.includes('404');
+
+            if (isValidM3U) {
               finalUrl = url;
+              usedIndex = index;
               break;
             }
           } catch (e) {
-            console.warn(`❌ Stream dead για ${tvgId}:`, url);
+            console.warn(`❌ Stream check failed για ${tvgId}:`, url);
           }
         }
 
@@ -120,6 +132,8 @@ async function loadExternalPlaylist() {
           continue;
         }
 
+        const fallbackBadge = usedIndex > 0 ? `<span style="color: orange; font-size: 0.85em;"> 🔁</span>` : '';
+
         const programInfo = getCurrentProgram(tvgId);
         const listItem = document.createElement('li');
         listItem.innerHTML = `
@@ -127,7 +141,7 @@ async function loadExternalPlaylist() {
             <div class="logo-container">
               <img src="${logo}" alt="${name} Logo">
             </div>
-            <span class="sender-name">${name}</span>
+            <span class="sender-name">${name}${fallbackBadge}</span>
             <span class="epg-channel">
               <span>${programInfo.title}</span>
               <div class="epg-timeline">
@@ -147,6 +161,7 @@ async function loadExternalPlaylist() {
     sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης λίστας καναλιών.</li>';
   }
 }
+
 
 
 
