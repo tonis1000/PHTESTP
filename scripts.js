@@ -123,7 +123,7 @@ async function loadExternalPlaylist() {
         const programInfo = getCurrentProgram(tvgId);
         const listItem = document.createElement('li');
         listItem.innerHTML = `
-          <div class="channel-info" data-stream="${finalUrl}" data-channel-id="${tvgId}" data-group="${group}" data-source="my-channels">
+          <div class="channel-info" data-stream="${finalUrl}" data-channel-id="${tvgId}" data-group="${group}" data-source="external">
             <div class="logo-container">
               <img src="${logo}" alt="${name} Logo">
             </div>
@@ -1540,7 +1540,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
 
-      if (source === 'my-channels') {
+      if (source === 'external') {
         playStreamByTvgId(channelId);
       } else {
         playStream(streamURL);
