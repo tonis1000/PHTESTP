@@ -1250,12 +1250,15 @@ async function playStream(initialURL, subtitleURL = null) {
   }
 }
 
+// 🔁 Fallback player με Clappr ➜ iframe fallback με error & timeout + cache καταγραφή
 function tryFallbackPlayers(initialURL, streamURL) {
   const isVideoFormat = streamURL.endsWith('.m3u8') || streamURL.endsWith('.ts') || streamURL.endsWith('.mp4') || streamURL.endsWith('.webm');
 
   if (isVideoFormat) {
     console.log('🔁 Προσπάθεια με Clappr fallback...');
     clapprDiv.style.display = 'block';
+    let clapprStarted = false;
+
     clapprPlayer = new Clappr.Player({
       source: streamURL,
       parentId: '#clappr-player',
@@ -1265,20 +1268,35 @@ function tryFallbackPlayers(initialURL, streamURL) {
     });
 
     clapprPlayer.on('PLAYING', () => {
+      clapprStarted = true;
       console.log('✅ Clappr ξεκίνησε επιτυχώς! Καταγραφή στο cache...');
       logStreamUsage(initialURL, streamURL, 'clappr-fallback');
       showPlayerInfo('Clappr fallback');
     });
 
     clapprPlayer.on('ERROR', () => {
-      console.warn('⚠️ Clappr απέτυχε. Προσπάθεια με iframe fallback...');
-      clapprPlayer.destroy();
+      if (!clapprStarted) {
+        console.warn('⚠️ Clappr απέτυχε με ERROR. Fallback σε iframe...');
+        fallbackToIframe();
+      }
+    });
+
+    setTimeout(() => {
+      if (!clapprStarted) {
+        console.warn('⏱️ Clappr δεν ξεκίνησε μέσα σε 5s. Fallback σε iframe...');
+        fallbackToIframe();
+      }
+    }, 5000);
+
+    function fallbackToIframe() {
+      if (clapprPlayer) clapprPlayer.destroy();
       clapprDiv.style.display = 'none';
       iframePlayer.style.display = 'block';
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       logStreamUsage(initialURL, streamURL, 'iframe-fallback');
       showPlayerInfo('Iframe fallback');
-    });
+    }
+
   } else {
     console.log('🧪 Τελική προσπάθεια με iframe...');
     iframePlayer.style.display = 'block';
@@ -1287,6 +1305,7 @@ function tryFallbackPlayers(initialURL, streamURL) {
     showPlayerInfo('Iframe fallback');
   }
 }
+
 
 
 
