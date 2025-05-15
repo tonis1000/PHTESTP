@@ -1117,7 +1117,8 @@ function extractChunksUrl(m3uText, baseUrl) {
 
 
 
-// 🔥 Ανανεωμένο playStream
+// ✅ Πλήρης playStream() με υποστήριξη για όλα τα formats, fallback σε Clappr & iframe, logging και cache αναφορά
+
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
@@ -1136,7 +1137,6 @@ async function playStream(initialURL, subtitleURL = null) {
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
 
-    
   const showVideoPlayer = () => {
     videoPlayer.style.display = 'block';
     if (subtitleURL) {
@@ -1145,87 +1145,43 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   };
 
-let streamURL = initialURL;
+  let streamURL = initialURL;
+  const normalizedUrl = initialURL.replace(/^http:/, 'https:');
+  const alternateUrl = initialURL.replace(/^https:/, 'http:');
+  const cached = streamPerfMap[normalizedUrl] || streamPerfMap[initialURL] || streamPerfMap[alternateUrl];
+  console.log('🎯 Έλεγχος αν υπάρχει στο cache:', normalizedUrl, cached);
 
-// ✅ Normalize για έλεγχο cache
-const normalizedUrl = initialURL.replace(/^http:/, 'https:');
-const alternateUrl = initialURL.replace(/^https:/, 'http:');
-const cached = streamPerfMap[normalizedUrl] || streamPerfMap[initialURL] || streamPerfMap[alternateUrl];
-
-
-console.log('🎯 Έλεγχος αν υπάρχει στο cache:', normalizedUrl, cached);
-
-if (cached) {
-  console.log('⚡ Προσπάθεια μέσω Cache...', cached);
-
-  try {
-    if (cached.player === 'iframe') {
-      iframePlayer.style.display = 'block';
-      iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      showPlayerInfo('iframe', true);
-      return;
-    } else if (cached.player === 'clappr') {
-      clapprDiv.style.display = 'block';
-      clapprPlayer = new Clappr.Player({
-        source: initialURL,
-        parentId: '#clappr-player',
-        autoPlay: true,
-        width: '100%',
-        height: '100%'
-      });
-      showPlayerInfo('clappr', true);
-      return;
-    } else if (cached.player === 'hls.js' || cached.player === 'hls.js-ts') {
-      if (Hls.isSupported()) {
-        const hls = new Hls();
-        hls.loadSource(initialURL);
-        hls.attachMedia(videoPlayer);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-        videoPlayer.style.display = 'block';
-        showPlayerInfo('hls.js', true);
+  if (cached) {
+    console.log('⚡ Προσπάθεια μέσω Cache...', cached);
+    try {
+      if (cached.player === 'iframe') {
+        iframePlayer.style.display = 'block';
+        iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+        showPlayerInfo('iframe', true);
         return;
+      } else if (cached.player === 'clappr') {
+        clapprDiv.style.display = 'block';
+        clapprPlayer = new Clappr.Player({ source: initialURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
+        showPlayerInfo('clappr', true);
+        return;
+      } else if (cached.player.startsWith('hls')) {
+        if (Hls.isSupported()) {
+          const hls = new Hls();
+          hls.loadSource(initialURL);
+          hls.attachMedia(videoPlayer);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+          showVideoPlayer();
+          showPlayerInfo('hls.js', true);
+          return;
+        }
       }
+    } catch (e) {
+      console.warn('❌ Αποτυχία αναπαραγωγής από cache. Συνεχίζω κανονικά...');
     }
-  } catch (e) {
-    console.warn('❌ Αποτυχία αναπαραγωγής από cache. Συνεχίζω κανονικά...');
   }
-}
-
-
 
   const streamType = detectStreamType(streamURL);
-
-  if (streamType === 'ts') {
-    console.log('🔵 TS stream detected. Attempting playback...');
-    if (Hls.isSupported()) {
-      try {
-        const hls = new Hls();
-        hls.loadSource(streamURL);
-        hls.attachMedia(videoPlayer);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
-        showVideoPlayer();
-        logStreamUsage(initialURL, streamURL, 'hls.js-ts');
-        showPlayerInfo('HLS.js (TS)');
-
-        return;
-      } catch (e) {
-        console.warn('❌ Hls.js failed for TS, trying fallback...', e);
-      }
-    }
-    console.log('🟠 TS stream -> Using Clappr fallback');
-    clapprDiv.style.display = 'block';
-    clapprPlayer = new Clappr.Player({
-      source: streamURL,
-      parentId: '#clappr-player',
-      autoPlay: true,
-      width: '100%',
-      height: '100%'
-    });
-    logStreamUsage(initialURL, streamURL, 'clappr-ts');
-    showPlayerInfo('Clappr (TS)');
-
-    return;
-  }
+  console.log('📦 Εντοπισμένος τύπος stream:', streamType);
 
   if (isIframeStream(streamURL)) {
     console.log('🌐 Εντοπίστηκε πιθανό Iframe. Αναζήτηση .m3u8...');
@@ -1236,7 +1192,7 @@ if (cached) {
         const res = await fetch(proxied);
         if (res.ok) {
           const html = await res.text();
-          const match = html.match(/(https?:\/\/[^"]+\.m3u8)/);
+          const match = html.match(/(https?:\/\/[^"']+\.m3u8)/);
           if (match) {
             foundStream = match[1];
             break;
@@ -1245,7 +1201,7 @@ if (cached) {
       } catch (e) {}
     }
     if (foundStream) {
-      console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe!');
+      console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', foundStream);
       streamURL = foundStream;
     } else {
       console.log('▶️ Δεν βρέθηκε. Παίζω το iframe κανονικά.');
@@ -1253,7 +1209,6 @@ if (cached) {
       iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
       logStreamUsage(initialURL, streamURL, 'iframe');
       showPlayerInfo('Iframe');
-
       return;
     }
   }
@@ -1263,12 +1218,13 @@ if (cached) {
   if (workingUrl) {
     streamURL = workingUrl;
   } else {
-    console.log('🚫 Καμία διαθέσιμη σύνδεση. Τέλος.');
-    return;
+    console.warn('🚫 Δεν βρέθηκε λειτουργικό URL. Ενεργοποίηση fallback...');
+    return tryFallbackPlayers(initialURL, streamURL);
   }
 
   try {
-    if (Hls.isSupported() && streamURL.endsWith('.m3u8')) {
+    if (streamURL.endsWith('.m3u8') && Hls.isSupported()) {
+      console.log('▶️ HLS.js αναπαραγωγή...');
       const hls = new Hls();
       hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
@@ -1276,70 +1232,62 @@ if (cached) {
       showVideoPlayer();
       logStreamUsage(initialURL, streamURL, 'hls.js');
       showPlayerInfo('HLS.js');
-
       return;
     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+      console.log('▶️ Native HLS αναπαραγωγή...');
       videoPlayer.src = streamURL;
       videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
       showVideoPlayer();
       logStreamUsage(initialURL, streamURL, 'native-hls');
       showPlayerInfo('Native HLS');
-
       return;
     } else if (streamURL.endsWith('.mpd')) {
+      console.log('▶️ DASH αναπαραγωγή με dash.js...');
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
       showVideoPlayer();
       logStreamUsage(initialURL, streamURL, 'dash.js');
       showPlayerInfo('Dash.js');
-
       return;
-
-} else if (streamURL.endsWith('.m3u8')) {
-  // Fallback σε Clappr αν δεν δουλεύει native
-  console.warn('⚠️ Native HLS πιθανό να μη λειτουργεί. Προσπάθεια με Clappr fallback.');
-  clapprDiv.style.display = 'block';
-  clapprPlayer = new Clappr.Player({
-    source: streamURL,
-    parentId: '#clappr-player',
-    autoPlay: true,
-    width: '100%',
-    height: '100%'
-  });
-  logStreamUsage(initialURL, streamURL, 'clappr-hls-fallback');
-  showPlayerInfo('Clappr fallback');
-
-  return;
-}
-
-        
+    } else if (videoPlayer.canPlayType('video/mp4') || videoPlayer.canPlayType('video/webm')) {
+      console.log('▶️ Αναπαραγωγή MP4/WebM...');
+      videoPlayer.src = streamURL;
+      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
+      showVideoPlayer();
+      logStreamUsage(initialURL, streamURL, 'native-mp4');
+      showPlayerInfo('MP4/WebM');
+      return;
+    } else {
+      return tryFallbackPlayers(initialURL, streamURL);
+    }
   } catch (e) {
-    console.log('⚠️ Σφάλμα player. Συνεχίζω με Clappr...', e);
+    console.warn('⚠️ Σφάλμα κατά την αναπαραγωγή. Προσπάθεια με fallback...', e);
+    return tryFallbackPlayers(initialURL, streamURL);
   }
-
-  clapprDiv.style.display = 'block';
-  clapprPlayer = new Clappr.Player({
-    source: streamURL,
-    parentId: '#clappr-player',
-    autoPlay: true,
-    width: '100%',
-    height: '100%'
-  });
-  logStreamUsage(initialURL, streamURL, 'clappr');
-  showPlayerInfo('Clappr');
-
 }
-function showPlayerInfo(playerName, fromCache = false) {
-  const label = document.getElementById('player-info-label');
-  if (!label) return;
-  label.textContent = `${fromCache ? '🧠 Από Cache: ' : '🎯 Player: '}${playerName}`;
-  label.style.display = 'block';
 
-  clearTimeout(label.hideTimeout);
-  label.hideTimeout = setTimeout(() => {
-    label.style.display = 'none';
-  }, 4000);
+function tryFallbackPlayers(initialURL, streamURL) {
+  if (streamURL.endsWith('.m3u8') || streamURL.endsWith('.ts') || streamURL.endsWith('.mp4') || streamURL.endsWith('.webm')) {
+    console.log('🔁 Προσπάθεια με Clappr fallback...');
+    clapprDiv.style.display = 'block';
+    clapprPlayer = new Clappr.Player({
+      source: streamURL,
+      parentId: '#clappr-player',
+      autoPlay: true,
+      width: '100%',
+      height: '100%'
+    });
+    logStreamUsage(initialURL, streamURL, 'clappr-fallback');
+    showPlayerInfo('Clappr fallback');
+  } else {
+    console.log('🧪 Τελική προσπάθεια με iframe...');
+    iframePlayer.style.display = 'block';
+    iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+    logStreamUsage(initialURL, streamURL, 'iframe-fallback');
+    showPlayerInfo('Iframe fallback');
+  }
 }
+
 
 
 
