@@ -1005,7 +1005,6 @@ async function findWorkingUrl(url) {
         continue;
       }
 
-      // ✅ DASH: Αν είναι .mpd ή έχει DASH content-type ➜ αποδεκτό
       const contentType = res.headers.get('content-type') || '';
       if (url.endsWith('.mpd') || contentType.includes('application/dash+xml')) {
         console.log('🎯 Εντοπίστηκε .mpd stream ➜ θεωρείται έγκυρο DASH stream');
@@ -1013,14 +1012,12 @@ async function findWorkingUrl(url) {
       }
 
       const m3u8Text = await res.text();
-
-      // ✅ HLS: Έλεγχος για .m3u8
       if (!m3u8Text.includes('#EXTM3U')) {
         console.warn('⚠️ Δεν είναι έγκυρο .m3u8');
         continue;
       }
 
-      // 🔎 Πρώτα ψάχνουμε για ts στο πρώτο επίπεδο
+      // ➤ Πρώτο επίπεδο TS check
       const tsMatch = m3u8Text.match(/([^\s"']+\.ts(\?.*)?)/i);
       if (tsMatch) {
         const tsPath = tsMatch[1];
@@ -1040,7 +1037,7 @@ async function findWorkingUrl(url) {
         }
       }
 
-      // 🔄 Ψάχνουμε nested .m3u8 αν δεν βρέθηκε ts
+      // ➤ Nested .m3u8 αναζήτηση
       const nestedM3u8Match = m3u8Text.match(/([^\s"']+\.m3u8(\?.*)?)/i);
       if (nestedM3u8Match) {
         const nestedPath = nestedM3u8Match[1];
@@ -1051,13 +1048,11 @@ async function findWorkingUrl(url) {
 
         try {
           const nestedRes = await fetch(fullNestedProxiedUrl, { method: 'GET', mode: 'cors' });
-          if (!nestedRes.ok) {
-            console.warn(`❌ Αποτυχία fetch nested: ${nestedRes.status}`);
-            continue;
-          }
-          const nestedText = await nestedRes.text();
+          if (!nestedRes.ok) continue;
 
+          const nestedText = await nestedRes.text();
           const tsInNestedMatch = nestedText.match(/([^\s"']+\.ts(\?.*)?)/i);
+
           if (tsInNestedMatch) {
             const tsPathNested = tsInNestedMatch[1];
             const baseNestedUrl = fullNestedUrl.replace(/\/[^\/]+$/, '/');
@@ -1069,7 +1064,7 @@ async function findWorkingUrl(url) {
               const headNestedRes = await fetch(fullTsNestedProxiedUrl, { method: 'HEAD', mode: 'cors' });
               if (headNestedRes.ok) {
                 console.log('✅ Βρέθηκε ts μέσα στο nested!');
-                return fullNestedProxiedUrl;
+                return fullNestedProxiedUrl; // ✅ ΕΠΙΣΤΡΟΦΗ nested URL
               }
             } catch (e) {
               console.warn('❌ Σφάλμα HEAD nested ts:', e.message);
@@ -1100,6 +1095,7 @@ async function findWorkingUrl(url) {
 
 
 
+
 function extractChunksUrl(m3uText, baseUrl) {
   baseUrl = cleanProxyFromUrl(baseUrl);
   const lines = m3uText.split('\n');
@@ -1118,6 +1114,7 @@ function extractChunksUrl(m3uText, baseUrl) {
 
 
 // ✅ Πλήρης playStream() με υποστήριξη για όλα τα formats, fallback σε Clappr & iframe, logging και cache αναφορά
+// ✅ Πλήρες playStream() και findWorkingUrl με nested m3u8 υποστήριξη, Clappr ➜ iframe fallback και καταγραφή στο cache
 
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
@@ -1185,24 +1182,10 @@ async function playStream(initialURL, subtitleURL = null) {
 
   if (isIframeStream(streamURL)) {
     console.log('🌐 Εντοπίστηκε πιθανό Iframe. Αναζήτηση .m3u8...');
-    let foundStream = null;
-    for (let proxy of proxyList) {
-      const proxied = proxy.endsWith('=') ? proxy + encodeURIComponent(streamURL) : proxy + streamURL;
-      try {
-        const res = await fetch(proxied);
-        if (res.ok) {
-          const html = await res.text();
-          const match = html.match(/(https?:\/\/[^"']+\.m3u8)/);
-          if (match) {
-            foundStream = match[1];
-            break;
-          }
-        }
-      } catch (e) {}
-    }
-    if (foundStream) {
-      console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', foundStream);
-      streamURL = foundStream;
+    const found = await findM3U8inIframe(streamURL);
+    if (found) {
+      console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', found);
+      streamURL = found;
     } else {
       console.log('▶️ Δεν βρέθηκε. Παίζω το iframe κανονικά.');
       iframePlayer.style.display = 'block';
@@ -1217,6 +1200,7 @@ async function playStream(initialURL, subtitleURL = null) {
   const workingUrl = await findWorkingUrl(streamURL);
   if (workingUrl) {
     streamURL = workingUrl;
+    console.log('🎯 Τελικό streamURL που θα παίξει:', streamURL);
   } else {
     console.warn('🚫 Δεν βρέθηκε λειτουργικό URL. Ενεργοποίηση fallback...');
     return tryFallbackPlayers(initialURL, streamURL);
@@ -1267,7 +1251,9 @@ async function playStream(initialURL, subtitleURL = null) {
 }
 
 function tryFallbackPlayers(initialURL, streamURL) {
-  if (streamURL.endsWith('.m3u8') || streamURL.endsWith('.ts') || streamURL.endsWith('.mp4') || streamURL.endsWith('.webm')) {
+  const isVideoFormat = streamURL.endsWith('.m3u8') || streamURL.endsWith('.ts') || streamURL.endsWith('.mp4') || streamURL.endsWith('.webm');
+
+  if (isVideoFormat) {
     console.log('🔁 Προσπάθεια με Clappr fallback...');
     clapprDiv.style.display = 'block';
     clapprPlayer = new Clappr.Player({
@@ -1277,8 +1263,22 @@ function tryFallbackPlayers(initialURL, streamURL) {
       width: '100%',
       height: '100%'
     });
-    logStreamUsage(initialURL, streamURL, 'clappr-fallback');
-    showPlayerInfo('Clappr fallback');
+
+    clapprPlayer.on('PLAYING', () => {
+      console.log('✅ Clappr ξεκίνησε επιτυχώς! Καταγραφή στο cache...');
+      logStreamUsage(initialURL, streamURL, 'clappr-fallback');
+      showPlayerInfo('Clappr fallback');
+    });
+
+    clapprPlayer.on('ERROR', () => {
+      console.warn('⚠️ Clappr απέτυχε. Προσπάθεια με iframe fallback...');
+      clapprPlayer.destroy();
+      clapprDiv.style.display = 'none';
+      iframePlayer.style.display = 'block';
+      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+      logStreamUsage(initialURL, streamURL, 'iframe-fallback');
+      showPlayerInfo('Iframe fallback');
+    });
   } else {
     console.log('🧪 Τελική προσπάθεια με iframe...');
     iframePlayer.style.display = 'block';
@@ -1287,6 +1287,7 @@ function tryFallbackPlayers(initialURL, streamURL) {
     showPlayerInfo('Iframe fallback');
   }
 }
+
 
 
 
