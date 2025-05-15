@@ -1283,13 +1283,17 @@ function tryFallbackPlayers(initialURL, streamURL) {
 
     // ✅ Timeout + DOM fallback (αν παραμείνει άδειο το div)
     setTimeout(() => {
-      const div = document.getElementById('clappr-player');
-      console.log('🧪 Clappr innerHTML:', div?.innerHTML.trim());
-      if (!clapprStarted && div && div.innerHTML.trim() === '') {
-        console.warn('⏱️ Clappr div παραμένει κενός. Fallback σε iframe...');
-        fallbackToIframe();
-      }
-    }, 5000);
+  const div = document.getElementById('clappr-player');
+  const html = div?.innerHTML.trim();
+  console.log('⏱️ Timeout reached. ClapprStarted =', clapprStarted, '| div empty =', html === '');
+
+  // ✅ Fallback είτε γιατί ο Clappr δεν ξεκίνησε, είτε γιατί το DOM δεν έχει εμφανή player
+  if (!clapprStarted || !html || html.length < 100) {
+    console.warn('⏱️ Clappr δεν ξεκίνησε ή DOM κενός. Fallback σε iframe...');
+    fallbackToIframe();
+  }
+}, 5000);
+
 
     function fallbackToIframe() {
       if (clapprPlayer) clapprPlayer.destroy();
