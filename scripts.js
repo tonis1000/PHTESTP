@@ -1318,6 +1318,57 @@ function tryFallbackPlayers(initialURL, streamURL) {
 
 
 
+// ✅ Προσθήκη ένδειξης player overlay στο DOM με έξυπνο timeout
+function showPlayerInfo(playerName, fromCache = false) {
+  const label = document.getElementById('player-info-label');
+  if (label) {
+    label.textContent = `${fromCache ? '🧠 Από Cache: ' : '🎯 Player: '}${playerName}`;
+    label.style.display = 'block';
+
+    clearTimeout(label.hideTimeout);
+    label.hideTimeout = setTimeout(() => {
+      label.style.display = 'none';
+    }, 4000);
+  }
+
+  const overlay = document.getElementById('player-status');
+  if (overlay) {
+    let displayText = '';
+    if (!playerName || playerName.toLowerCase() === 'none') {
+      displayText = '🚫 Δεν βρέθηκε κατάλληλος player';
+    } else {
+      displayText = `🎥 Παίζει με: ${playerName}`;
+    }
+    overlay.textContent = displayText;
+    overlay.style.display = 'block';
+
+    clearTimeout(overlay.hideTimeout);
+    if (!playerName.toLowerCase().includes('fallback') && playerName.toLowerCase() !== 'none') {
+      overlay.hideTimeout = setTimeout(() => {
+        overlay.style.display = 'none';
+      }, 5000);
+    }
+  }
+}
+
+// ✅ Δημιουργία του overlay div (αν δεν υπάρχει)
+document.addEventListener('DOMContentLoaded', () => {
+  if (!document.getElementById('player-status')) {
+    const overlay = document.createElement('div');
+    overlay.id = 'player-status';
+    overlay.style.position = 'absolute';
+    overlay.style.top = '5px';
+    overlay.style.left = '5px';
+    overlay.style.background = 'rgba(0,0,0,0.6)';
+    overlay.style.color = 'white';
+    overlay.style.padding = '4px 8px';
+    overlay.style.zIndex = '9999';
+    overlay.style.fontSize = '13px';
+    overlay.style.borderRadius = '4px';
+    overlay.style.display = 'none';
+    document.body.appendChild(overlay);
+  }
+});
 
 
 
