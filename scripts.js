@@ -1250,7 +1250,7 @@ async function playStream(initialURL, subtitleURL = null) {
   }
 }
 
-// 🔁 Fallback player με Clappr ➜ iframe fallback με error & timeout + cache καταγραφή
+// 🔁 Fallback player με Clappr ➜ iframe fallback με error, timeout και DOM έλεγχο
 function tryFallbackPlayers(initialURL, streamURL) {
   const isVideoFormat = streamURL.endsWith('.m3u8') || streamURL.endsWith('.ts') || streamURL.endsWith('.mp4') || streamURL.endsWith('.webm');
 
@@ -1281,9 +1281,12 @@ function tryFallbackPlayers(initialURL, streamURL) {
       }
     });
 
+    // ✅ Timeout + DOM fallback (αν παραμείνει άδειο το div)
     setTimeout(() => {
-      if (!clapprStarted) {
-        console.warn('⏱️ Clappr δεν ξεκίνησε μέσα σε 5s. Fallback σε iframe...');
+      const div = document.getElementById('clappr-player');
+      console.log('🧪 Clappr innerHTML:', div?.innerHTML.trim());
+      if (!clapprStarted && div && div.innerHTML.trim() === '') {
+        console.warn('⏱️ Clappr div παραμένει κενός. Fallback σε iframe...');
         fallbackToIframe();
       }
     }, 5000);
@@ -1305,6 +1308,7 @@ function tryFallbackPlayers(initialURL, streamURL) {
     showPlayerInfo('Iframe fallback');
   }
 }
+
 
 
 
