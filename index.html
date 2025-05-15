@@ -1,136 +1,129 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-
-    <title>GitHub TV</title>
-    <link rel="stylesheet" type="text/css" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <title>GitHub TV</title>
+  <link rel="stylesheet" type="text/css" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
 </head>
 <body>
-    <div class="main-container">
-        <div class="container">
-            <div class="info-panel">
-                <div class="info-group"><span id="tag"></span></div>
-                <div class="info-group"><span id="datum"></span></div>
-                <div class="info-group"><span id="uhrzeit"></span></div>
-            </div>
-            <div class="button-row">
-                <button id="myPlaylist">Meine Playlist</button>
-                <button id="externalPlaylist">Externe Playlist</button>
-                <button id="sportPlaylist">Sport</button>
-                
-
-            </div>
-        </div>
-        <div class="sidebar" id="sidebar">
-            <div class="search-bar">
-                <div id="group-filter-container" style="margin-bottom: 10px;">
-  <label for="group-select" style="font-weight: bold;">📺</label>
-  <select id="group-select" disabled>
-    <option value="__all__">-κατηγορίες-</option>
-  </select>
-</div>
-
-                <input type="text" id="search-input" placeholder="Suche Sender">
-                <button id="filter-online-button">Online</button>
-                <button id="show-all-button">Alle</button>
-            </div>
-            <div class="sidebar-content">
-                <ul id="sidebar-list"></ul>
-            </div>
-        </div>
-    </div>
-    <div class="content-wrapper">
-        <div class="player-container">
-            <div class="player-header">
-                <div class="logo-container player-logo-container">
-                    <img id="current-channel-logo" alt="Senderlogo">
-                </div>
-                <div class="player-info-container">
-                    <div class="player-info-top">
-                        <span id="current-channel-name">Open TV</span>
-                        <button id="clear-button">Leeren</button>
-                        <button id="copy-button">Kopieren</button>
-                        <button id="playlist-button">Playlist Laden</button>
-                        <button id="send-cache-button">🔄 Ανανέωση Cache</button>
-                        <div id="cache-status-message" style="display:none; color:lime; font-size: 0.9em; margin-top: 5px;"></div>
-                        <a href="seite2.html" id="seite2-link" class="seite2-button">Gehe zur zweiten Seite</a>
-                    </div>
-                    <div class="player-info-bottom">
-                        <input type="text" id="stream-url" placeholder="Stream URL eingeben">
-                        <button id="play-button">Play</button>
-                        <button id="vlc-button" style="display: none;">VLC</button>
-                        <label for="subtitle-file" style="cursor: pointer;">SRT</label>
-                        <input type="file" id="subtitle-file" accept=".srt" style="display: none;">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Video Player -->
-            <video id="video-player" controls>
-              <track id="subtitle-track" kind="subtitles" srclang="el" label="Griechisch" default>
-            </video>
-
-            <iframe id="iframe-player" style="display: none; width: 100%; height: 600px; border: none;" allowfullscreen></iframe>
-
-            <div id="clappr-player" style="width: 100%; height: 600px; display: none;"></div>
-
-            <div id="vlc-container" style="display: none; width: 100%; height: 600px;">
-                <embed type="application/x-vlc-plugin"
-                       pluginspage="http://www.videolan.org"
-                       id="vlc-plugin"
-                       width="100%"
-                       height="100%"
-                       autoplay="yes"
-                       loop="no"
-                       target="">
-                       </embed>
-            </div>
-<div id="player-info-label"></div>
-
-            <div id="program-info">
-                <h4 id="program-title"></h4>
-                <p id="program-desc"></p>
-            </div>
-            <div id="next-programs"></div>
-        </div>
-
-        <div class="additional-content">
-            <div class="content-title" onclick="toggleContent('TV-Spor-content')">Πρόγραμμα TV Spor (Ωρα Ελλαδος)</div>
-            <div id="TV-Spor-content" class="content-body expandable">
-                <iframe src="https://www.fosonline.gr/programma-tileorasis" frameborder="0" width="100%" height="100%"></iframe>
-            </div>
-            <div class="content-title" onclick="toggleContent('foothubhd-content')">Foothubhd</div>
-            <div id="foothubhd-content" class="content-body expandable">
-                <iframe src="https://foothubhd.live/" frameborder="0" width="100%" height="100%"></iframe>
-            </div>
-            <div class="content-title" onclick="toggleContent('wetter-content')">Wetter</div>
-            <div id="wetter-content" class="content-body expandable">
-                <iframe src="https://search.ch/meteo/widget/Eching-D?days=1" width="100%" height="100%" frameborder="0"></iframe>
-            </div>
-            <div class="content-title" onclick="toggleContent('TV-Programm-content')">TV-Programm</div>
-            <div id="TV-Programm-content" class="content-body expandable">
-                <iframe src="https://programmatileorasis.gr" width="100%" height="100%" frameborder="0"></iframe>
-            </div>
-            <div class="content-title" onclick="toggleContent('playlist-urls')">Playlist URLs</div>
-            <div id="playlist-urls" class="content-body expandable">
-                <ul id="playlist-url-list"></ul>
-            </div>
-        </div>
+  <div class="main-container">
+    <div class="container">
+      <div class="info-panel">
+        <div class="info-group"><span id="tag"></span></div>
+        <div class="info-group"><span id="datum"></span></div>
+        <div class="info-group"><span id="uhrzeit"></span></div>
+      </div>
+      <div class="button-row">
+        <button id="myPlaylist">Meine Playlist</button>
+        <button id="externalPlaylist">Externe Playlist</button>
+        <button id="sportPlaylist">Sport</button>
+      </div>
     </div>
 
-    <script src="channel-config.js"></script>
-    <script src="scripts.js"></script>
-    
+    <div class="sidebar" id="sidebar">
+      <div class="search-bar">
+        <div id="group-filter-container" style="margin-bottom: 10px;">
+          <label for="group-select" style="font-weight: bold;">📺</label>
+          <select id="group-select" disabled>
+            <option value="__all__">-κατηγορίες-</option>
+          </select>
+        </div>
+        <input type="text" id="search-input" placeholder="Suche Sender">
+        <button id="filter-online-button">Online</button>
+        <button id="show-all-button">Alle</button>
+      </div>
+      <div class="sidebar-content">
+        <ul id="sidebar-list"></ul>
+      </div>
+    </div>
+  </div>
 
+  <div class="content-wrapper">
+    <div class="player-container">
+      <div class="player-header">
+        <div class="logo-container player-logo-container">
+          <img id="current-channel-logo" alt="Senderlogo">
+        </div>
+        <div class="player-info-container">
+          <div class="player-info-top">
+            <span id="current-channel-name">Open TV</span>
+            <button id="clear-button">Leeren</button>
+            <button id="copy-button">Kopieren</button>
+            <button id="playlist-button">Playlist Laden</button>
+            <button id="send-cache-button">🔄 Ανανέωση Cache</button>
+            <div id="cache-status-message" style="display:none; color:lime; font-size: 0.9em; margin-top: 5px;"></div>
+            <a href="seite2.html" id="seite2-link" class="seite2-button">Gehe zur zweiten Seite</a>
+          </div>
+          <div class="player-info-bottom">
+            <input type="text" id="stream-url" placeholder="Stream URL eingeben">
+            <button id="play-button">Play</button>
+            <button id="vlc-button" style="display: none;">VLC</button>
+            <label for="subtitle-file" style="cursor: pointer;">SRT</label>
+            <input type="file" id="subtitle-file" accept=".srt" style="display: none;">
+          </div>
+        </div>
+      </div>
 
+      <!-- Video Player -->
+      <video id="video-player" controls>
+        <track id="subtitle-track" kind="subtitles" srclang="el" label="Griechisch" default>
+      </video>
 
+      <iframe id="iframe-player" style="display: none; width: 100%; height: 600px; border: none;" allowfullscreen></iframe>
 
+      <div id="clappr-player" style="width: 100%; height: 600px; display: none;"></div>
 
+      <div id="vlc-container" style="display: none; width: 100%; height: 600px;">
+        <embed type="application/x-vlc-plugin"
+               pluginspage="http://www.videolan.org"
+               id="vlc-plugin"
+               width="100%"
+               height="100%"
+               autoplay="yes"
+               loop="no"
+               target="">
+        </embed>
+      </div>
+
+      <div id="player-info-label"></div>
+
+      <div id="program-info">
+        <h4 id="program-title"></h4>
+        <p id="program-desc"></p>
+      </div>
+      <div id="next-programs"></div>
+    </div>
+
+    <div class="additional-content">
+      <div class="content-title" onclick="toggleContent('TV-Spor-content')">Πρόγραμμα TV Spor (Ωρα Ελλαδος)</div>
+      <div id="TV-Spor-content" class="content-body expandable">
+        <iframe src="https://www.fosonline.gr/programma-tileorasis" frameborder="0" width="100%" height="100%"></iframe>
+      </div>
+      <div class="content-title" onclick="toggleContent('foothubhd-content')">Foothubhd</div>
+      <div id="foothubhd-content" class="content-body expandable">
+        <iframe src="https://foothubhd.live/" frameborder="0" width="100%" height="100%"></iframe>
+      </div>
+      <div class="content-title" onclick="toggleContent('wetter-content')">Wetter</div>
+      <div id="wetter-content" class="content-body expandable">
+        <iframe src="https://search.ch/meteo/widget/Eching-D?days=1" width="100%" height="100%" frameborder="0"></iframe>
+      </div>
+      <div class="content-title" onclick="toggleContent('TV-Programm-content')">TV-Programm</div>
+      <div id="TV-Programm-content" class="content-body expandable">
+        <iframe src="https://programmatileorasis.gr" width="100%" height="100%" frameborder="0"></iframe>
+      </div>
+      <div class="content-title" onclick="toggleContent('playlist-urls')">Playlist URLs</div>
+      <div id="playlist-urls" class="content-body expandable">
+        <ul id="playlist-url-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="channel-config.js"></script>
+  <script src="scripts.js"></script>
 </body>
 </html>
