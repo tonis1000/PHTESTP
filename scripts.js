@@ -1158,11 +1158,19 @@ async function playStream(initialURL, subtitleURL = null) {
   if (cached) {
     console.log('⚡ Προσπάθεια μέσω Cache...', cached);
     try {
-      if (cached.player === 'iframe') {
-        iframePlayer.style.display = 'block';
-        iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
-        showPlayerInfo('iframe', true);
-        return;
+if (cached.player === 'iframe') {
+  iframePlayer.style.display = 'block';
+  iframePlayer.src = initialURL.includes('autoplay') 
+    ? initialURL 
+    : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+
+  // ✅ Scroll στο iframe μετά από 800ms
+  setTimeout(() => {
+    iframePlayer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 800);
+
+  showPlayerInfo('iframe', true);
+  return;
       } else if (cached.player === 'clappr') {
         clapprDiv.style.display = 'block';
         clapprPlayer = new Clappr.Player({ source: initialURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
@@ -1194,12 +1202,21 @@ async function playStream(initialURL, subtitleURL = null) {
       console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', found);
       streamURL = found;
     } else {
-      console.log('▶️ Δεν βρέθηκε. Παίζω το iframe κανονικά.');
-      iframePlayer.style.display = 'block';
-      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      logStreamUsage(initialURL, streamURL, 'iframe');
-      showPlayerInfo('Iframe');
-      return;
+console.log('▶️ Δεν βρέθηκε. Παίζω το iframe κανονικά.');
+iframePlayer.style.display = 'block';
+iframePlayer.src = streamURL.includes('autoplay')
+  ? streamURL
+  : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+
+// ✅ Scroll στο iframe μετά από λίγο
+setTimeout(() => {
+  iframePlayer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}, 800);
+
+logStreamUsage(initialURL, streamURL, 'iframe');
+showPlayerInfo('Iframe');
+return;
+
     }
   }
 
