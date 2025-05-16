@@ -1212,7 +1212,6 @@ iframePlayer.src = streamURL.includes('autoplay')
   ? streamURL
   : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
 
-// ✅ Scroll στο iframe μετά από λίγο
 // ✅ Πιο αξιόπιστο scroll στο Y σημείο του iframe
 setTimeout(() => {
   const top = iframePlayer.getBoundingClientRect().top + window.scrollY - 100;
