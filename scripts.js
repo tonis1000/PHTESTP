@@ -707,10 +707,17 @@ async function updateSidebarFromM3U(data) {
           const programInfo = await getCurrentProgram(channelId);
 
           // 🧠 Εύρεση από cache
-          const perf = streamPerfMap[streamURL.replace(/^http:/, 'https:')] || {};
-          const playerBadge = perf.player
-            ? `<span class="badge" style="font-size: 0.7em; color: gold; margin-left: 6px;">[${perf.player}]</span>`
-            : '';
+          const normalizedUrl = streamURL.replace(/^http:/, 'https:');
+const alternateUrl = streamURL.replace(/^https:/, 'http:');
+const perf =
+  streamPerfMap[streamURL] ||
+  streamPerfMap[normalizedUrl] ||
+  streamPerfMap[alternateUrl] ||
+  {};
+
+const playerBadge = perf.player
+  ? `<span class="badge" style="font-size: 0.7em; color: gold; margin-left: 6px;">[${perf.player}]</span>`
+  : '';
 
           if (group) foundGroups.add(group); // 🆕 Προσθήκη group
 
