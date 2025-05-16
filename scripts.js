@@ -1165,9 +1165,13 @@ if (cached.player === 'iframe') {
     : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
 
   // ✅ Scroll στο iframe μετά από 800ms
-  setTimeout(() => {
-    iframePlayer.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, 800);
+setTimeout(() => {
+  const rect = iframePlayer.getBoundingClientRect();
+  const scrollY = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2;
+  window.scrollTo({ top: scrollY, behavior: 'smooth' });
+  console.log("🔽 Χειροκίνητο scroll στο iframe κέντρο.");
+}, 1200);
+
 
   showPlayerInfo('iframe', true);
   return;
@@ -1210,8 +1214,12 @@ iframePlayer.src = streamURL.includes('autoplay')
 
 // ✅ Scroll στο iframe μετά από λίγο
 setTimeout(() => {
-  iframePlayer.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}, 800);
+  const rect = iframePlayer.getBoundingClientRect();
+  const scrollY = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2;
+  window.scrollTo({ top: scrollY, behavior: 'smooth' });
+  console.log("🔽 Χειροκίνητο scroll στο iframe κέντρο.");
+}, 1200);
+
 
 logStreamUsage(initialURL, streamURL, 'iframe');
 showPlayerInfo('Iframe');
