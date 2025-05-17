@@ -854,7 +854,7 @@ function updateClock() {
 // scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
 const proxyList = [
   "", // ➔ Πρώτα δοκιμάζουμε direct χωρίς proxy
-  'https://groovy-ossified-legal.glitch.me/?url=',  
+  'https://https://dark-bristle-sailor.glitch.me//?url=',  
   'https://corsproxy.io/?',
   'https://api.codetabs.com/v1/proxy/?quest=',
   'https://proxy.cors.sh/',
@@ -1001,7 +1001,7 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
 async function findWorkingUrl(initialURL) {
   const proxyList = [
     "", // direct
-    "https://groovy-ossified-legal.glitch.me/?url=",
+    "https://https://dark-bristle-sailor.glitch.me/?url=",
     "https://corsproxy.io/?",
     "https://api.codetabs.com/v1/proxy/?quest=",
     "https://proxy.cors.sh/",
