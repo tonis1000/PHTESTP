@@ -1,5 +1,5 @@
 το δικο μου             ,https://raw.githubusercontent.com/tonis1000/mai/refs/heads/main/playlist.m3u
-IPtvCat                 ,https://groovy-ossified-legal.glitch.me/iptvcat-selective-playlist.m3u
+IPtvCat                 ,https://groovy-ossified-legal.glitch.me/iptvcat-playlist.m3u
 
 possiblelife/gtrvlst    ,https://raw.githubusercontent.com/possiblelife/gtrvlst/refs/heads/main/gtrv.txt
 jimgate07/grtv          ,https://raw.githubusercontent.com/jimgate07/grtv/refs/heads/master/android.m3u
