@@ -1282,6 +1282,9 @@ return;
 
 // 🔁 Fallback player με Clappr ➜ iframe fallback με error, timeout και DOM έλεγχο
 function tryFallbackPlayers(initialURL, streamURL) {
+  const clapprDiv = document.getElementById('clappr-player');
+  const iframePlayer = document.getElementById('iframe-player');
+
   const isVideoFormat = streamURL.endsWith('.m3u8') || streamURL.endsWith('.ts') || streamURL.endsWith('.mp4') || streamURL.endsWith('.webm');
 
   if (isVideoFormat) {
