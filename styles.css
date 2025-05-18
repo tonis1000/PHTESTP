@@ -537,3 +537,14 @@ div.next-program h4 {
   pointer-events: none;
   box-shadow: 0 0 5px rgba(0,0,0,0.5);
 }
+
+
+#sidebar-list li.active-channel {
+  background: linear-gradient(to right, #444, #2e2e2e);
+  border-left: 4px solid #00c3ff;
+  border-radius: 6px;
+  padding-left: 10px;
+  box-shadow: 0 0 10px rgba(0, 195, 255, 0.3);
+  transform: scale(1.01);
+  transition: all 0.3s ease;
+}
