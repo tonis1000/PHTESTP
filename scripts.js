@@ -1550,31 +1550,43 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
   document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
 
-  const sidebarList = document.getElementById('sidebar-list');
-  sidebarList.addEventListener('click', function (event) {
-    const channelInfo = event.target.closest('.channel-info');
-    if (channelInfo) {
-      const streamURL = channelInfo.dataset.stream;
-      const channelId = channelInfo.dataset.channelId;
-      const source = channelInfo.dataset.source || 'default';
-      const programInfo = getCurrentProgram(channelId);
+const sidebarList = document.getElementById('sidebar-list');
+sidebarList.addEventListener('click', function (event) {
+  const channelInfo = event.target.closest('.channel-info');
+  if (channelInfo) {
+    // 🔄 Αφαίρεση της active εμφάνισης από όλα τα li
+    document.querySelectorAll('#sidebar-list li').forEach(li => {
+      li.classList.remove('active-channel');
+    });
 
-      setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
-
-      if (source === 'external') {
-        playStreamByTvgId(channelId);
-      } else {
-        playStream(streamURL);
-      }
-
-      updatePlayerDescription(programInfo.title, programInfo.description);
-      updateNextPrograms(channelId);
-
-      const logoContainer = document.getElementById('current-channel-logo');
-      const logoImg = channelInfo.querySelector('.logo-container img').src;
-      logoContainer.src = logoImg;
+    // ✅ Προσθήκη στο επιλεγμένο li
+    const parentLi = channelInfo.closest('li');
+    if (parentLi) {
+      parentLi.classList.add('active-channel');
     }
-  });
+
+    // 🔁 Συνέχιση με τις υπόλοιπες ενέργειες όπως είχες
+    const streamURL = channelInfo.dataset.stream;
+    const channelId = channelInfo.dataset.channelId;
+    const source = channelInfo.dataset.source || 'default';
+    const programInfo = getCurrentProgram(channelId);
+
+    setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
+
+    if (source === 'external') {
+      playStreamByTvgId(channelId);
+    } else {
+      playStream(streamURL);
+    }
+
+    updatePlayerDescription(programInfo.title, programInfo.description);
+    updateNextPrograms(channelId);
+
+    const logoContainer = document.getElementById('current-channel-logo');
+    const logoImg = channelInfo.querySelector('.logo-container img').src;
+    logoContainer.src = logoImg;
+  }
+});
 
   setInterval(checkStreamStatus, 60000);
 
