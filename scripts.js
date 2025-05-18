@@ -1554,18 +1554,14 @@ const sidebarList = document.getElementById('sidebar-list');
 sidebarList.addEventListener('click', function (event) {
   const channelInfo = event.target.closest('.channel-info');
   if (channelInfo) {
-    // 🔄 Αφαίρεση της active εμφάνισης από όλα τα li
-    document.querySelectorAll('#sidebar-list li').forEach(li => {
-      li.classList.remove('active-channel');
+    // 🔹 Αφαίρεση "selected" από όλα
+    document.querySelectorAll('.channel-info.selected').forEach(el => {
+      el.classList.remove('selected');
     });
 
-    // ✅ Προσθήκη στο επιλεγμένο li
-    const parentLi = channelInfo.closest('li');
-    if (parentLi) {
-      parentLi.classList.add('active-channel');
-    }
+    // 🔹 Προσθήκη "selected" στο επιλεγμένο
+    channelInfo.classList.add('selected');
 
-    // 🔁 Συνέχιση με τις υπόλοιπες ενέργειες όπως είχες
     const streamURL = channelInfo.dataset.stream;
     const channelId = channelInfo.dataset.channelId;
     const source = channelInfo.dataset.source || 'default';
