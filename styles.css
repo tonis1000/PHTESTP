@@ -348,13 +348,10 @@ label[for="subtitle-file"] {
 }
 
 .content-body {
-  padding: 10px;
-  overflow: hidden;
-  display: none;
-}
-
-.content-body.active {
-  display: block;
+    padding: 10px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    max-height: 0;
 }
 
 .expanded {
