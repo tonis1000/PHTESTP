@@ -277,11 +277,17 @@ function loadEPGData() {
         const channelId = prog.getAttribute('channel');
         const start = prog.getAttribute('start');
         const stop = prog.getAttribute('stop');
+
+        // ➤ Αν λείπουν start ή stop, αγνόησε αυτό το πρόγραμμα
+        if (!start || !stop) return;
+
         const titleElement = prog.getElementsByTagName('title')[0];
         const descElement = prog.getElementsByTagName('desc')[0];
         if (titleElement) {
           const title = titleElement.textContent;
-          const desc = descElement ? descElement.textContent : 'Keine Beschreibung verfügbar';
+          const desc = descElement
+            ? descElement.textContent
+            : 'Keine Beschreibung verfügbar';
           if (!epgData[channelId]) epgData[channelId] = [];
           epgData[channelId].push({
             start: parseDateTime(start),
