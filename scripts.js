@@ -1305,67 +1305,66 @@ function toggleContent(contentId) {
     });
 }
 
-// Funktion zum Laden der Playlist-URLs aus playlist-urls.txt und Aktualisieren der Sidebar
+// === Φόρτωση λίστας Playlist URLs ===
 function loadPlaylistUrls() {
-    fetch('playlist-urls.txt')
-        .then(response => {
-            if (!response.ok) throw new Error('Netzwerkantwort war nicht ok.');
-            return response.text();
-        })
-        .then(data => {
-            const playlistList = document.getElementById('playlist-url-list');
-            playlistList.innerHTML = '';
+  const list = document.getElementById('playlist-url-list');
+  const container = document.getElementById('playlist-urls');
+  if (!list) return;
 
-            const lines = data.split('\n');
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (trimmedLine) {
-                    const [label, url] = trimmedLine.split(',').map(part => part.trim());
+  // Εμφάνισε την ενότητα (αν είναι κρυφή)
+  if (container && container.style.display !== 'block') {
+    container.style.display = 'block';
+  }
 
-                    if (label && url) {
-                        const li = document.createElement('li');
-                        const link = document.createElement('a');
-                        link.textContent = label;
-                        link.href = '#';
-                        link.classList.add('source-entry');
+  fetch('playlist-urls.txt')
+    .then(res => {
+      if (!res.ok) throw new Error('Σφάλμα δικτύου κατά τη φόρτωση της λίστας');
+      return res.text();
+    })
+    .then(text => {
+      list.innerHTML = '';
+      const lines = text.split('\n').map(line => line.trim()).filter(line => line);
 
-                        link.addEventListener('click', function (event) {
-                            event.preventDefault();
+      lines.forEach(line => {
+        const [label, url] = line.split(',').map(p => p.trim());
+        if (!label || !url) return;
 
-                            // Αφαίρεσε την .active από όλες τις άλλες
-                            document.querySelectorAll('#playlist-url-list a').forEach(a => a.classList.remove('active'));
-                            // Πρόσθεσε .active στο τρέχον
-                            this.classList.add('active');
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.textContent = label;
+        a.href = '#';
+        a.classList.add('source-entry');
 
-                            document.getElementById('stream-url').value = url;
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          // Καθάρισε ενεργό link
+          document.querySelectorAll('#playlist-url-list a').forEach(el => el.classList.remove('active'));
+          a.classList.add('active');
 
-                            fetch(url)
-                                .then(response => {
-                                    if (!response.ok) throw new Error('Netzwerkantwort war nicht ok.');
-                                    return response.text();
-                                })
-                                .then(data => {
-                                    
-                                    updateSidebarFromM3U(data);
-                                })
-                                .catch(error => {
-                                    console.error('Fehler beim Laden der Playlist:', error);
-                                    alert('Fehler beim Laden der Playlist. Siehe Konsole für Details.');
-                                });
-                        });
+          // Ενημέρωση πεδίου URL
+          document.getElementById('stream-url').value = url;
 
-                        li.appendChild(link);
-                        playlistList.appendChild(li);
-                    } else {
-                        
-                    }
-                }
+          // Φόρτωση της επιλεγμένης playlist
+          fetch(url)
+            .then(r => {
+              if (!r.ok) throw new Error('Σφάλμα δικτύου κατά τη φόρτωση του αρχείου');
+              return r.text();
+            })
+            .then(data => updateSidebarFromM3U(data))
+            .catch(err => {
+              console.error('Σφάλμα φόρτωσης playlist:', err);
+              alert('Η playlist δεν μπόρεσε να φορτωθεί. Δες την κονσόλα.');
             });
-        })
-        .catch(error => {
-            console.error('Fehler beim Laden der Playlist URLs:', error);
-            alert('Fehler beim Laden der Playlist-URLs. Siehe Konsole für Details.');
         });
+
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+    })
+    .catch(err => {
+      console.error('Σφάλμα φόρτωσης λίστας Playlist URLs:', err);
+      list.innerHTML = '<li>❌ Σφάλμα φόρτωσης λίστας</li>';
+    });
 }
 
 // Event-Listener für den Klick auf den Playlist-URLs-Titel
