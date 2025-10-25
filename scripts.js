@@ -78,7 +78,7 @@ async function loadExternalPlaylist() {
   sidebarList.innerHTML = '';
 
   const m3uUrl = 'https://raw.githubusercontent.com/tonis1000/PHTESTP/main/my-channels.m3u';
-  const streamsJsonUrl = 'https://corsproxy.io/?';
+  const streamsJsonUrl = 'https://yellow-hulking-guan.glitch.me/channel-streams.json';
 
   try {
     const [m3uRes, jsonRes] = await Promise.all([
@@ -524,7 +524,7 @@ let epgData = {};
 
 // Funktion zum Laden und Parsen der EPG-Daten
 function loadEPGData() {
-    fetch('https://cors-anywhere-production-d9b6.up.railway.app/https://ext.greektv.app/epg/epg.xml')
+    fetch('https://ext.greektv.app/epg/epg.xml')
         .then(response => response.text())
         .then(data => {
             const parser = new DOMParser();
