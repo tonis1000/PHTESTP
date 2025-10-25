@@ -78,7 +78,7 @@ async function loadExternalPlaylist() {
   sidebarList.innerHTML = '';
 
   const m3uUrl = 'https://raw.githubusercontent.com/tonis1000/PHTESTP/main/my-channels.m3u';
-  const streamsJsonUrl = 'https://yellow-hulking-guan.glitch.me/channel-streams.json';
+  const streamsJsonUrl = 'https://corsproxy.io/?';
 
   try {
     const [m3uRes, jsonRes] = await Promise.all([
