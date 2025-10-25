@@ -1511,3 +1511,31 @@ sidebarList.addEventListener('click', function (event) {
     playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
   }
 });
+
+
+// === Ενεργοποίηση όλων των expandable panels ===
+document.addEventListener('DOMContentLoaded', () => {
+  const titles = document.querySelectorAll('.content-title');
+
+  titles.forEach(title => {
+    title.addEventListener('click', () => {
+      const id = title.getAttribute('onclick')?.match(/toggleContent\('([^']+)'\)/)?.[1];
+      if (!id) return;
+
+      const body = document.getElementById(id);
+      if (!body) return;
+
+      // Toggle εμφάνιση
+      if (body.style.display === 'block') {
+        body.style.display = 'none';
+      } else {
+        body.style.display = 'block';
+      }
+
+      // Αν είναι το Playlist URLs, φόρτωσε το περιεχόμενο
+      if (id === 'playlist-urls' && typeof loadPlaylistUrls === 'function') {
+        loadPlaylistUrls();
+      }
+    });
+  });
+});
