@@ -1494,10 +1494,6 @@ document.addEventListener('DOMContentLoaded', function () {
   updateClock();
   setInterval(updateClock, 1000);
 
-  // Δώσε λίγο χρόνο να φορτώσει το epgData και ξεκίνα περιοδικό refresh
-  setTimeout(refreshEpgTimelines, 1500);
-  setInterval(refreshEpgTimelines, 30000); // κάθε 30"
-   
   document.getElementById('myPlaylist').addEventListener('click', loadMyPlaylist);
   document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
   document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
@@ -1533,8 +1529,6 @@ document.addEventListener('DOMContentLoaded', function () {
       const logoContainer = document.getElementById('current-channel-logo');
       const logoImg = channelInfo.querySelector('.logo-container img').src;
       logoContainer.src = logoImg;
-
-       refreshEpgTimelines(); // ✅ άμεση ενημέρωση των timeline bars
     }
   });
 
