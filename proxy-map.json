@@ -1,4 +1,6 @@
 {
+  "epg": "https://cors-anywhere-production-d9b6.up.railway.app/https://ext.greektv.app/epg/epg.xml"
+},
   "https://foothubhd.online/*": {
     "timestamp": "2025-04-20T13:45:00.000Z",
     "proxy": "",
