@@ -365,6 +365,38 @@ function getCurrentProgram(channelId) {
   return { title: 'Keine EPG-Daten verfügbar', description: 'Keine Beschreibung verfügbar', pastPercentage: 0, futurePercentage: 0 };
 }
 
+// 🔄 Ελαφρύ live refresh των EPG bars χωρίς re-render του sidebar
+function refreshEpgTimelines() {
+  const items = document.querySelectorAll('#sidebar-list .channel-info');
+  items.forEach(el => {
+    // αν είναι κρυμμένο (π.χ. από φίλτρα), μην το “δουλεύεις”
+    const li = el.closest('li');
+    if (!li || li.style.display === 'none') return;
+
+    const channelId = el.dataset.channelId;
+    if (!channelId) return;
+
+    const info = getCurrentProgram(channelId);
+    const epgWrap = el.querySelector('.epg-channel');
+    if (!epgWrap) return;
+
+    // τίτλος τρέχοντος προγράμματος (π.χ. "Show (12:00 - 13:00)")
+    const titleSpan = epgWrap.querySelector('span');
+    if (titleSpan && info.title) titleSpan.textContent = info.title;
+
+    // ενημέρωση των μπαρών
+    const pastDiv = epgWrap.querySelector('.epg-past');
+    const futureDiv = epgWrap.querySelector('.epg-future');
+    if (pastDiv && futureDiv) {
+      const past = Math.max(0, Math.min(100, info.pastPercentage || 0));
+      const future = Math.max(0, Math.min(100, info.futurePercentage || 0));
+      pastDiv.style.width = `${past}%`;
+      futureDiv.style.width = `${future}%`;
+    }
+  });
+}
+
+
 // Player description / next programs
 function updatePlayerDescription(title, description) {
   console.log('Updating player description:', title, description);
