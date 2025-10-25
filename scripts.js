@@ -31,6 +31,24 @@ const proxyList = [
    ======== Helpers ========
    ========================= */
 
+// === Helper: Fetch με CORS fallback ===
+async function fetchWithCorsFallback(url, init = {}) {
+  try {
+    const direct = await fetch(url, init);
+    if (direct.ok) return direct;
+  } catch (_) {}
+  for (const proxy of proxyList) {
+    if (!proxy) continue;
+    const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
+    try {
+      const res = await fetch(proxiedUrl, init);
+      if (res.ok) return res;
+    } catch (_) {}
+  }
+  throw new Error('CORS fallback exhausted for: ' + url);
+}
+
+
 // Τύποι/ανιχνεύσεις/καθαρισμοί URL
 function cleanProxyFromUrl(url) {
   for (const proxy of proxyList) {
@@ -240,9 +258,10 @@ async function findWorkingUrl(initialURL) {
 // Globales Objekt für EPG-Daten
 let epgData = {};
 
-// Funktion zum Laden und Parsen der EPG-Daten
+// === EPG loader με fallback ===
 function loadEPGData() {
-  fetch('https://ext.greektv.app/epg/epg.xml')
+  const epgUrl = 'https://ext.greektv.app/epg/epg.xml';
+  fetchWithCorsFallback(epgUrl)
     .then(response => response.text())
     .then(data => {
       const parser = new DOMParser();
@@ -257,19 +276,20 @@ function loadEPGData() {
         if (titleElement) {
           const title = titleElement.textContent;
           const desc = descElement ? descElement.textContent : 'Keine Beschreibung verfügbar';
-          if (!epgData[channelId]) {
-            epgData[channelId] = [];
-          }
+          if (!epgData[channelId]) epgData[channelId] = [];
           epgData[channelId].push({
             start: parseDateTime(start),
             stop: parseDateTime(stop),
-            title: title,
-            desc: desc
+            title,
+            desc
           });
         }
       });
     })
-    .catch(error => console.error('Fehler beim Laden der EPG-Daten:', error));
+    .catch(error => {
+      console.error('Fehler beim Laden der EPG-Daten:', error);
+      // Optional UI note εδώ…
+    });
 }
 
 // Hilfsfunktion zum Umwandeln der EPG-Zeitangaben in Date-Objekte
