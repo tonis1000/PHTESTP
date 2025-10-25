@@ -265,7 +265,12 @@ label[for="subtitle-file"] {
   transition: max-height 0.3s ease;
   max-height: 0;
 }
-.expanded { height: 700px !important; }
+
+/* Όταν ανοίγει (toggle ενεργό) */
+.content-body.expanded {
+  max-height: 700px;
+}
+
 
 #program-info, .next-program, .next-program-desc, .next-program-title { color: #fff; }
 .next-program { margin: 2px 0; }
