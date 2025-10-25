@@ -524,7 +524,7 @@ let epgData = {};
 
 // Funktion zum Laden und Parsen der EPG-Daten
 function loadEPGData() {
-    fetch('https://ext.greektv.app/epg/epg.xml')
+    fetch('https://cors-anywhere-production-d9b6.up.railway.app/https://ext.greektv.app/epg/epg.xml')
         .then(response => response.text())
         .then(data => {
             const parser = new DOMParser();
