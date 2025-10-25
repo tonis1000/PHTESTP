@@ -1533,6 +1533,8 @@ document.addEventListener('DOMContentLoaded', function () {
       const logoContainer = document.getElementById('current-channel-logo');
       const logoImg = channelInfo.querySelector('.logo-container img').src;
       logoContainer.src = logoImg;
+
+       refreshEpgTimelines(); // ✅ άμεση ενημέρωση των timeline bars
     }
   });
 
