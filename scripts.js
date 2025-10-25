@@ -1,21 +1,96 @@
+/* scripts.js — REORDER ONLY (no logic changes) */
+
+/* =========================
+   ========== Globals ======
+   ========================= */
 
 const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα stream URLs
-
 let streamPerfMap = {};
+let clapprPlayer = null;
+
+const CACHE_UPLOAD_URL = 'https://yellow-hulking-guan.glitch.me/upload-cache';
+let lastSentCache = {};
+
+// scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
+const proxyList = [
+  "", // ➔ Πρώτα δοκιμάζουμε direct χωρίς proxy
+  'https://https://dark-bristle-sailor.glitch.me//?url=',  
+  'https://corsproxy.io/?',
+  'https://api.codetabs.com/v1/proxy/?quest=',
+  'https://proxy.cors.sh/',
+  'https://thingproxy.freeboard.io/fetch/',
+  'https://api.allorigins.win/raw?url=',
+];
 
 
+/* =========================
+   ======== Helpers ========
+   ========================= */
 
-// Funktion zum Laden der Playlist.m3u und Aktualisieren der Sidebar
-function loadMyPlaylist() {
-    fetch('playlist.m3u')
-        .then(response => response.text())
-        .then(data => updateSidebarFromM3U(data))
-        .catch(error => console.error('Fehler beim Laden der Playlist:', error));
+// Τύποι/ανιχνεύσεις/καθαρισμοί URL
+function cleanProxyFromUrl(url) {
+  for (const proxy of proxyList) {
+    if (url.startsWith(proxy)) {
+      return decodeURIComponent(url.replace(proxy, ''));
+    }
+  }
+  return url;
 }
 
+function isIframeStream(url) {
+  return /embed|\.php$|\.html$/i.test(url);
+}
 
+function isDirectStream(url) {
+  return /\.(m3u8|ts|mp4|mpd|webm)$/i.test(url);
+}
 
-// 🔁 Παίζει το καλύτερο διαθέσιμο URL για tvgId με fallback
+function isSTRM(url) {
+  return url.endsWith('.strm');
+}
+
+function isTSStream(url) {
+  return url.toLowerCase().endsWith('.ts') || url.toLowerCase().endsWith('.m2ts') || url.toLowerCase().includes('mpeg.2ts');
+}
+
+function detectStreamType(url) {
+  if (!url) return 'unknown';
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.endsWith('.m3u8')) return 'hls';
+  if (lowerUrl.endsWith('.ts')) return 'ts';
+  if (lowerUrl.endsWith('.mpd')) return 'dash';
+  if (lowerUrl.endsWith('.mp4')) return 'mp4';
+  if (lowerUrl.endsWith('.webm')) return 'webm';
+  if (lowerUrl.endsWith('.strm')) return 'strm';
+  if (lowerUrl.includes('/embed/') || lowerUrl.endsWith('.php') || lowerUrl.endsWith('.html')) return 'iframe';
+  return 'unknown';
+}
+
+// STRM → URL
+async function resolveSTRM(url) {
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+    const match = text.match(/https?:\/\/[^\s]+/);
+    return match ? match[0] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Εξαγωγή nested m3u8
+function extractChunksUrl(m3uText, baseUrl) {
+  baseUrl = cleanProxyFromUrl(baseUrl);
+  const lines = m3uText.split('\n');
+  for (const line of lines) {
+    if (line.trim() && !line.startsWith('#') && line.endsWith('.m3u8')) {
+      return new URL(line.trim(), baseUrl).href;
+    }
+  }
+  return null;
+}
+
+// Παίζει το καλύτερο διαθέσιμο URL για tvgId με fallback
 async function playStreamByTvgId(tvgId) {
   if (!tvgId) return;
 
@@ -68,11 +143,266 @@ async function playStreamByTvgId(tvgId) {
   tryNext();
 }
 
+// iframe → εντοπισμός .m3u8
+async function findM3U8inIframe(url) {
+  const foundUrl = await findWorkingUrl(url);
+  if (!foundUrl) return null;
+
+  try {
+    const res = await fetch(foundUrl);
+    if (res.ok) {
+      const html = await res.text();
+      const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/i);
+      if (match) {
+        console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', match[1]);
+        return match[1];
+      }
+    }
+  } catch (e) {
+    console.warn('❌ Σφάλμα ανάλυσης iframe:', e.message);
+  }
+
+  console.warn('❌ Δεν βρέθηκε απευθείας .m3u8 στο iframe');
+  return null;
+}
+
+// Proxy cycling / validation
+async function findWorkingUrl(initialURL) {
+  const proxyList = [
+    "", // direct
+    "https://https://dark-bristle-sailor.glitch.me/?url=",
+    "https://corsproxy.io/?",
+    "https://api.codetabs.com/v1/proxy/?quest=",
+    "https://proxy.cors.sh/",
+    "https://thingproxy.freeboard.io/fetch/",
+    "https://api.allorigins.win/raw?url="
+  ];
+
+  for (const proxy of proxyList) {
+    const fullUrl = proxy ? (proxy.endsWith("=") ? proxy + encodeURIComponent(initialURL) : proxy + initialURL) : initialURL;
+    console.log(`🔍 Δοκιμή proxy: ${proxy || "direct"} ➔ ${fullUrl}`);
+
+    try {
+      const res = await fetch(fullUrl, { method: "GET", mode: "cors" });
+      if (!res.ok) {
+        console.warn(`❌ Αποτυχία fetch stream: ${res.status}`);
+        continue;
+      }
+
+      const text = await res.text();
+
+      // nested m3u8
+      const nestedMatch = text.match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i);
+      if (nestedMatch) {
+        const nestedURL = nestedMatch[0];
+        console.log('🔎 Βρέθηκε nested m3u8 ➔', nestedURL);
+
+        const nestedRes = await fetch(proxy ? proxy + encodeURIComponent(nestedURL) : nestedURL);
+        if (nestedRes.ok) {
+          const nestedText = await nestedRes.text();
+          if (nestedText.includes(".ts")) {
+            console.log("✅ Βρέθηκε .ts μέσα στο nested .m3u8");
+            return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
+          } else {
+            console.warn("⚠️ Δεν βρέθηκε ts στο nested m3u8");
+          }
+        }
+        continue;
+      }
+
+      // direct .ts
+      const tsMatch = text.match(/https?:\/\/[^\s"']+\.ts[^\s"']*/i);
+      if (tsMatch) {
+        const tsUrl = tsMatch[0];
+        console.log("⏳ HEAD έλεγχος στο ts:", tsUrl);
+        const tsHead = await fetch(tsUrl, { method: "HEAD" });
+        if (tsHead.ok) {
+          console.log("✅ Βρέθηκε άμεσα ts!");
+          return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
+        }
+      }
+
+      // Fallback αν μοιάζει με m3u8/ts
+      if (text.includes("#EXTM3U") || text.includes(".ts")) {
+        console.log("✅ .m3u8 ή .ts περιεχόμενο OK");
+        return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
+      } else {
+        console.warn("⚠️ Δεν είναι έγκυρο .m3u8");
+      }
+    } catch (err) {
+      console.error("❌ Σφάλμα fetch proxy:", err.message);
+    }
+  }
+
+  console.warn("🚨 Τέλος: Κανένα proxy δεν δούλεψε για", initialURL);
+  return null;
+}
 
 
+/* =========================
+   ========== EPG ==========
+   ========================= */
 
-// ✅ loadExternalPlaylist με έλεγχο .ts + fallback badge
-// ✅ loadExternalPlaylist με έλεγχο .ts + fallback badge
+// Globales Objekt für EPG-Daten
+let epgData = {};
+
+// Funktion zum Laden und Parsen der EPG-Daten
+function loadEPGData() {
+  fetch('https://ext.greektv.app/epg/epg.xml')
+    .then(response => response.text())
+    .then(data => {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(data, "application/xml");
+      const programmes = xmlDoc.getElementsByTagName('programme');
+      Array.from(programmes).forEach(prog => {
+        const channelId = prog.getAttribute('channel');
+        const start = prog.getAttribute('start');
+        const stop = prog.getAttribute('stop');
+        const titleElement = prog.getElementsByTagName('title')[0];
+        const descElement = prog.getElementsByTagName('desc')[0];
+        if (titleElement) {
+          const title = titleElement.textContent;
+          const desc = descElement ? descElement.textContent : 'Keine Beschreibung verfügbar';
+          if (!epgData[channelId]) {
+            epgData[channelId] = [];
+          }
+          epgData[channelId].push({
+            start: parseDateTime(start),
+            stop: parseDateTime(stop),
+            title: title,
+            desc: desc
+          });
+        }
+      });
+    })
+    .catch(error => console.error('Fehler beim Laden der EPG-Daten:', error));
+}
+
+// Hilfsfunktion zum Umwandeln der EPG-Zeitangaben in Date-Objekte
+function parseDateTime(epgTime) {
+  if (!epgTime || epgTime.length < 19) {
+    console.error('Ungültige EPG-Zeitangabe:', epgTime);
+    return null;
+  }
+
+  const year = parseInt(epgTime.substr(0, 4), 10);
+  const month = parseInt(epgTime.substr(4, 2), 10) - 1;
+  const day = parseInt(epgTime.substr(6, 2), 10);
+  const hour = parseInt(epgTime.substr(8, 2), 10);
+  const minute = parseInt(epgTime.substr(10, 2), 10);
+  const second = parseInt(epgTime.substr(12, 2), 10);
+  const tzHour = parseInt(epgTime.substr(15, 3), 10);
+  const tzMin = parseInt(epgTime.substr(18, 2), 10) * (epgTime[14] === '+' ? 1 : -1);
+
+  if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute) || isNaN(second) || isNaN(tzHour) || isNaN(tzMin)) {
+    console.error('Ungültige EPG-Zeitangabe:', epgTime);
+    return null;
+  }
+
+  if (year < 0 || month < 0 || month > 11 || day < 1 || day > 31) {
+    console.error('Ungültige EPG-Zeitangabe:', epgTime);
+    return null;
+  }
+
+  const date = new Date(Date.UTC(year, month, day, hour - tzHour, minute - tzMin, second));
+  return date;
+}
+
+// Funktion zum Finden des aktuellen Programms basierend auf der Uhrzeit
+function getCurrentProgram(channelId) {
+  const now = new Date();
+  if (epgData[channelId]) {
+    const currentProgram = epgData[channelId].find(prog => now >= prog.start && now < prog.stop);
+    if (currentProgram) {
+      const pastTime = now - currentProgram.start;
+      const futureTime = currentProgram.stop - now;
+      const totalTime = currentProgram.stop - currentProgram.start;
+      const pastPercentage = (pastTime / totalTime) * 100;
+      const futurePercentage = (futureTime / totalTime) * 100;
+      const description = currentProgram.desc || 'Keine Beschreibung verfügbar';
+      const start = currentProgram.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); // Startzeit
+      const end = currentProgram.stop.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });   // Endzeit
+      const title = currentProgram.title.replace(/\s*\[.*?\]\s*/g, '').replace(/[\[\]]/g, '');
+
+      return {
+        title: `${title} (${start} - ${end})`,
+        description: description,
+        pastPercentage: pastPercentage,
+        futurePercentage: futurePercentage
+      };
+
+    } else {
+      return { title: 'Keine aktuelle Sendung verfügbar', description: 'Keine Beschreibung verfügbar', pastPercentage: 0, futurePercentage: 0 };
+    }
+  }
+  return { title: 'Keine EPG-Daten verfügbar', description: 'Keine Beschreibung verfügbar', pastPercentage: 0, futurePercentage: 0 };
+}
+
+// Player description / next programs
+function updatePlayerDescription(title, description) {
+  console.log('Updating player description:', title, description);
+  document.getElementById('program-title').textContent = title;
+  document.getElementById('program-desc').textContent = description;
+}
+
+function updateNextPrograms(channelId) {
+  console.log('Updating next programs for channel:', channelId);
+  const nextProgramsContainer = document.getElementById('next-programs');
+  nextProgramsContainer.innerHTML = '';
+
+  if (epgData[channelId]) {
+    const now = new Date();
+    const upcomingPrograms = epgData[channelId]
+      .filter(prog => prog.start > now)
+      .slice(0, 4);
+
+    upcomingPrograms.forEach(program => {
+      const nextProgramDiv = document.createElement('div');
+      nextProgramDiv.classList.add('next-program');
+
+      const nextProgramTitle = document.createElement('h4');
+      nextProgramTitle.classList.add('next-program-title');
+      const start = program.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const end = program.stop.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const title = program.title.replace(/\s*\[.*?\]\s*/g, '').replace(/[\[\]]/g, '');
+      nextProgramTitle.textContent = `${title} (${start} - ${end})`;
+
+      const nextProgramDesc = document.createElement('p');
+      nextProgramDesc.classList.add('next-program-desc');
+      nextProgramDesc.textContent = program.desc || 'Keine Beschreibung verfügbar';
+      nextProgramDesc.style.display = 'none';
+
+      nextProgramDiv.appendChild(nextProgramTitle);
+      nextProgramDiv.appendChild(nextProgramDesc);
+
+      nextProgramTitle.addEventListener('click', function() {
+        if (nextProgramDesc.style.display === 'none') {
+          nextProgramDesc.style.display = 'block';
+          updateProgramInfo(title, nextProgramDesc.textContent);
+        } else {
+          nextProgramDesc.style.display = 'none';
+        }
+      });
+
+      nextProgramsContainer.appendChild(nextProgramDiv);
+    });
+  }
+}
+
+
+/* =========================
+   ======== Playlists ======
+   ========================= */
+
+// Λίστα μου (τοπικό playlist.m3u)
+function loadMyPlaylist() {
+  fetch('playlist.m3u')
+    .then(response => response.text())
+    .then(data => updateSidebarFromM3U(data))
+    .catch(error => console.error('Fehler beim Laden der Playlist:', error));
+}
+
+// Εξωτερική my-channels.m3u + channel-streams.json
 async function loadExternalPlaylist() {
   const sidebarList = document.getElementById('sidebar-list');
   sidebarList.innerHTML = '';
@@ -100,7 +430,7 @@ async function loadExternalPlaylist() {
 
         const tvgId = idMatch ? idMatch[1] : null;
         const name = nameTagMatch ? nameTagMatch[1].trim() :
-                    nameMatch ? nameMatch[1].trim() : 'Unbekannt';
+                      nameMatch ? nameMatch[1].trim() : 'Unbekannt';
         const group = groupMatch ? groupMatch[1].trim() : '';
         const logo = imgMatch ? imgMatch[1] : 'default_logo.png';
 
@@ -163,21 +493,12 @@ async function loadExternalPlaylist() {
   }
 }
 
-
-
-
-
-
-
-
-
-// Αντιγράφεις αυτό το κομμάτι στην αρχή του scripts.js
+// Sport πρόγραμμα (foothubhd)
 function adjustHourForGermany(timeStr) {
   let [h, m] = timeStr.split(':').map(Number);
   h = (h - 1 + 24) % 24;
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 }
-
 
 function isLiveGame(timeStr, dateStr) {
   const [h, m] = timeStr.split(':').map(Number);
@@ -198,9 +519,6 @@ function isLiveGame(timeStr, dateStr) {
   const diffMin = (nowUTC - gameDateUTC) / 60000;
   return isSameDay && diffMin >= -10 && diffMin <= 130;
 }
-
-
-
 
 async function loadSportPlaylist() {
   const sidebarList = document.getElementById('sidebar-list');
@@ -254,102 +572,94 @@ async function loadSportPlaylist() {
               a.style.fontWeight = 'bold';
             }
 
-a.addEventListener('click', (e) => {
-  e.preventDefault();
-  document.getElementById('stream-url').value = link;
-  document.getElementById('current-channel-name').textContent = match.title;
+            a.addEventListener('click', (e) => {
+              e.preventDefault();
+              document.getElementById('stream-url').value = link;
+              document.getElementById('current-channel-name').textContent = match.title;
 
-  // ➕ Εμφάνιση ποιο link πατήθηκε
-  const logoContainer = document.getElementById('current-channel-logo');
-  logoContainer.innerHTML = `<span style="color: gold; font-weight: bold;">🔗 ${a.textContent}</span>`;
+              // ➕ Εμφάνιση ποιο link πατήθηκε
+              const logoContainer = document.getElementById('current-channel-logo');
+              logoContainer.innerHTML = `<span style="color: gold; font-weight: bold;">🔗 ${a.textContent}</span>`;
 
-  playStream(link);
-});
+              playStream(link);
+            });
 
+            // 🟢 Ανίχνευση LIVE preview από iframe (π.χ. .m3u8 μέσα στο HTML)
+            try {
+              const html = await fetch(proxy + link).then(res => res.text());
 
+              if (
+                html.includes('.m3u8') ||
+                html.includes('<video') ||
+                html.includes('autoplay') ||
+                html.includes('hls.js') ||
+                html.includes('Clappr') ||
+                html.includes('jwplayer')
+              ) {
+                const liveBadge = document.createElement('span');
+                liveBadge.textContent = ' 🟢LIVE?';
+                liveBadge.style.color = 'limegreen';
+                liveBadge.style.fontWeight = 'bold';
+                a.appendChild(liveBadge);
+              }
+            } catch (e) {
+              console.warn('Δεν μπορώ να κάνω preview για:', link);
+            }
 
-// 🟢 Ανίχνευση LIVE preview από iframe (π.χ. .m3u8 μέσα στο HTML)
-try {
-  const html = await fetch(proxy + link).then(res => res.text());
+            linksDiv.appendChild(a);
+          });
 
-  if (
-    html.includes('.m3u8') ||
-    html.includes('<video') ||
-    html.includes('autoplay') ||
-    html.includes('hls.js') ||
-    html.includes('Clappr') ||
-    html.includes('jwplayer')
-  ) {
-    const liveBadge = document.createElement('span');
-    liveBadge.textContent = ' 🟢LIVE?';
-    liveBadge.style.color = 'limegreen';
-    liveBadge.style.fontWeight = 'bold';
-    a.appendChild(liveBadge);
-  }
-} catch (e) {
-  console.warn('Δεν μπορώ να κάνω preview για:', link);
-}
+          li.appendChild(title);
+          li.appendChild(linksDiv);
+          sidebarList.appendChild(li);
+        });
 
-linksDiv.appendChild(a);
-});
+        matchesForDay = [];
+      }
+    };
 
-li.appendChild(title);
-li.appendChild(linksDiv);
-sidebarList.appendChild(li);
-});
+    // 🔁 Ανάλυση κάθε γραμμής του αρχείου
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
 
-matchesForDay = [];
-}
-};
+      // ✅ Εντοπισμός header "ΠΡΟΓΡΑΜΜΑ ..."
+      const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+)\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (dateMatch) {
+        flushDay();
 
-// 🔁 Ανάλυση κάθε γραμμής του αρχείου
-for (let line of lines) {
-  line = line.trim();
-  if (!line) continue;
+        const weekdayFromText = dateMatch[1].toLowerCase();
+        const originalDay = parseInt(dateMatch[2], 10);
+        const originalMonth = parseInt(dateMatch[3], 10);
+        const originalYear = parseInt(dateMatch[4], 10);
 
-  // ✅ Εντοπισμός header "ΠΡΟΓΡΑΜΜΑ ..."
-const dateMatch = line.match(/ΠΡΟΓΡΑΜΜΑ\s+([Α-Ωα-ωA-Za-z]+)\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-if (dateMatch) {
-  flushDay();
+        let originalDate = new Date(originalYear, originalMonth - 1, originalDay);
+        let correctedDate = null;
 
-  const weekdayFromText = dateMatch[1].toLowerCase();
-  const originalDay = parseInt(dateMatch[2], 10);
-  const originalMonth = parseInt(dateMatch[3], 10);
-  const originalYear = parseInt(dateMatch[4], 10);
+        // 🔎 Ψάχνουμε μόνο ±3 μέρες από σήμερα
+        const today = new Date();
+        for (let offset = -3; offset <= 7; offset++) {
+          const testDate = new Date(today);
+          testDate.setDate(today.getDate() + offset);
 
-  let originalDate = new Date(originalYear, originalMonth - 1, originalDay);
-  let correctedDate = null;
+          const weekday = testDate.toLocaleDateString('el-GR', { weekday: 'long' }).toLowerCase();
+          if (weekday === weekdayFromText) {
+            correctedDate = testDate;
+            break;
+          }
+        }
 
-  // 🔎 Ψάχνουμε μόνο ±3 μέρες από σήμερα
-  const today = new Date();
-  for (let offset = -3; offset <= 7; offset++) {
-    const testDate = new Date(today);
-    testDate.setDate(today.getDate() + offset);
+        if (!correctedDate) {
+          console.warn(`⚠️ Δεν βρέθηκε κατάλληλη ημερομηνία για "${weekdayFromText}", κρατάμε ${originalDate.toLocaleDateString()}`);
+          correctedDate = originalDate;
+        } else {
+          console.log(`✅ Διορθώθηκε ημερομηνία για "${weekdayFromText}": ${correctedDate.toLocaleDateString('el-GR')}`);
+        }
 
-    const weekday = testDate.toLocaleDateString('el-GR', { weekday: 'long' }).toLowerCase();
-    if (weekday === weekdayFromText) {
-      correctedDate = testDate;
-      break;
-    }
-  }
-
-  if (!correctedDate) {
-    // ❌ Αν δεν βρεθεί κάτι λογικό, κρατάμε την αρχική ημερομηνία
-    console.warn(`⚠️ Δεν βρέθηκε κατάλληλη ημερομηνία για "${weekdayFromText}", κρατάμε ${originalDate.toLocaleDateString()}`);
-    correctedDate = originalDate;
-  } else {
-    console.log(`✅ Διορθώθηκε ημερομηνία για "${weekdayFromText}": ${correctedDate.toLocaleDateString('el-GR')}`);
-  }
-
-  currentDate = `${correctedDate.getDate()}/${correctedDate.getMonth() + 1}/${correctedDate.getFullYear()}`;
-  currentDateWithDay = `${correctedDate.toLocaleDateString('el-GR', { weekday: 'long' })} ${currentDate}`;
-  continue;
-}
-
-            
-
-
-
+        currentDate = `${correctedDate.getDate()}/${correctedDate.getMonth() + 1}/${correctedDate.getFullYear()}`;
+        currentDateWithDay = `${correctedDate.toLocaleDateString('el-GR', { weekday: 'long' })} ${currentDate}`;
+        continue;
+      }
 
       const gameMatches = [...line.matchAll(/(\d{1,2}:\d{2})\s+([^\/\n]+?)(?=\s*(\/|https?:\/\/|$))/g)];
       const linkMatches = [...line.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0]);
@@ -373,307 +683,74 @@ if (dateMatch) {
   }
 }
 
+// Playlist URLs panel (playlist-urls.txt)
+function loadPlaylistUrls() {
+  fetch('playlist-urls.txt')
+    .then(response => {
+      if (!response.ok) throw new Error('Netzwerkantwort war nicht ok.');
+      return response.text();
+    })
+    .then(data => {
+      const playlistList = document.getElementById('playlist-url-list');
+      playlistList.innerHTML = '';
 
-  
+      const lines = data.split('\n');
+      lines.forEach(line => {
+        const trimmedLine = line.trim();
+        if (trimmedLine) {
+          const [label, url] = trimmedLine.split(',').map(part => part.trim());
 
+          if (label && url) {
+            const li = document.createElement('li');
+            const link = document.createElement('a');
+            link.textContent = label;
+            link.href = '#';
+            link.classList.add('source-entry');
 
+            link.addEventListener('click', function (event) {
+              event.preventDefault();
 
+              document.querySelectorAll('#playlist-url-list a').forEach(a => a.classList.remove('active'));
+              this.classList.add('active');
 
-// Playlist Button
-document.getElementById('playlist-button').addEventListener('click', function() {
-    const playlistURL = document.getElementById('stream-url').value;
-    if (playlistURL) {
-        fetchResource(playlistURL);
-    }
-});
+              document.getElementById('stream-url').value = url;
 
-// Funktion, um die Ressource abzurufen
-async function fetchResource(url) {
-    let finalUrl = url;
-
-    try {
-        // 1. Versuch: Verwende den CORS-Proxy direkt
-        console.log('Trying with CORS proxy...');
-        let response = await fetch('https://cors-anywhere.herokuapp.com/' + finalUrl);
-
-        // Wenn die Antwort nicht OK ist, versuchen, die URL auf HTTPS zu ändern
-        if (!response.ok) {
-            console.log('CORS proxy request failed, trying HTTPS...');
-            finalUrl = finalUrl.replace('http:', 'https:'); // Ändern zu HTTPS
-            response = await fetch('https://cors-anywhere.herokuapp.com/' + finalUrl);
-        }
-
-        // Wenn die Antwort immer noch nicht OK ist, Fehler werfen
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-
-        const data = await response.text();
-        updateSidebarFromM3U(data);
-    } catch (error) {
-        console.error('Fehler beim Laden der Playlist mit CORS-Proxy:', error);
-    }
-
-    try {
-        // 2. Versuch: Ohne den CORS-Proxy
-        console.log('Trying without CORS proxy...');
-        let response = await fetch(finalUrl);
-
-        // Wenn die Antwort nicht OK ist, versuchen, die URL auf HTTPS zu ändern
-        if (!response.ok) {
-            console.log('Direct request failed, trying HTTPS...');
-            finalUrl = finalUrl.replace('http:', 'https:'); // Ändern zu HTTPS
-            response = await fetch(finalUrl);
-        }
-
-        // Wenn die Antwort immer noch nicht OK ist, Fehler werfen
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-
-        const data = await response.text();
-        updateSidebarFromM3U(data);
-    } catch (error) {
-        console.error('Fehler beim Laden der Playlist ohne CORS-Proxy:', error);
-    }
-}
-
-
-// Leeren Button
-document.getElementById('clear-button').addEventListener('click', function() {
-    document.getElementById('stream-url').value = ''; // Setzt den Wert des Eingabefelds auf leer
-});
-
-
-
-
-// Kopieren Button
-document.getElementById('copy-button').addEventListener('click', function() {
-    var streamUrlInput = document.getElementById('stream-url');
-    streamUrlInput.select(); // Markiert den Text im Eingabefeld
-    document.execCommand('copy'); // Kopiert den markierten Text in die Zwischenablage
-});
-
-
-
-document.getElementById('group-select').addEventListener('change', function () {
-  const selectedGroup = this.value;
-  const allItems = document.querySelectorAll('#sidebar-list .channel-info');
-  allItems.forEach(el => {
-    const li = el.closest('li');
-    if (!li) return;
-    const group = el.dataset.group || '';
-    li.style.display = (selectedGroup === '__all__' || group === selectedGroup) ? '' : 'none';
-  });
-});
-
-
-
-
-
-// ⬇️ Χειροκίνητη αποστολή cache & ενημέρωση channel-streams.json ⬇️
-document.getElementById('send-cache-button')?.addEventListener('click', async () => {
-  console.log('⏩ Χειροκίνητη αποστολή cache...');
-
-  const statusEl = document.getElementById('cache-status-message');
-  statusEl.style.display = 'block';
-  statusEl.style.color = 'white';
-  statusEl.textContent = '⏳ Γίνεται αποστολή cache...';
-
-  try {
-    const response = await fetch('https://yellow-hulking-guan.glitch.me/upload-cache', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(globalStreamCache)
-    });
-
-    if (!response.ok) {
-      throw new Error('Αποτυχία απόκρισης server');
-    }
-
-    const result = await response.json();
-
-if (result.status === 'Updated') {
-  statusEl.style.color = 'lime';
-  statusEl.textContent = `✅ Το cache στάλθηκε! Προστέθηκαν ${result.tvgCount || 0} κανάλια στο channel-streams.json.`;
-}else if (result.status === 'No changes') {
-      statusEl.style.color = 'orange';
-      statusEl.textContent = 'ℹ️ Δεν υπήρχαν αλλαγές. Το channel-streams παρέμεινε ίδιο.';
-    } else {
-      statusEl.style.color = 'red';
-      statusEl.textContent = '❌ Απροσδιόριστη απάντηση από server.';
-    }
-  } catch (e) {
-    console.error('❌ Σφάλμα κατά την αποστολή cache:', e);
-    statusEl.style.color = 'red';
-    statusEl.textContent = '🚫 Γενικό σφάλμα: ' + e.message;
-  }
-
-  setTimeout(() => {
-    statusEl.style.display = 'none';
-    statusEl.textContent = '';
-  }, 4000);
-});
-
-
-
-
-
-// Globales Objekt für EPG-Daten
-let epgData = {};
-
-// Funktion zum Laden und Parsen der EPG-Daten
-function loadEPGData() {
-    fetch('https://ext.greektv.app/epg/epg.xml')
-        .then(response => response.text())
-        .then(data => {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(data, "application/xml");
-            const programmes = xmlDoc.getElementsByTagName('programme');
-            Array.from(programmes).forEach(prog => {
-                const channelId = prog.getAttribute('channel');
-                const start = prog.getAttribute('start');
-                const stop = prog.getAttribute('stop');
-                const titleElement = prog.getElementsByTagName('title')[0];
-                const descElement = prog.getElementsByTagName('desc')[0];
-                if (titleElement) {
-                    const title = titleElement.textContent;
-                    const desc = descElement ? descElement.textContent : 'Keine Beschreibung verfügbar';
-                    if (!epgData[channelId]) {
-                        epgData[channelId] = [];
-                    }
-                    epgData[channelId].push({
-                        start: parseDateTime(start),
-                        stop: parseDateTime(stop),
-                        title: title,
-                        desc: desc
-                    });
-                }
-            });
-        })
-        .catch(error => console.error('Fehler beim Laden der EPG-Daten:', error));
-}
-
-// Hilfsfunktion zum Umwandeln der EPG-Zeitangaben in Date-Objekte
-function parseDateTime(epgTime) {
-    if (!epgTime || epgTime.length < 19) {
-        console.error('Ungültige EPG-Zeitangabe:', epgTime);
-        return null;
-    }
-
-    const year = parseInt(epgTime.substr(0, 4), 10);
-    const month = parseInt(epgTime.substr(4, 2), 10) - 1;
-    const day = parseInt(epgTime.substr(6, 2), 10);
-    const hour = parseInt(epgTime.substr(8, 2), 10);
-    const minute = parseInt(epgTime.substr(10, 2), 10);
-    const second = parseInt(epgTime.substr(12, 2), 10);
-    const tzHour = parseInt(epgTime.substr(15, 3), 10);
-    const tzMin = parseInt(epgTime.substr(18, 2), 10) * (epgTime[14] === '+' ? 1 : -1);
-
-    if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute) || isNaN(second) || isNaN(tzHour) || isNaN(tzMin)) {
-        console.error('Ungültige EPG-Zeitangabe:', epgTime);
-        return null;
-    }
-
-    if (year < 0 || month < 0 || month > 11 || day < 1 || day > 31) {
-        console.error('Ungültige EPG-Zeitangabe:', epgTime);
-        return null;
-    }
-
-    const date = new Date(Date.UTC(year, month, day, hour - tzHour, minute - tzMin, second));
-    return date;
-}
-
-
-// Funktion zum Finden des aktuellen Programms basierend auf der Uhrzeit
-function getCurrentProgram(channelId) {
-    const now = new Date();
-    if (epgData[channelId]) {
-        const currentProgram = epgData[channelId].find(prog => now >= prog.start && now < prog.stop);
-        if (currentProgram) {
-            const pastTime = now - currentProgram.start;
-            const futureTime = currentProgram.stop - now;
-            const totalTime = currentProgram.stop - currentProgram.start;
-            const pastPercentage = (pastTime / totalTime) * 100;
-            const futurePercentage = (futureTime / totalTime) * 100;
-            const description = currentProgram.desc || 'Keine Beschreibung verfügbar';
-            const start = currentProgram.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); // Startzeit des laufenden Programms
-            const end = currentProgram.stop.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); // Endzeit des laufenden Programms
-            const title = currentProgram.title.replace(/\s*\[.*?\]\s*/g, '').replace(/[\[\]]/g, ''); // Titel ohne den Teil in eckigen Klammern
-
-            return {
-                title: `${title} (${start} - ${end})`, // Verwende den bereinigten Titel ohne den Teil in eckigen Klammern
-                description: description,
-                pastPercentage: pastPercentage,
-                futurePercentage: futurePercentage
-            };
-
-        } else {
-            return { title: 'Keine aktuelle Sendung verfügbar', description: 'Keine Beschreibung verfügbar', pastPercentage: 0, futurePercentage: 0 };
-        }
-    }
-    return { title: 'Keine EPG-Daten verfügbar', description: 'Keine Beschreibung verfügbar', pastPercentage: 0, futurePercentage: 0 };
-}
-
-// Funktion zum Aktualisieren des Players mit der Programmbeschreibung
-function updatePlayerDescription(title, description) {
-    console.log('Updating player description:', title, description);
-    document.getElementById('program-title').textContent = title;
-    document.getElementById('program-desc').textContent = description;
-}
-
-
-// Funktion zum Aktualisieren der nächsten Programme
-        function updateNextPrograms(channelId) {
-            console.log('Updating next programs for channel:', channelId);
-            const nextProgramsContainer = document.getElementById('next-programs');
-            nextProgramsContainer.innerHTML = '';
-
-            if (epgData[channelId]) {
-                const now = new Date();
-                const upcomingPrograms = epgData[channelId]
-                    .filter(prog => prog.start > now)
-                    .slice(0, 4);
-
-                upcomingPrograms.forEach(program => {
-                    const nextProgramDiv = document.createElement('div');
-                    nextProgramDiv.classList.add('next-program');
-
-                    const nextProgramTitle = document.createElement('h4');
-                    nextProgramTitle.classList.add('next-program-title');
-                    const start = program.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const end = program.stop.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const title = program.title.replace(/\s*\[.*?\]\s*/g, '').replace(/[\[\]]/g, '');
-                    nextProgramTitle.textContent = `${title} (${start} - ${end})`;
-
-                    const nextProgramDesc = document.createElement('p');
-                    nextProgramDesc.classList.add('next-program-desc');
-                    nextProgramDesc.textContent = program.desc || 'Keine Beschreibung verfügbar';
-                    nextProgramDesc.style.display = 'none'; // Standardmäßig ausgeblendet
-
-                    nextProgramDiv.appendChild(nextProgramTitle);
-                    nextProgramDiv.appendChild(nextProgramDesc);
-
-                    nextProgramTitle.addEventListener('click', function() {
-                        if (nextProgramDesc.style.display === 'none') {
-                            nextProgramDesc.style.display = 'block';
-                            updateProgramInfo(title, nextProgramDesc.textContent);
-                        } else {
-                            nextProgramDesc.style.display = 'none';
-                        }
-                    });
-
-                    nextProgramsContainer.appendChild(nextProgramDiv);
+              console.log('Versuche URL abzurufen:', url);
+              fetch(url)
+                .then(response => {
+                  if (!response.ok) throw new Error('Netzwerkantwort war nicht ok.');
+                  return response.text();
+                })
+                .then(data => {
+                  console.log('Daten erfolgreich geladen. Verarbeite M3U-Daten.');
+                  updateSidebarFromM3U(data);
+                })
+                .catch(error => {
+                  console.error('Fehler beim Laden der Playlist:', error);
+                  alert('Fehler beim Laden der Playlist. Siehe Konsole für Details.');
                 });
-            }
+            });
+
+            li.appendChild(link);
+            playlistList.appendChild(li);
+          } else {
+            console.warn('Zeile hat kein Label oder keine URL:', trimmedLine);
+          }
         }
+      });
+    })
+    .catch(error => {
+      console.error('Fehler beim Laden der Playlist URLs:', error);
+      alert('Fehler beim Laden der Playlist-URLs. Siehe Konsole für Details.');
+    });
+}
 
 
+/* =========================
+   ======= Rendering =======
+   ========================= */
 
-
-
-
-// Funktion zum Aktualisieren der Sidebar von einer M3U-Datei
+// Sidebar από M3U
 async function updateSidebarFromM3U(data) {
   const sidebarList = document.getElementById('sidebar-list');
   sidebarList.innerHTML = '';
@@ -708,16 +785,16 @@ async function updateSidebarFromM3U(data) {
 
           // 🧠 Εύρεση από cache
           const normalizedUrl = streamURL.replace(/^http:/, 'https:');
-const alternateUrl = streamURL.replace(/^https:/, 'http:');
-const perf =
-  streamPerfMap[streamURL] ||
-  streamPerfMap[normalizedUrl] ||
-  streamPerfMap[alternateUrl] ||
-  {};
+          const alternateUrl = streamURL.replace(/^https:/, 'http:');
+          const perf =
+            streamPerfMap[streamURL] ||
+            streamPerfMap[normalizedUrl] ||
+            streamPerfMap[alternateUrl] ||
+            {};
 
-const playerBadge = perf.player
-  ? `<span class="badge" style="font-size: 0.7em; color: gold; margin-left: 6px;">[${perf.player}]</span>`
-  : '';
+          const playerBadge = perf.player
+            ? `<span class="badge" style="font-size: 0.7em; color: gold; margin-left: 6px;">[${perf.player}]</span>`
+            : '';
 
           if (group) foundGroups.add(group); // 🆕 Προσθήκη group
 
@@ -745,7 +822,7 @@ const playerBadge = perf.player
     }
   }
 
-  // 🧩 Γέμισμα dropdown group-select με ομάδες
+  // Γέμισμα dropdown group-select με ομάδες
   if (groupSelect) {
     if (foundGroups.size > 0) {
       groupSelect.disabled = false;
@@ -765,14 +842,7 @@ const playerBadge = perf.player
   checkStreamStatus();
 }
 
-
-
-
-
-
-
-
-// Funktion zum Überprüfen des Status der Streams und Markieren der gesamten Sidebar-Einträge
+// Έλεγχος online/marking
 function checkStreamStatus() {
   const sidebarChannels = document.querySelectorAll('.channel-info');
   sidebarChannels.forEach(channel => {
@@ -825,132 +895,11 @@ function checkStreamStatus() {
 }
 
 
+/* =========================
+   ========= Player ========
+   ========================= */
 
-
-
-
-// Funktion zum Setzen des aktuellen Sendernamens und der URL
-function setCurrentChannel(channelName, streamUrl) {
-    const currentChannelName = document.getElementById('current-channel-name');
-    const streamUrlInput = document.getElementById('stream-url');
-    currentChannelName.textContent = channelName; // Nur der Sendername
-    streamUrlInput.value = streamUrl;
-}
-
-// Aktualisierung der Uhrzeit
-function updateClock() {
-    const now = new Date();
-    const tag = now.toLocaleDateString('de-DE', { weekday: 'long' });
-    const datum = now.toLocaleDateString('de-DE');
-    const uhrzeit = now.toLocaleTimeString('de-DE', { hour12: false });
-    document.getElementById('tag').textContent = tag;
-    document.getElementById('datum').textContent = datum;
-    document.getElementById('uhrzeit').textContent = uhrzeit;
-}
-
-
-
-
-// scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
-const proxyList = [
-  "", // ➔ Πρώτα δοκιμάζουμε direct χωρίς proxy
-  'https://https://dark-bristle-sailor.glitch.me//?url=',  
-  'https://corsproxy.io/?',
-  'https://api.codetabs.com/v1/proxy/?quest=',
-  'https://proxy.cors.sh/',
-  'https://thingproxy.freeboard.io/fetch/',
-  'https://api.allorigins.win/raw?url=',
-];
-function cleanProxyFromUrl(url) {
-  for (const proxy of proxyList) {
-    if (url.startsWith(proxy)) {
-      return decodeURIComponent(url.replace(proxy, ''));
-    }
-  }
-  return url;
-}
-
-
-
-
-
-let clapprPlayer = null;
-
-
-
-async function resolveSTRM(url) {
-  try {
-    const res = await fetch(url);
-    const text = await res.text();
-    const match = text.match(/https?:\/\/[^\s]+/);
-    return match ? match[0] : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-
-async function findM3U8inIframe(url) {
-  const foundUrl = await findWorkingUrl(url);
-  if (!foundUrl) return null;
-
-  try {
-    const res = await fetch(foundUrl);
-    if (res.ok) {
-      const html = await res.text();
-      const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/i);
-      if (match) {
-        console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', match[1]);
-        return match[1];
-      }
-    }
-  } catch (e) {
-    console.warn('❌ Σφάλμα ανάλυσης iframe:', e.message);
-  }
-
-  console.warn('❌ Δεν βρέθηκε απευθείας .m3u8 στο iframe');
-  return null;
-}
-
-
-
-
-
-function isIframeStream(url) {
-  return /embed|\.php$|\.html$/i.test(url);
-}
-
-function isDirectStream(url) {
-  return /\.(m3u8|ts|mp4|mpd|webm)$/i.test(url);
-}
-
-function isSTRM(url) {
-  return url.endsWith('.strm');
-}
-
-function isTSStream(url) {
-  return url.toLowerCase().endsWith('.ts') || url.toLowerCase().endsWith('.m2ts') || url.toLowerCase().includes('mpeg.2ts');
-}
-
-
-
-
-
-
-function detectStreamType(url) {
-  if (!url) return 'unknown';
-  const lowerUrl = url.toLowerCase();
-  if (lowerUrl.endsWith('.m3u8')) return 'hls';
-  if (lowerUrl.endsWith('.ts')) return 'ts';
-  if (lowerUrl.endsWith('.mpd')) return 'dash';
-  if (lowerUrl.endsWith('.mp4')) return 'mp4';
-  if (lowerUrl.endsWith('.webm')) return 'webm';
-  if (lowerUrl.endsWith('.strm')) return 'strm';
-  if (lowerUrl.includes('/embed/') || lowerUrl.endsWith('.php') || lowerUrl.endsWith('.html')) return 'iframe';
-  return 'unknown';
-}
-
-// 📌 TS Support: Ενημερωμένη logStreamUsage()
+// Καταγραφή χρήσης stream (με tvgId, proxy κλπ)
 function logStreamUsage(initialUrl, finalUrl, playerUsed) {
   const now = new Date().toISOString();
   const proxyUsed = (initialUrl !== finalUrl) ? finalUrl.replace(initialUrl, '') : '';
@@ -958,14 +907,13 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
 
   const previous = globalStreamCache[initialUrl];
 
-  // ✅ ➕ Απόπειρα ανάγνωσης tvg-id από DOM
+  // ➕ Απόπειρα ανάγνωσης tvg-id από DOM
   let tvgId = null;
   const el = document.querySelector(`.channel-info[data-stream="${initialUrl}"]`);
   if (el && el.dataset.channelId) {
     tvgId = el.dataset.channelId;
   }
 
-  // ✅ Αν υπάρχει ήδη και δεν έχει αλλάξει ➜ αγνοούμε
   if (
     previous &&
     previous.proxy === proxyUsed &&
@@ -977,7 +925,6 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
     return;
   }
 
-  // ✅ Καταγραφή με tvgId
   globalStreamCache[initialUrl] = {
     timestamp: now,
     proxy: proxyUsed,
@@ -993,112 +940,7 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
   }
 }
 
-
-
-
-
-
-async function findWorkingUrl(initialURL) {
-  const proxyList = [
-    "", // direct
-    "https://https://dark-bristle-sailor.glitch.me/?url=",
-    "https://corsproxy.io/?",
-    "https://api.codetabs.com/v1/proxy/?quest=",
-    "https://proxy.cors.sh/",
-    "https://thingproxy.freeboard.io/fetch/",
-    "https://api.allorigins.win/raw?url="
-  ];
-
-  for (const proxy of proxyList) {
-    const fullUrl = proxy ? (proxy.endsWith("=") ? proxy + encodeURIComponent(initialURL) : proxy + initialURL) : initialURL;
-    console.log(`🔍 Δοκιμή proxy: ${proxy || "direct"} ➔ ${fullUrl}`);
-
-    try {
-      const res = await fetch(fullUrl, { method: "GET", mode: "cors" });
-      if (!res.ok) {
-        console.warn(`❌ Αποτυχία fetch stream: ${res.status}`);
-        continue;
-      }
-
-      const text = await res.text();
-
-      // ✅ Αν το .m3u8 περιέχει nested m3u8 (variant playlist)
-      const nestedMatch = text.match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i);
-      if (nestedMatch) {
-        const nestedURL = nestedMatch[0];
-        console.log('🔎 Βρέθηκε nested m3u8 ➔', nestedURL);
-
-        // Δοκιμή αν υπάρχει τουλάχιστον 1 .ts μέσα
-        const nestedRes = await fetch(proxy ? proxy + encodeURIComponent(nestedURL) : nestedURL);
-        if (nestedRes.ok) {
-          const nestedText = await nestedRes.text();
-          if (nestedText.includes(".ts")) {
-            console.log("✅ Βρέθηκε .ts μέσα στο nested .m3u8");
-            return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
-          } else {
-            console.warn("⚠️ Δεν βρέθηκε ts στο nested m3u8");
-          }
-        }
-        continue;
-      }
-
-      // ✅ Αν περιέχει απευθείας .ts
-      const tsMatch = text.match(/https?:\/\/[^\s"']+\.ts[^\s"']*/i);
-      if (tsMatch) {
-        const tsUrl = tsMatch[0];
-        console.log("⏳ HEAD έλεγχος στο ts:", tsUrl);
-        const tsHead = await fetch(tsUrl, { method: "HEAD" });
-        if (tsHead.ok) {
-          console.log("✅ Βρέθηκε άμεσα ts!");
-          return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
-        }
-      }
-
-      // Fallback: αν το ίδιο το text είναι .ts ή .m3u8
-      if (text.includes("#EXTM3U") || text.includes(".ts")) {
-        console.log("✅ .m3u8 ή .ts περιεχόμενο OK");
-        return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
-      } else {
-        console.warn("⚠️ Δεν είναι έγκυρο .m3u8");
-      }
-    } catch (err) {
-      console.error("❌ Σφάλμα fetch proxy:", err.message);
-    }
-  }
-
-  console.warn("🚨 Τέλος: Κανένα proxy δεν δούλεψε για", initialURL);
-  return null;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-function extractChunksUrl(m3uText, baseUrl) {
-  baseUrl = cleanProxyFromUrl(baseUrl);
-  const lines = m3uText.split('\n');
-  for (const line of lines) {
-    if (line.trim() && !line.startsWith('#') && line.endsWith('.m3u8')) {
-      return new URL(line.trim(), baseUrl).href;
-    }
-  }
-  return null;
-}
-
-
-
-
-
-
-
-// ✅ Πλήρης playStream() με υποστήριξη για όλα τα formats, fallback σε Clappr & iframe, logging και cache αναφορά
+// Κύριο playStream + fallbacks
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
@@ -1282,13 +1124,7 @@ function tryFallbackPlayers(initialURL, streamURL) {
   }
 }
 
-
-
-
-
-
-
-// ✅ Προσθήκη ένδειξης player overlay στο DOM με έξυπνο timeout
+// Ενδείξεις player/overlay
 function showPlayerInfo(playerName, fromCache = false) {
   const label = document.getElementById('player-info-label');
   if (label) {
@@ -1321,38 +1157,11 @@ function showPlayerInfo(playerName, fromCache = false) {
   }
 }
 
-// ✅ Δημιουργία του overlay div (αν δεν υπάρχει)
-document.addEventListener('DOMContentLoaded', () => {
-  if (!document.getElementById('player-status')) {
-    const overlay = document.createElement('div');
-    overlay.id = 'player-status';
-    overlay.style.position = 'absolute';
-    overlay.style.top = '5px';
-    overlay.style.left = '5px';
-    overlay.style.background = 'rgba(0,0,0,0.6)';
-    overlay.style.color = 'white';
-    overlay.style.padding = '4px 8px';
-    overlay.style.zIndex = '9999';
-    overlay.style.fontSize = '13px';
-    overlay.style.borderRadius = '4px';
-    overlay.style.display = 'none';
-    document.body.appendChild(overlay);
-  }
-});
 
+/* =========================
+   ========= Cache =========
+   ========================= */
 
-
-
-
-
-
-
-
-
-const CACHE_UPLOAD_URL = 'https://yellow-hulking-guan.glitch.me/upload-cache';
-let lastSentCache = {};
-
-// Συγκρίνει αν υπάρχουν νέες εγγραφές
 function hasNewEntries(current, previous) {
   const currentKeys = Object.keys(current);
   const previousKeys = Object.keys(previous);
@@ -1366,7 +1175,6 @@ function hasNewEntries(current, previous) {
   });
 }
 
-// Στέλνει το cache στον Glitch Server
 async function sendGlobalCacheIfUpdated(force = false) {
   if (!force && !hasNewEntries(globalStreamCache, lastSentCache)) {
     console.log('⏸️ Καμία αλλαγή, δεν στάλθηκε τίποτα στο Glitch.');
@@ -1396,142 +1204,220 @@ async function sendGlobalCacheIfUpdated(force = false) {
   }
 }
 
+// Χειροκίνητη αποστολή cache
+document.getElementById('send-cache-button')?.addEventListener('click', async () => {
+  console.log('⏩ Χειροκίνητη αποστολή cache...');
 
+  const statusEl = document.getElementById('cache-status-message');
+  statusEl.style.display = 'block';
+  statusEl.style.color = 'white';
+  statusEl.textContent = '⏳ Γίνεται αποστολή cache...';
 
-
-
-
-
-
-// Funktion zum Lesen der SRT-Datei und Anzeigen der griechischen Untertitel
-function handleSubtitleFile(file) {
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        const srtContent = event.target.result;
-        const vttContent = convertSrtToVtt(srtContent);
-        const blob = new Blob([vttContent], { type: 'text/vtt' });
-        const url = URL.createObjectURL(blob);
-        const track = document.getElementById('subtitle-track');
-        track.src = url;
-        track.label = 'Griechisch';
-        track.srclang = 'el';
-        track.default = true;
-    };
-    reader.readAsText(file);
-}
-
-// Funktion zum Konvertieren von SRT in VTT
-function convertSrtToVtt(srtContent) {
-    // SRT-Untertitelzeilen in VTT-Format konvertieren
-    const vttContent = 'WEBVTT\n\n' + srtContent
-        // Ersetze Trennzeichen
-        .replace(/\r\n|\r|\n/g, '\n')
-        // Ersetze Zeitformate von SRT in VTT
-        .replace(/(\d{2}):(\d{2}):(\d{2}),(\d{3})/g, '$1:$2:$3.$4');
-
-    return vttContent;
-}
-
-
-
-
-
-
-// foothubhd-Wetter
-function toggleContent(contentId) {
-    const allContents = document.querySelectorAll('.content-body');
-    allContents.forEach(content => {
-        if (content.id === contentId) {
-            content.classList.toggle('expanded');
-        } else {
-            content.classList.remove('expanded');
-        }
+  try {
+    const response = await fetch('https://yellow-hulking-guan.glitch.me/upload-cache', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(globalStreamCache)
     });
-}
 
-
-
-// Funktion zum Laden der Playlist-URLs aus playlist-urls.txt und Aktualisieren der Sidebar
-function loadPlaylistUrls() {
-    fetch('playlist-urls.txt')
-        .then(response => {
-            if (!response.ok) throw new Error('Netzwerkantwort war nicht ok.');
-            return response.text();
-        })
-        .then(data => {
-            const playlistList = document.getElementById('playlist-url-list');
-            playlistList.innerHTML = '';
-
-            const lines = data.split('\n');
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (trimmedLine) {
-                    const [label, url] = trimmedLine.split(',').map(part => part.trim());
-
-                    if (label && url) {
-                        const li = document.createElement('li');
-                        const link = document.createElement('a');
-                        link.textContent = label;
-                        link.href = '#';
-                        link.classList.add('source-entry');
-
-                        link.addEventListener('click', function (event) {
-                            event.preventDefault();
-
-                            // Αφαίρεσε την .active από όλες τις άλλες
-                            document.querySelectorAll('#playlist-url-list a').forEach(a => a.classList.remove('active'));
-                            // Πρόσθεσε .active στο τρέχον
-                            this.classList.add('active');
-
-                            document.getElementById('stream-url').value = url;
-
-                            console.log('Versuche URL abzurufen:', url);
-                            fetch(url)
-                                .then(response => {
-                                    if (!response.ok) throw new Error('Netzwerkantwort war nicht ok.');
-                                    return response.text();
-                                })
-                                .then(data => {
-                                    console.log('Daten erfolgreich geladen. Verarbeite M3U-Daten.');
-                                    updateSidebarFromM3U(data);
-                                })
-                                .catch(error => {
-                                    console.error('Fehler beim Laden der Playlist:', error);
-                                    alert('Fehler beim Laden der Playlist. Siehe Konsole für Details.');
-                                });
-                        });
-
-                        li.appendChild(link);
-                        playlistList.appendChild(li);
-                    } else {
-                        console.warn('Zeile hat kein Label oder keine URL:', trimmedLine);
-                    }
-                }
-            });
-        })
-        .catch(error => {
-            console.error('Fehler beim Laden der Playlist URLs:', error);
-            alert('Fehler beim Laden der Playlist-URLs. Siehe Konsole für Details.');
-        });
-}
-
-
-// Event-Listener für den Klick auf den Playlist-URLs-Titel
-document.addEventListener('DOMContentLoaded', function() {
-    const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
-    if (playlistUrlsTitle) {
-        playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
-    } else {
-        console.error('Element für den Klick-Event-Listener wurde nicht gefunden.');
+    if (!response.ok) {
+      throw new Error('Αποτυχία απόκρισης server');
     }
+
+    const result = await response.json();
+
+    if (result.status === 'Updated') {
+      statusEl.style.color = 'lime';
+      statusEl.textContent = `✅ Το cache στάλθηκε! Προστέθηκαν ${result.tvgCount || 0} κανάλια στο channel-streams.json.`;
+    } else if (result.status === 'No changes') {
+      statusEl.style.color = 'orange';
+      statusEl.textContent = 'ℹ️ Δεν υπήρχαν αλλαγές. Το channel-streams παρέμεινε ίδιο.';
+    } else {
+      statusEl.style.color = 'red';
+      statusEl.textContent = '❌ Απροσδιόριστη απάντηση από server.';
+    }
+  } catch (e) {
+    console.error('❌ Σφάλμα κατά την αποστολή cache:', e);
+    statusEl.style.color = 'red';
+    statusEl.textContent = '🚫 Γενικό σφάλμα: ' + e.message;
+  }
+
+  setTimeout(() => {
+    statusEl.style.display = 'none';
+    statusEl.textContent = '';
+  }, 4000);
 });
 
 
+/* =========================
+   ======== Subtitles ======
+   ========================= */
+
+function handleSubtitleFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const srtContent = event.target.result;
+    const vttContent = convertSrtToVtt(srtContent);
+    const blob = new Blob([vttContent], { type: 'text/vtt' });
+    const url = URL.createObjectURL(blob);
+    const track = document.getElementById('subtitle-track');
+    track.src = url;
+    track.label = 'Griechisch';
+    track.srclang = 'el';
+    track.default = true;
+  };
+  reader.readAsText(file);
+}
+
+function convertSrtToVtt(srtContent) {
+  const vttContent = 'WEBVTT\n\n' + srtContent
+    .replace(/\r\n|\r|\n/g, '\n')
+    .replace(/(\d{2}):(\d{2}):(\d{2}),(\d{3})/g, '$1:$2:$3.$4');
+
+  return vttContent;
+}
 
 
-// Ο ενιαίος και σωστός DOMContentLoaded block με όλα τα event listeners
+/* =========================
+   ========== UI ===========
+   ========================= */
+
+function setCurrentChannel(channelName, streamUrl) {
+  const currentChannelName = document.getElementById('current-channel-name');
+  const streamUrlInput = document.getElementById('stream-url');
+  currentChannelName.textContent = channelName; // Nur der Sendername
+  streamUrlInput.value = streamUrl;
+}
+
+// Ώρα/ημερομηνία
+function updateClock() {
+  const now = new Date();
+  const tag = now.toLocaleDateString('de-DE', { weekday: 'long' });
+  const datum = now.toLocaleDateString('de-DE');
+  const uhrzeit = now.toLocaleTimeString('de-DE', { hour12: false });
+  document.getElementById('tag').textContent = tag;
+  document.getElementById('datum').textContent = datum;
+  document.getElementById('uhrzeit').textContent = uhrzeit;
+}
+
+// foothubhd-Wetter toggle
+function toggleContent(contentId) {
+  const allContents = document.querySelectorAll('.content-body');
+  allContents.forEach(content => {
+    if (content.id === contentId) {
+      content.classList.toggle('expanded');
+    } else {
+      content.classList.remove('expanded');
+    }
+  });
+}
+
+
+/* =========================
+   ======== Events =========
+   ========================= */
+
+// Playlist Button
+document.getElementById('playlist-button').addEventListener('click', function() {
+  const playlistURL = document.getElementById('stream-url').value;
+  if (playlistURL) {
+    fetchResource(playlistURL);
+  }
+});
+
+// Fetch resource (με/χωρίς CORS proxy)
+async function fetchResource(url) {
+  let finalUrl = url;
+
+  try {
+    // 1. Versuch: CORS-Proxy
+    console.log('Trying with CORS proxy...');
+    let response = await fetch('https://cors-anywhere.herokuapp.com/' + finalUrl);
+
+    if (!response.ok) {
+      console.log('CORS proxy request failed, trying HTTPS...');
+      finalUrl = finalUrl.replace('http:', 'https:');
+      response = await fetch('https://cors-anywhere.herokuapp.com/' + finalUrl);
+    }
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+
+    const data = await response.text();
+    updateSidebarFromM3U(data);
+  } catch (error) {
+    console.error('Fehler beim Laden der Playlist mit CORS-Proxy:', error);
+  }
+
+  try {
+    // 2. Versuch: Direkt
+    console.log('Trying without CORS proxy...');
+    let response = await fetch(finalUrl);
+
+    if (!response.ok) {
+      console.log('Direct request failed, trying HTTPS...');
+      finalUrl = finalUrl.replace('http:', 'https:');
+      response = await fetch(finalUrl);
+    }
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+
+    const data = await response.text();
+    updateSidebarFromM3U(data);
+  } catch (error) {
+    console.error('Fehler beim Laden der Playlist ohne CORS-Proxy:', error);
+  }
+}
+
+// Leeren Button
+document.getElementById('clear-button').addEventListener('click', function() {
+  document.getElementById('stream-url').value = '';
+});
+
+// Kopieren Button
+document.getElementById('copy-button').addEventListener('click', function() {
+  var streamUrlInput = document.getElementById('stream-url');
+  streamUrlInput.select();
+  document.execCommand('copy');
+});
+
+// Group filter (standalone handler)
+document.getElementById('group-select').addEventListener('change', function () {
+  const selectedGroup = this.value;
+  const allItems = document.querySelectorAll('#sidebar-list .channel-info');
+  allItems.forEach(el => {
+    const li = el.closest('li');
+    if (!li) return;
+    const group = el.dataset.group || '';
+    li.style.display = (selectedGroup === '__all__' || group === selectedGroup) ? '' : 'none';
+  });
+});
+
+// Δημιουργία overlay αν δεν υπάρχει
+document.addEventListener('DOMContentLoaded', () => {
+  if (!document.getElementById('player-status')) {
+    const overlay = document.createElement('div');
+    overlay.id = 'player-status';
+    overlay.style.position = 'absolute';
+    overlay.style.top = '5px';
+    overlay.style.left = '5px';
+    overlay.style.background = 'rgba(0,0,0,0.6)';
+    overlay.style.color = 'white';
+    overlay.style.padding = '4px 8px';
+    overlay.style.zIndex = '9999';
+    overlay.style.fontSize = '13px';
+    overlay.style.borderRadius = '4px';
+    overlay.style.display = 'none';
+    document.body.appendChild(overlay);
+  }
+});
+
+// Κύριο DOMContentLoaded: φόρτωση χαρτών, EPG, handlers, search/filters
 document.addEventListener('DOMContentLoaded', function () {
-  // 🔄 Φόρτωση proxy-map.json
+  // Φόρτωση proxy-map.json
   fetch('https://yellow-hulking-guan.glitch.me/proxy-map.json')
     .then(res => res.json())
     .then(data => {
@@ -1550,39 +1436,39 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('externalPlaylist').addEventListener('click', loadExternalPlaylist);
   document.getElementById('sportPlaylist').addEventListener('click', loadSportPlaylist);
 
-const sidebarList = document.getElementById('sidebar-list');
-sidebarList.addEventListener('click', function (event) {
-  const channelInfo = event.target.closest('.channel-info');
-  if (channelInfo) {
-    // 🔹 Αφαίρεση "selected" από όλα
-    document.querySelectorAll('.channel-info.selected').forEach(el => {
-      el.classList.remove('selected');
-    });
+  const sidebarList = document.getElementById('sidebar-list');
+  sidebarList.addEventListener('click', function (event) {
+    const channelInfo = event.target.closest('.channel-info');
+    if (channelInfo) {
+      // Αφαίρεση "selected" από όλα
+      document.querySelectorAll('.channel-info.selected').forEach(el => {
+        el.classList.remove('selected');
+      });
 
-    // 🔹 Προσθήκη "selected" στο επιλεγμένο
-    channelInfo.classList.add('selected');
+      // Προσθήκη "selected"
+      channelInfo.classList.add('selected');
 
-    const streamURL = channelInfo.dataset.stream;
-    const channelId = channelInfo.dataset.channelId;
-    const source = channelInfo.dataset.source || 'default';
-    const programInfo = getCurrentProgram(channelId);
+      const streamURL = channelInfo.dataset.stream;
+      const channelId = channelInfo.dataset.channelId;
+      const source = channelInfo.dataset.source || 'default';
+      const programInfo = getCurrentProgram(channelId);
 
-    setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
+      setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
 
-    if (source === 'external') {
-      playStreamByTvgId(channelId);
-    } else {
-      playStream(streamURL);
+      if (source === 'external') {
+        playStreamByTvgId(channelId);
+      } else {
+        playStream(streamURL);
+      }
+
+      updatePlayerDescription(programInfo.title, programInfo.description);
+      updateNextPrograms(channelId);
+
+      const logoContainer = document.getElementById('current-channel-logo');
+      const logoImg = channelInfo.querySelector('.logo-container img').src;
+      logoContainer.src = logoImg;
     }
-
-    updatePlayerDescription(programInfo.title, programInfo.description);
-    updateNextPrograms(channelId);
-
-    const logoContainer = document.getElementById('current-channel-logo');
-    const logoImg = channelInfo.querySelector('.logo-container img').src;
-    logoContainer.src = logoImg;
-  }
-});
+  });
 
   setInterval(checkStreamStatus, 60000);
 
@@ -1631,7 +1517,7 @@ sidebarList.addEventListener('click', function (event) {
     }
   });
 
-  // 🔘 Φίλτρα Ομάδας και Online
+  // Φίλτρα Ομάδας & Online
   const groupSelect = document.getElementById('group-select');
 
   function applyGroupAndStatusFilter(filterOnlineOnly = false) {
@@ -1656,7 +1542,7 @@ sidebarList.addEventListener('click', function (event) {
   document.getElementById('filter-online-button').addEventListener('click', () => applyGroupAndStatusFilter(true));
   document.getElementById('show-all-button').addEventListener('click', () => applyGroupAndStatusFilter(false));
 
-  // 🔗 Playlist-URLs panel
+  // Playlist-URLs panel
   const playlistUrlsTitle = document.querySelector('.content-title[onclick="toggleContent(\'playlist-urls\')"]');
   if (playlistUrlsTitle) {
     playlistUrlsTitle.addEventListener('click', loadPlaylistUrls);
