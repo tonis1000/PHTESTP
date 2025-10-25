@@ -31,20 +31,28 @@ const proxyList = [
    ======== Helpers ========
    ========================= */
 
-// === Helper: Fetch με CORS fallback ===
-async function fetchWithCorsFallback(url, init = {}) {
+// === Helper: Fetch text με CORS fallback ===
+async function fetchTextWithCorsFallback(url, init = {}) {
+  // 1) Δοκιμάζει direct
   try {
-    const direct = await fetch(url, init);
-    if (direct.ok) return direct;
-  } catch (_) {}
+    const r = await fetch(url, init);
+    const t = await r.text(); // εδώ θα αποτύχει αν υπάρχει CORS block
+    if (r.ok) return t;
+  } catch (_) { /* συνεχίζουμε σε proxies */ }
+
+  // 2) Δοκιμάζει όλους τους proxies στη σειρά
   for (const proxy of proxyList) {
-    if (!proxy) continue;
-    const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(url) : proxy + url;
+    if (!proxy) continue; // direct έγινε ήδη
+    const proxiedUrl = (proxy.endsWith('=') || proxy.endsWith('?'))
+      ? proxy + encodeURIComponent(url)
+      : proxy + url;
     try {
-      const res = await fetch(proxiedUrl, init);
-      if (res.ok) return res;
-    } catch (_) {}
+      const r = await fetch(proxiedUrl, init);
+      const t = await r.text();
+      if (r.ok) return t;
+    } catch (_) { /* πάμε επόμενο proxy */ }
   }
+
   throw new Error('CORS fallback exhausted for: ' + url);
 }
 
@@ -261,8 +269,7 @@ let epgData = {};
 // === EPG loader με fallback ===
 function loadEPGData() {
   const epgUrl = 'https://ext.greektv.app/epg/epg.xml';
-  fetchWithCorsFallback(epgUrl)
-    .then(response => response.text())
+  fetchTextWithCorsFallback(epgUrl)
     .then(data => {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data, "application/xml");
@@ -288,9 +295,10 @@ function loadEPGData() {
     })
     .catch(error => {
       console.error('Fehler beim Laden der EPG-Daten:', error);
-      // Optional UI note εδώ…
+      // Optional: document.getElementById('program-title').textContent = 'EPG nicht verfügbar';
     });
 }
+
 
 // Hilfsfunktion zum Umwandeln der EPG-Zeitangaben in Date-Objekte
 function parseDateTime(epgTime) {
