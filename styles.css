@@ -271,6 +271,26 @@ label[for="subtitle-file"] {
   max-height: 700px;
 }
 
+/* === Ειδικά για τα iframe panels (TV, Foothubhd, Wetter, TV-Programm, Playlist) === */
+#TV-Spor-content.expanded,
+#foothubhd-content.expanded,
+#wetter-content.expanded,
+#TV-Programm-content.expanded,
+#playlist-urls.expanded {
+  max-height: 1000px;
+  opacity: 1;
+  transition: all 0.5s ease-in-out;
+}
+
+/* Προσαρμογή iframes */
+#TV-Spor-content iframe,
+#foothubhd-content iframe,
+#wetter-content iframe,
+#TV-Programm-content iframe {
+  border: none;
+  width: 100%;
+  height: 950px;
+}
 
 #program-info, .next-program, .next-program-desc, .next-program-title { color: #fff; }
 .next-program { margin: 2px 0; }
