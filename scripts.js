@@ -18,7 +18,6 @@ const log = (...args) => { if (DEBUG) console.log(...args); };
 // scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
 const proxyList = [
   "", // ➔ Πρώτα δοκιμάζουμε direct χωρίς proxy
-  'https://dark-bristle-sailor.glitch.me/?url=',
   'https://corsproxy.io/?',
   'https://api.codetabs.com/v1/proxy/?quest=',
   'https://proxy.cors.sh/',
