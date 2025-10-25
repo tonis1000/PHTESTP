@@ -516,60 +516,6 @@ if (result.status === 'Updated') {
 });
 
 
-// --- CORS/Networking helpers -------------------------------------------------
-const PROXY_CANDIDATES = [
-  '', // δοκίμασε πρώτα direct (ίσως επιτραπεί στο μέλλον)
-  'https://cors-anywhere-production-d9b6.up.railway.app/',
-  'https://cors-anywhere.herokuapp.com/'
-];
-
-function buildProxiedUrls(url) {
-  return PROXY_CANDIDATES.map(p => (p ? p + url : url));
-}
-
-async function fetchWithRetry(url, { timeoutMs = 6000, retries = 2 } = {}) {
-  let lastErr;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(t);
-      if (!res.ok) lastErr = new Error(`HTTP ${res.status} @ ${url}`);
-      else return res;
-    } catch (e) {
-      lastErr = e;
-    } finally {
-      clearTimeout(t);
-    }
-  }
-  throw lastErr || new Error(`fetchWithRetry failed for ${url}`);
-}
-
-async function tryUrlsSequentially(urls, options) {
-  let lastErr;
-  for (const u of urls) {
-    try {
-      return await fetchWithRetry(u, options);
-    } catch (e) {
-      console.warn('EPG fetch failed for', u, e);
-      lastErr = e;
-    }
-  }
-  throw lastErr || new Error('All EPG endpoints failed.');
-}
-
-let PROXY_MAP = null;
-async function loadProxyMapIfAny() {
-  if (PROXY_MAP !== null) return PROXY_MAP;
-  try {
-    const r = await fetch('proxy-map.json', { cache: 'no-store' });
-    PROXY_MAP = r.ok ? await r.json() : {};
-  } catch {
-    PROXY_MAP = {};
-  }
-  return PROXY_MAP;
-}
 
 
 
@@ -577,48 +523,35 @@ async function loadProxyMapIfAny() {
 let epgData = {};
 
 // Funktion zum Laden und Parsen der EPG-Daten
-async function loadEPGData() {
-  try {
-    await loadProxyMapIfAny();
-    const BASE_EPG_URL = 'https://ext.greektv.app/epg/epg.xml';
-
-    // Αν στο proxy-map.json υπάρχει "epg", δοκίμασέ το πρώτα.
-    const mapped = PROXY_MAP?.epg ? [PROXY_MAP.epg] : [];
-    const candidates = [...mapped, ...buildProxiedUrls(BASE_EPG_URL)];
-
-    // Προσπάθησε διαδοχικά (timeout 7s, 1 retry ανά URL)
-    const response = await tryUrlsSequentially(candidates, { timeoutMs: 7000, retries: 1 });
-    const data = await response.text();
-
-    // Parse XML με έλεγχο σφάλματος
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(data, 'application/xml');
-    if (xmlDoc.getElementsByTagName('parsererror')[0]) {
-      throw new Error('Invalid XML from EPG endpoint');
-    }
-
-    const programmes = xmlDoc.getElementsByTagName('programme');
-    Array.from(programmes).forEach(prog => {
-      const channelId = prog.getAttribute('channel');
-      const start = prog.getAttribute('start');
-      const stop = prog.getAttribute('stop');
-      const titleElement = prog.getElementsByTagName('title')[0];
-      const descElement = prog.getElementsByTagName('desc')[0];
-      if (titleElement) {
-        const title = titleElement.textContent;
-        const desc = descElement ? descElement.textContent : 'Keine Beschreibung verfügbar';
-        if (!epgData[channelId]) epgData[channelId] = [];
-        epgData[channelId].push({
-          start: parseDateTime(start),
-          stop: parseDateTime(stop),
-          title,
-          desc
-        });
-      }
-    });
-  } catch (error) {
-    console.error('Fehler beim Laden der EPG-Daten (mit Proxy-Fallback):', error);
-  }
+function loadEPGData() {
+    fetch('https://ext.greektv.app/epg/epg.xml')
+        .then(response => response.text())
+        .then(data => {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(data, "application/xml");
+            const programmes = xmlDoc.getElementsByTagName('programme');
+            Array.from(programmes).forEach(prog => {
+                const channelId = prog.getAttribute('channel');
+                const start = prog.getAttribute('start');
+                const stop = prog.getAttribute('stop');
+                const titleElement = prog.getElementsByTagName('title')[0];
+                const descElement = prog.getElementsByTagName('desc')[0];
+                if (titleElement) {
+                    const title = titleElement.textContent;
+                    const desc = descElement ? descElement.textContent : 'Keine Beschreibung verfügbar';
+                    if (!epgData[channelId]) {
+                        epgData[channelId] = [];
+                    }
+                    epgData[channelId].push({
+                        start: parseDateTime(start),
+                        stop: parseDateTime(stop),
+                        title: title,
+                        desc: desc
+                    });
+                }
+            });
+        })
+        .catch(error => console.error('Fehler beim Laden der EPG-Daten:', error));
 }
 
 // Hilfsfunktion zum Umwandeln der EPG-Zeitangaben in Date-Objekte
