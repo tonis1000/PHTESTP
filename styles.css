@@ -216,6 +216,11 @@ button:disabled {
     padding-left: 10px;
 }
 
+.epg-past,
+.epg-future {
+  transition: width .8s linear; /* ομαλή αλλαγή πλάτους */
+}
+
 .epg-past {
     flex-grow: 1;
     background-color: #ff0000;
