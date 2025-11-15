@@ -411,25 +411,28 @@ div.next-program p, div.next-program h4 { margin-top: 0; }
 /* ===== EPG Tooltip για τα κανάλια στο Sidebar ===== */
 .epg-tooltip {
   position: fixed;
-  max-width: 420px;
+  max-width: 460px;
   background: rgba(0, 0, 0, 0.92);
   color: #fff;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: 4px;
   border: 1px solid rgba(0, 255, 255, 0.7);
-  font-size: 12px;
+  font-size: 15px;            /* ⭐ ΠΙΟ ΜΕΓΑΛΑ ΓΡΑΜΜΑΤΑ */
+  line-height: 1.35;          /* ⭐ Καλύτερη απόσταση */
   z-index: 99999;
   pointer-events: none;
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 14px rgba(0, 255, 255, 0.6);
   display: none;
 }
 
 .epg-tooltip-title {
   font-weight: bold;
-  margin-bottom: 4px;
+  font-size: 16px;            /* ⭐ Μεγάλος, καθαρός τίτλος */
+  margin-bottom: 6px;
 }
 
 .epg-tooltip-desc {
+  font-size: 14px;            /* ⭐ Λίγο μεγαλύτερη περιγραφή */
   white-space: normal;
 }
 
