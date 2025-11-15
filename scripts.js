@@ -8,6 +8,10 @@ const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα 
 let streamPerfMap = {};
 let clapprPlayer = null;
 
+// Tooltip για EPG όταν μένει το ποντίκι πάνω από κανάλι
+let channelHoverTimer = null;
+let epgTooltipEl = null;
+
 // Αποθήκευση σειράς sidebar στο localStorage
 const SIDEBAR_ORDER_KEY = 'phtestp_sidebar_order_v1';
 
@@ -576,6 +580,9 @@ async function loadExternalPlaylist() {
     if (typeof enableSidebarDragAndDrop === 'function') {
       enableSidebarDragAndDrop();
     }
+     if (typeof attachChannelHoverTooltips === 'function') {
+    attachChannelHoverTooltips();
+  }
 
     // Έλεγχος κατάστασης streams
     checkStreamStatus();
@@ -987,6 +994,88 @@ function enableSidebarDragAndDrop() {
       draggedItem = null;
       // 💾 κάθε φορά που τελειώνει ένα drag, σώζουμε τη νέα σειρά
       saveSidebarOrder();
+    });
+  });
+}
+
+
+/* =========================
+   ===== EPG Tooltips ======
+   ========================= */
+
+// Δημιουργία / επιστροφή μοναδικού tooltip element
+function getOrCreateEpgTooltip() {
+  if (epgTooltipEl) return epgTooltipEl;
+
+  const div = document.createElement('div');
+  div.className = 'epg-tooltip';
+  div.innerHTML = `
+    <div class="epg-tooltip-title"></div>
+    <div class="epg-tooltip-desc"></div>
+  `;
+  document.body.appendChild(div);
+  epgTooltipEl = div;
+  return div;
+}
+
+// Δέσιμο mouse events σε όλα τα .channel-info
+function attachChannelHoverTooltips() {
+  const sidebarList = document.getElementById('sidebar-list');
+  if (!sidebarList) return;
+
+  const items = sidebarList.querySelectorAll('.channel-info');
+
+  items.forEach(info => {
+    // Μην ξαναδέσεις events αν έχουν ήδη δεθεί
+    if (info.dataset.tooltipBound === '1') return;
+    info.dataset.tooltipBound = '1';
+
+    info.addEventListener('mouseenter', (ev) => {
+      const channelId = info.dataset.channelId;
+      if (!channelId) return;
+
+      const tooltip = getOrCreateEpgTooltip();
+      const titleDiv = tooltip.querySelector('.epg-tooltip-title');
+      const descDiv = tooltip.querySelector('.epg-tooltip-desc');
+
+      const prog = getCurrentProgram(channelId);
+      titleDiv.textContent = prog.title || '';
+      descDiv.textContent = prog.description || 'Keine Beschreibung verfügbar';
+
+      // function για να μετακινείται μαζί με το ποντίκι
+      const moveTooltip = (e) => {
+        const offset = 15;
+        tooltip.style.left = (e.clientX + offset) + 'px';
+        tooltip.style.top = (e.clientY + offset) + 'px';
+      };
+
+      // Αρχική θέση
+      moveTooltip(ev);
+      info._epgMoveHandler = moveTooltip;
+      info.addEventListener('mousemove', moveTooltip);
+
+      // Περιμένουμε 3 δευτερόλεπτα πριν εμφανιστεί
+      channelHoverTimer = setTimeout(() => {
+        tooltip.style.display = 'block';
+      }, 3000);
+    });
+
+    info.addEventListener('mouseleave', () => {
+      const tooltip = epgTooltipEl;
+
+      if (channelHoverTimer) {
+        clearTimeout(channelHoverTimer);
+        channelHoverTimer = null;
+      }
+
+      if (tooltip) {
+        tooltip.style.display = 'none';
+      }
+
+      if (info._epgMoveHandler) {
+        info.removeEventListener('mousemove', info._epgMoveHandler);
+        info._epgMoveHandler = null;
+      }
     });
   });
 }
