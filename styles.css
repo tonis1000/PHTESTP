@@ -389,3 +389,22 @@ div.next-program p, div.next-program h4 { margin-top: 0; }
   -ms-transform: rotate(30deg);
   transform: rotate(30deg);
 }
+
+/* Hover effect για Sidebar κανάλια */
+.channel-info:hover {
+  background-color: #505050;
+  border-radius: 4px;
+  transform: scale(1.03);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.35);
+  z-index: 5;
+  position: relative;
+  transition: all 0.18s ease-in-out;
+}
+
+/* Για να μην χαλάει το selected όταν κάνεις hover */
+.channel-info.selected:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 14px rgba(0, 255, 255, 0.65);
+  background-color: #575757;
+}
+
