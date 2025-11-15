@@ -465,6 +465,7 @@ function loadMyPlaylist() {
     .catch(error => console.error('Fehler beim Laden der Playlist:', error));
 }
 
+
 // Εξωτερική my-channels.m3u + channel-streams.json
 async function loadExternalPlaylist() {
   const sidebarList = document.getElementById('sidebar-list');
@@ -492,8 +493,11 @@ async function loadExternalPlaylist() {
         const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
 
         const tvgId = idMatch ? idMatch[1] : null;
-        const name = nameTagMatch ? nameTagMatch[1].trim() :
-                      nameMatch ? nameMatch[1].trim() : 'Unbekannt';
+        const name = nameTagMatch
+          ? nameTagMatch[1].trim()
+          : nameMatch
+          ? nameMatch[1].trim()
+          : 'Unbekannt';
         const group = groupMatch ? groupMatch[1].trim() : '';
         const logo = imgMatch ? imgMatch[1] : 'default_logo.png';
 
@@ -509,7 +513,10 @@ async function loadExternalPlaylist() {
             if (!res.ok) continue;
 
             const text = await res.text();
-            const isValidM3U = text.includes('#EXTM3U') && /(\.ts|chunklist|media)/i.test(text) && !text.includes('404');
+            const isValidM3U =
+              text.includes('#EXTM3U') &&
+              /(\.ts|chunklist|media)/i.test(text) &&
+              !text.includes('404');
 
             if (isValidM3U) {
               finalUrl = url;
@@ -526,12 +533,20 @@ async function loadExternalPlaylist() {
           continue;
         }
 
-        const fallbackBadge = usedIndex > 0 ? `<span style="color: orange; font-size: 0.85em;"> 🔁</span>` : '';
+        const fallbackBadge =
+          usedIndex > 0
+            ? `<span style="color: orange; font-size: 0.85em;"> 🔁</span>`
+            : '';
 
         const programInfo = getCurrentProgram(tvgId);
+
         const listItem = document.createElement('li');
         listItem.innerHTML = `
-          <div class="channel-info" data-stream="${finalUrl}" data-channel-id="${tvgId}" data-group="${group}" data-source="external">
+          <div class="channel-info"
+               data-stream="${finalUrl}"
+               data-channel-id="${tvgId}"
+               data-group="${group}"
+               data-source="external">
             <div class="logo-container">
               <img src="${logo}" alt="${name} Logo">
             </div>
@@ -545,16 +560,32 @@ async function loadExternalPlaylist() {
             </span>
           </div>
         `;
+
+        // 🔑 στοιχεία για αποθήκευση/restore σειράς
+        listItem.dataset.channelId = tvgId || '';
+        listItem.dataset.stream = finalUrl;
+
         sidebarList.appendChild(listItem);
       }
     }
 
+    // 📥 Εφαρμογή αποθηκευμένης σειράς + ενεργοποίηση drag & drop
+    if (typeof applySavedSidebarOrder === 'function') {
+      applySavedSidebarOrder();
+    }
+    if (typeof enableSidebarDragAndDrop === 'function') {
+      enableSidebarDragAndDrop();
+    }
+
+    // Έλεγχος κατάστασης streams
     checkStreamStatus();
   } catch (error) {
     console.error('❌ Σφάλμα φόρτωσης εξωτερικής playlist:', error);
-    sidebarList.innerHTML = '<li style="color:red;">Αποτυχία φόρτωσης λίστας καναλιών.</li>';
+    sidebarList.innerHTML =
+      '<li style="color:red;">Αποτυχία φόρτωσης λίστας καναλιών.</li>';
   }
 }
+
 
 // Sport πρόγραμμα (foothubhd)
 function adjustHourForGermany(timeStr) {
