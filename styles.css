@@ -122,7 +122,7 @@ button:disabled {
 .channel-info.selected {
   background: linear-gradient(90deg,#555,#444);
   border: 2px solid #0ff;
-  border-radius: 8px;
+  border-radius: 3px;
   box-shadow: 0 0 10px #00ffff55;
   transition: all 0.3s ease-in-out;
 }
