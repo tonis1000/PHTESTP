@@ -1057,7 +1057,7 @@ function attachChannelHoverTooltips() {
       // Περιμένουμε 3 δευτερόλεπτα πριν εμφανιστεί
       channelHoverTimer = setTimeout(() => {
         tooltip.style.display = 'block';
-      }, 3000);
+      }, 2000);
     });
 
     info.addEventListener('mouseleave', () => {
