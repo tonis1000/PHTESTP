@@ -1197,6 +1197,9 @@ function updateSidebarFromM3U(data) {
   if (typeof enableSidebarDragAndDrop === 'function') {
     enableSidebarDragAndDrop();
   }
+  if (typeof attachChannelHoverTooltips === 'function') {
+    attachChannelHoverTooltips();
+  }
 
   // Έλεγχος online/marking
   checkStreamStatus();
