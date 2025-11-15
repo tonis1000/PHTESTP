@@ -169,6 +169,12 @@ button:disabled {
 .epg-past   { flex-grow: 1; background-color: #f00; }
 .epg-future { flex-grow: 1; background-color: #0f0; }
 
+/* Drag & Drop στο sidebar */
+#sidebar-list li.dragging {
+  opacity: 0.5;
+  border: 1px dashed #0ff;
+}
+
 /* ---------- Player section ---------- */
 .player-container {
   width: 1000px;
