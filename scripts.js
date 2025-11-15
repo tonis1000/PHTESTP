@@ -8,6 +8,9 @@ const globalStreamCache = {}; // Κεντρική μνήμη για όλα τα 
 let streamPerfMap = {};
 let clapprPlayer = null;
 
+// Αποθήκευση σειράς sidebar στο localStorage
+const SIDEBAR_ORDER_KEY = 'phtestp_sidebar_order_v1';
+
 const CACHE_UPLOAD_URL = 'https://yellow-hulking-guan.glitch.me/upload-cache';
 let lastSentCache = {};
 
@@ -807,6 +810,159 @@ function loadPlaylistUrls() {
 
 
 /* =========================
+   ===== Drag & Drop =======
+   ========================= */
+
+// Global για το στοιχείο που σέρνουμε
+let draggedItem = null;
+
+/**
+ * Αποθήκευση της τρέχουσας σειράς των καναλιών στο localStorage.
+ * Χρησιμοποιούμε συνδυασμό tvg-id (data-channel-id) + stream URL
+ */
+function saveSidebarOrder() {
+  const list = document.getElementById('sidebar-list');
+  if (!list) return;
+
+  const items = list.querySelectorAll('li');
+  const order = [];
+
+  items.forEach(li => {
+    const info = li.querySelector('.channel-info');
+    if (!info) return;
+
+    const id = info.dataset.channelId || '';
+    const stream = info.dataset.stream || '';
+    if (id || stream) {
+      order.push({ id, stream });
+    }
+  });
+
+  try {
+    localStorage.setItem(SIDEBAR_ORDER_KEY, JSON.stringify(order));
+    console.log('💾 Sidebar order gespeichert:', order.length, 'Einträge');
+  } catch (e) {
+    console.warn('⚠️ Konnte Sidebar-Order nicht speichern:', e.message);
+  }
+}
+
+/**
+ * Επαναφορά αποθηκευμένης σειράς καναλιών από το localStorage,
+ * μετά την δημιουργία της λίστας.
+ */
+function applySavedSidebarOrder() {
+  const list = document.getElementById('sidebar-list');
+  if (!list) return;
+
+  const raw = localStorage.getItem(SIDEBAR_ORDER_KEY);
+  if (!raw) return;
+
+  let order;
+  try {
+    order = JSON.parse(raw);
+  } catch (e) {
+    console.warn('⚠️ Ungültige Sidebar-Order in localStorage:', e.message);
+    return;
+  }
+  if (!Array.isArray(order) || order.length === 0) return;
+
+  const allLis = Array.from(list.querySelectorAll('li'));
+  if (allLis.length === 0) return;
+
+  // Map όλων των <li> με βάση (id|stream)
+  const liMap = new Map();
+  allLis.forEach(li => {
+    const info = li.querySelector('.channel-info');
+    if (!info) return;
+    const id = info.dataset.channelId || '';
+    const stream = info.dataset.stream || '';
+    const key = `${id}|${stream}`;
+    liMap.set(key, li);
+  });
+
+  const fragment = document.createDocumentFragment();
+  const used = new Set();
+
+  // Πρώτα, τα αποθηκευμένα
+  order.forEach(entry => {
+    const key = `${entry.id || ''}|${entry.stream || ''}`;
+    const li = liMap.get(key);
+    if (li && !used.has(li)) {
+      fragment.appendChild(li);
+      used.add(li);
+    }
+  });
+
+  // Μετά, ό,τι έμεινε (νέα/άγνωστα κανάλια)
+  allLis.forEach(li => {
+    if (!used.has(li)) {
+      fragment.appendChild(li);
+    }
+  });
+
+  list.innerHTML = '';
+  list.appendChild(fragment);
+
+  console.log('📥 Sidebar order wiederhergestellt');
+}
+
+/**
+ * Ενεργοποίηση drag & drop για όλα τα <li> στο #sidebar-list
+ */
+function enableSidebarDragAndDrop() {
+  const list = document.getElementById('sidebar-list');
+  if (!list) return;
+
+  const items = list.querySelectorAll('li');
+
+  items.forEach(li => {
+    // Μην ξαναβάζεις handlers αν υπάρχουν ήδη
+    if (li.dataset.draggable === '1') return;
+
+    li.dataset.draggable = '1';
+    li.draggable = true;
+
+    li.addEventListener('dragstart', (e) => {
+      draggedItem = li;
+      li.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', '');
+    });
+
+    li.addEventListener('dragover', (e) => {
+      e.preventDefault();           // επιτρέπει το drop
+      e.dataTransfer.dropEffect = 'move';
+      if (!draggedItem || draggedItem === li) return;
+
+      const rect = li.getBoundingClientRect();
+      const offset = e.clientY - rect.top;
+      const halfway = rect.height / 2;
+      const parent = li.parentNode;
+
+      if (offset < halfway) {
+        parent.insertBefore(draggedItem, li);
+      } else {
+        parent.insertBefore(draggedItem, li.nextSibling);
+      }
+    });
+
+    li.addEventListener('drop', (e) => {
+      e.preventDefault();
+      // η μετακίνηση έχει ήδη γίνει στο dragover
+    });
+
+    li.addEventListener('dragend', () => {
+      if (draggedItem) draggedItem.classList.remove('dragging');
+      draggedItem = null;
+      // 💾 κάθε φορά που τελειώνει ένα drag, σώζουμε τη νέα σειρά
+      saveSidebarOrder();
+    });
+  });
+}
+
+
+
+/* =========================
    ======= Rendering =======
    ========================= */
 
@@ -837,7 +993,9 @@ function updateSidebarFromM3U(data) {
       const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
 
       const streamLine = lines[i + 1] || '';
-      const streamURL = streamLine.trim().startsWith('http') ? streamLine.trim() : null;
+      const streamURL = streamLine.trim().startsWith('http')
+        ? streamLine.trim()
+        : null;
 
       if (streamURL) {
         try {
@@ -859,8 +1017,12 @@ function updateSidebarFromM3U(data) {
           if (group) foundGroups.add(group); // 🆕 Προσθήκη group
 
           const listItem = document.createElement('li');
+
           listItem.innerHTML = `
-            <div class="channel-info ${perf.player ? 'cached-stream' : ''}" data-stream="${streamURL}" data-channel-id="${channelId}" data-group="${group}">
+            <div class="channel-info ${perf.player ? 'cached-stream' : ''}"
+                 data-stream="${streamURL}"
+                 data-channel-id="${channelId}"
+                 data-group="${group}">
               <div class="logo-container">
                 <img src="${imgURL}" alt="${name} Logo">
               </div>
@@ -874,9 +1036,17 @@ function updateSidebarFromM3U(data) {
               </span>
             </div>
           `;
+
+          // 🔑 Χρησιμοποιούνται για αποθήκευση/restore σειράς
+          listItem.dataset.channelId = channelId || '';
+          listItem.dataset.stream = streamURL;
+
           sidebarList.appendChild(listItem);
         } catch (error) {
-          console.error(`Fehler beim Abrufen der EPG-Daten für Kanal-ID ${channelId}:`, error);
+          console.error(
+            `Fehler beim Abrufen der EPG-Daten für Kanal-ID ${channelId}:`,
+            error
+          );
         }
       }
     }
@@ -895,12 +1065,23 @@ function updateSidebarFromM3U(data) {
       });
     } else {
       groupSelect.disabled = true;
-      groupSelect.innerHTML = '<option value="__all__">-- Δεν υπάρχουν κατηγορίες --</option>';
+      groupSelect.innerHTML =
+        '<option value="__all__">-- Δεν υπάρχουν κατηγορίες --</option>';
     }
   }
 
+  // 📥 Εφαρμογή αποθηκευμένης σειράς + ενεργοποίηση drag & drop
+  if (typeof applySavedSidebarOrder === 'function') {
+    applySavedSidebarOrder();
+  }
+  if (typeof enableSidebarDragAndDrop === 'function') {
+    enableSidebarDragAndDrop();
+  }
+
+  // Έλεγχος online/marking
   checkStreamStatus();
 }
+
 
 // Έλεγχος online/marking
 function checkStreamStatus() {
