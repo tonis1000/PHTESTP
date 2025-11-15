@@ -120,11 +120,11 @@ button:disabled {
   cursor: pointer;
 }
 .channel-info.selected {
-  background: linear-gradient(90deg,#555,#444);
-  border: 2px solid #0ff;
-  border-radius: 3px;
-  box-shadow: 0 0 10px #00ffff55;
-  transition: all 0.3s ease-in-out;
+  background-color: #555;
+  border: 2px solid #00ffff;
+  border-radius: 4px; /* ελαφρύ για να μην είναι τελείως “κοφτερό” */
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.6); /* εξωτερική λάμψη */
+  transition: all 0.25s ease-in-out;
 }
 
 /* Logo + Όνομα */
