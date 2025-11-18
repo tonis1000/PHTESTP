@@ -1022,21 +1022,31 @@ function getOrCreateEpgTooltip() {
   return div;
 }
 
-// Δέσιμο mouse events σε όλα τα .channel-info
+// Δέσιμο mouse events ΜΟΝΟ στα info-icon (ⓘ) πάνω στο όνομα καναλιού
 function attachChannelHoverTooltips() {
   const sidebarList = document.getElementById('sidebar-list');
   if (!sidebarList) return;
 
-  const items = sidebarList.querySelectorAll('.channel-info');
+  // Βρίσκουμε ΟΛΑ τα ⓘ που μπήκαν μέσα στο sender-name
+  const icons = sidebarList.querySelectorAll('.info-icon');
 
-  items.forEach(info => {
-    // Μην ξαναδέσεις events αν έχουν ήδη δεθεί
-    if (info.dataset.tooltipBound === '1') return;
-    info.dataset.tooltipBound = '1';
+  icons.forEach(icon => {
+    // Μην ξαναδέσεις τα ίδια events αν έχουν ήδη δεθεί
+    if (icon.dataset.tooltipBound === '1') return;
+    icon.dataset.tooltipBound = '1';
 
-    info.addEventListener('mouseenter', (ev) => {
-      const channelId = info.dataset.channelId;
+    icon.addEventListener('mouseenter', (ev) => {
+      const channelInfo = icon.closest('.channel-info');
+      if (!channelInfo) return;
+
+      const channelId = channelInfo.dataset.channelId;
       if (!channelId) return;
+
+      // Αν υπήρχε ήδη timer, καθάρισε τον
+      if (channelHoverTimer) {
+        clearTimeout(channelHoverTimer);
+        channelHoverTimer = null;
+      }
 
       const tooltip = getOrCreateEpgTooltip();
       const titleDiv = tooltip.querySelector('.epg-tooltip-title');
@@ -1046,39 +1056,41 @@ function attachChannelHoverTooltips() {
       titleDiv.textContent = prog.title || '';
       descDiv.textContent = prog.description || 'Keine Beschreibung verfügbar';
 
-      // function για να μετακινείται μαζί με το ποντίκι
+      // Tooltip να ακολουθεί το ποντίκι
       const moveTooltip = (e) => {
         const offset = 15;
         tooltip.style.left = (e.clientX + offset) + 'px';
-        tooltip.style.top = (e.clientY + offset) + 'px';
+        tooltip.style.top  = (e.clientY + offset) + 'px';
       };
 
-      // Αρχική θέση
       moveTooltip(ev);
-      info._epgMoveHandler = moveTooltip;
-      info.addEventListener('mousemove', moveTooltip);
+      icon._epgMoveHandler = moveTooltip;
+      icon.addEventListener('mousemove', moveTooltip);
 
-      // Περιμένουμε 3 δευτερόλεπτα πριν εμφανιστεί
+      // Μετά από 2 δευτερόλεπτα εμφανίζεται
       channelHoverTimer = setTimeout(() => {
         tooltip.style.display = 'block';
       }, 2000);
     });
 
-    info.addEventListener('mouseleave', () => {
+    icon.addEventListener('mouseleave', () => {
       const tooltip = epgTooltipEl;
 
+      // Σταματάμε τον timer
       if (channelHoverTimer) {
         clearTimeout(channelHoverTimer);
         channelHoverTimer = null;
       }
 
+      // Κρύβουμε το tooltip
       if (tooltip) {
         tooltip.style.display = 'none';
       }
 
-      if (info._epgMoveHandler) {
-        info.removeEventListener('mousemove', info._epgMoveHandler);
-        info._epgMoveHandler = null;
+      // Σταματάμε το follow-move
+      if (icon._epgMoveHandler) {
+        icon.removeEventListener('mousemove', icon._epgMoveHandler);
+        icon._epgMoveHandler = null;
       }
     });
   });
