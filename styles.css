@@ -141,8 +141,30 @@ button:disabled {
 .sender-name {
   font-size: 18px;
   color: #fff;
-  width: 70px;
+  min-width: 70px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
 }
+
+/* Μικρό ⓘ πάνω στο όνομα καναλιού */
+.info-icon {
+  display: inline-block;
+  font-size: 13px;
+  margin-left: 6px;
+  color: #00ffff;
+  opacity: 0;                 /* κρυφό όταν δεν έχουμε hover */
+  cursor: pointer;
+  transition: opacity 0.2s ease-in-out;
+  position: relative;
+  top: -1px;                  /* λίγο πιο πάνω, πάνω δεξιά */
+}
+
+/* Εμφανίζεται μόνο όταν περνάει το mouse ΠΑΝΩ από το όνομα */
+.sender-name:hover .info-icon {
+  opacity: 1;
+}
+
 
 /* ---------- EPG Timeline ---------- */
 .epg-channel {
@@ -417,46 +439,22 @@ div.next-program p, div.next-program h4 { margin-top: 0; }
   padding: 10px 12px;
   border-radius: 4px;
   border: 1px solid rgba(0, 255, 255, 0.7);
-  font-size: 15px;
-  line-height: 1.35;
+  font-size: 15px;            /* ⭐ ΠΙΟ ΜΕΓΑΛΑ ΓΡΑΜΜΑΤΑ */
+  line-height: 1.35;          /* ⭐ Καλύτερη απόσταση */
   z-index: 99999;
   pointer-events: none;
   box-shadow: 0 0 14px rgba(0, 255, 255, 0.6);
-
-  /* fade-in settings */
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.25s ease-out, transform 0.25s ease-out;
-
-  visibility: hidden;
+  display: none;
 }
 
 .epg-tooltip-title {
   font-weight: bold;
-  font-size: 16px;
+  font-size: 16px;            /* ⭐ Μεγάλος, καθαρός τίτλος */
   margin-bottom: 6px;
 }
 
 .epg-tooltip-desc {
-  font-size: 14px;
+  font-size: 14px;            /* ⭐ Λίγο μεγαλύτερη περιγραφή */
   white-space: normal;
-}
-
-/* ===== INFO ICON πάνω στο όνομα καναλιού ===== */
-.info-icon {
-  display: inline-block;
-  font-size: 13px;
-  margin-left: 6px;
-  color: #00ffff;
-  opacity: 0;                 /* κρυφό από default */
-  cursor: pointer;
-  transition: opacity 0.2s ease-in-out;
-  position: relative;
-  top: -1px;
-}
-
-/* Το ⓘ εμφανίζεται μόνο όταν το mouse είναι πάνω στο όνομα */
-.sender-name:hover .info-icon {
-  opacity: 1;
 }
 
