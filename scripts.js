@@ -554,14 +554,18 @@ async function loadExternalPlaylist() {
             <div class="logo-container">
               <img src="${logo}" alt="${name} Logo">
             </div>
-            <span class="sender-name">${name}${fallbackBadge}</span>
-            <span class="epg-channel">
-              <span>${programInfo.title}</span>
-              <div class="epg-timeline">
-                <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
-                <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
-              </div>
-            </span>
+            <span class="sender-name">
+  ${name}${fallbackBadge}
+  <span class="info-icon">ⓘ</span>
+</span>
+<span class="epg-channel">
+  <span>${programInfo.title}</span>
+  <div class="epg-timeline">
+    <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+    <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+  </div>
+</span>
+
           </div>
         `;
 
@@ -1146,14 +1150,18 @@ function updateSidebarFromM3U(data) {
               <div class="logo-container">
                 <img src="${imgURL}" alt="${name} Logo">
               </div>
-              <span class="sender-name">${name}${playerBadge}</span>
-              <span class="epg-channel">
-                <span>${programInfo.title}</span>
-                <div class="epg-timeline">
-                  <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
-                  <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
-                </div>
-              </span>
+              <span class="sender-name">
+  ${name}${playerBadge}
+  <span class="info-icon">ⓘ</span>
+</span>
+<span class="epg-channel">
+  <span>${programInfo.title}</span>
+  <div class="epg-timeline">
+    <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+    <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+  </div>
+</span>
+
             </div>
           `;
 
