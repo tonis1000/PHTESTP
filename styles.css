@@ -441,3 +441,22 @@ div.next-program p, div.next-program h4 { margin-top: 0; }
   font-size: 14px;
   white-space: normal;
 }
+
+/* ===== INFO ICON πάνω στο όνομα καναλιού ===== */
+.info-icon {
+  display: inline-block;
+  font-size: 13px;
+  margin-left: 6px;
+  color: #00ffff;
+  opacity: 0;                 /* κρυφό από default */
+  cursor: pointer;
+  transition: opacity 0.2s ease-in-out;
+  position: relative;
+  top: -1px;
+}
+
+/* Το ⓘ εμφανίζεται μόνο όταν το mouse είναι πάνω στο όνομα */
+.sender-name:hover .info-icon {
+  opacity: 1;
+}
+
