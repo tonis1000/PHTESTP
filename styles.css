@@ -138,31 +138,32 @@ button:disabled {
   width: 100%;
   object-fit: cover;
 }
+
 .sender-name {
   font-size: 18px;
   color: #fff;
-  min-width: 70px;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
+  width: 70px;                /* ✔ ίδιο με πριν */
+  position: relative;         /* ✔ για το info-icon */
+  display: inline-block;
+  line-height: 1.2;
+  word-wrap: break-word;      /* ✔ ώστε τα μεγάλα ονόματα να πάνε 2 γραμμές */
 }
+
 
 /* Μικρό ⓘ πάνω στο όνομα καναλιού */
 .info-icon {
-  display: inline-block;
+  position: absolute;
+  top: 0;                     /* ✔ πάνω */
+  right: -12px;               /* ✔ δεξιά, ΧΩΡΙΣ να μεγαλώνει το box */
   font-size: 13px;
-  margin-left: 6px;
   color: #00ffff;
-  opacity: 0;                 /* κρυφό όταν δεν έχουμε hover */
-  cursor: pointer;
+  opacity: 0;
   transition: opacity 0.2s ease-in-out;
-  position: relative;
-  top: -1px;                  /* λίγο πιο πάνω, πάνω δεξιά */
+  cursor: pointer;
 }
 
-/* Εμφανίζεται μόνο όταν περνάει το mouse ΠΑΝΩ από το όνομα */
 .sender-name:hover .info-icon {
-  opacity: 1;
+  opacity: 1;                 /* ✔ εμφανίζεται μόνο στο hover του ονόματος */
 }
 
 
