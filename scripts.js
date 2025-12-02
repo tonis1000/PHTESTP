@@ -1843,7 +1843,22 @@ document.addEventListener('DOMContentLoaded', function () {
       const source = channelInfo.dataset.source || 'default';
       const programInfo = getCurrentProgram(channelId);
 
-      setCurrentChannel(channelInfo.querySelector('.sender-name').textContent, streamURL);
+      // 🔹 ΠΑΙΡΝΟΥΜΕ ΜΟΝΟ ΤΟ ΚΑΘΑΡΟ ΟΝΟΜΑ, ΧΩΡΙΣ ⓘ
+      const senderNameEl = channelInfo.querySelector('.sender-name');
+      let channelNameText = '';
+
+      if (senderNameEl) {
+        const firstNode = senderNameEl.firstChild;
+        if (firstNode && firstNode.nodeType === Node.TEXT_NODE) {
+          // Μόνο το κείμενο πριν από το info-icon
+          channelNameText = firstNode.textContent.trim();
+        } else {
+          // Fallback: βγάζουμε τυχόν ⓘ από το textContent
+          channelNameText = senderNameEl.textContent.replace('ⓘ', '').trim();
+        }
+      }
+
+      setCurrentChannel(channelNameText, streamURL);
 
       if (source === 'external') {
         playStreamByTvgId(channelId);
@@ -1861,6 +1876,7 @@ document.addEventListener('DOMContentLoaded', function () {
       refreshEpgTimelines(); // ✅ άμεση ενημέρωση των timeline bars
     }
   });
+
 
   setInterval(checkStreamStatus, 60000);
 
