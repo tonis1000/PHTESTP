@@ -272,7 +272,7 @@ let epgData = {};
 
 // === EPG loader με fallback ===
 function loadEPGData() {
-  const epgUrl = 'https://ext.greektv.app/epg/epg.xml';
+  const epgUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://ext.greektv.app/epg/epg.xml');
   fetchTextWithCorsFallback(epgUrl)
     .then(data => {
       const parser = new DOMParser();
