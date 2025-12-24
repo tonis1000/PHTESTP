@@ -22,14 +22,13 @@ let lastSentCache = {};
 const DEBUG = false;
 const log = (...args) => { if (DEBUG) console.log(...args); };
 
-// scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
+// === Proxy list (σειρά προτεραιότητας) ===
 const proxyList = [
-  "", // ➔ Πρώτα δοκιμάζουμε direct χωρίς proxy
-  'https://corsproxy.io/?',
-  'https://api.codetabs.com/v1/proxy/?quest=',
-  'https://proxy.cors.sh/',
-  'https://thingproxy.freeboard.io/fetch/',
-  'https://api.allorigins.win/raw?url=',
+  "", // 1️⃣ direct (χωρίς proxy)
+  'https://api.allorigins.win/raw?url=',           // 2️⃣ σταθερός για XML
+  'https://api.codetabs.com/v1/proxy/?quest=',     // 3️⃣ συχνά δουλεύει
+  'https://thingproxy.freeboard.io/fetch/',        // 4️⃣ backup
+  'https://corsproxy.io/?',                        // 5️⃣ τελευταίο (συχνά 403)
 ];
 
 
@@ -39,29 +38,55 @@ const proxyList = [
 
 // === Helper: Fetch text με CORS fallback ===
 async function fetchTextWithCorsFallback(url, init = {}) {
-  // 1) Δοκιμάζει direct
+
+  // 🟢 1) ΠΡΩΤΑ direct (όπως πριν – δεν χαλάμε streams)
   try {
     const r = await fetch(url, init);
-    const t = await r.text(); // εδώ θα αποτύχει αν υπάρχει CORS block
+    const t = await r.text();
     if (r.ok) return t;
-  } catch (_) { /* συνεχίζουμε σε proxies */ }
+  } catch (_) {
+    // CORS ή network error → συνεχίζουμε
+  }
 
-  // 2) Δοκιμάζει όλους τους proxies στη σειρά
+  // 🟡 2) Proxies με σειρά, ΧΩΡΙΣ double-proxy
   for (const proxy of proxyList) {
-    if (!proxy) continue; // direct έγινε ήδη
-    const proxiedUrl = (proxy.endsWith('=') || proxy.endsWith('?'))
-      ? proxy + encodeURIComponent(url)
-      : proxy + url;
+
+    // skip direct (το δοκιμάσαμε ήδη)
+    if (!proxy) continue;
+
+    // 🚫 ΜΗΝ κάνεις proxy αν το url είναι ήδη proxied
+    if (
+      url.startsWith('https://corsproxy.io/?') ||
+      url.startsWith('https://api.allorigins.win/raw?url=') ||
+      url.startsWith('https://api.codetabs.com/v1/proxy/?quest=') ||
+      url.startsWith('https://thingproxy.freeboard.io/fetch/')
+    ) {
+      continue;
+    }
+
+    const proxiedUrl =
+      proxy.endsWith('=') || proxy.endsWith('?')
+        ? proxy + encodeURIComponent(url)
+        : proxy + url;
+
     try {
       const r = await fetch(proxiedUrl, init);
+      if (!r.ok) continue;
+
       const t = await r.text();
-      if (r.ok) return t;
-    } catch (_) { /* πάμε επόμενο proxy */ }
+
+      // ❌ αν proxy γυρίσει JSON error, το αγνοούμε
+      const ct = r.headers.get('content-type') || '';
+      if (ct.includes('application/json') && t.includes('error')) continue;
+
+      return t;
+    } catch (_) {
+      // δοκίμασε τον επόμενο proxy
+    }
   }
 
   throw new Error('CORS fallback exhausted for: ' + url);
 }
-
 
 // Τύποι/ανιχνεύσεις/καθαρισμοί URL
 function cleanProxyFromUrl(url) {
