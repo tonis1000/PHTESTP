@@ -24,14 +24,12 @@ const log = (...args) => { if (DEBUG) console.log(...args); };
 
 // scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
 const proxyList = [
-  "", // ➔ Πρώτα δοκιμάζουμε direct χωρίς proxy
   'https://corsproxy.io/?',
   'https://api.codetabs.com/v1/proxy/?quest=',
   'https://proxy.cors.sh/',
   'https://thingproxy.freeboard.io/fetch/',
   'https://api.allorigins.win/raw?url=',
 ];
-
 
 /* =========================
    ======== Helpers ========
