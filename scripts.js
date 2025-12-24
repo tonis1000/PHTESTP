@@ -39,30 +39,28 @@ const proxyList = [
 // === Helper: Fetch text με CORS fallback ===
 async function fetchTextWithCorsFallback(url, init = {}) {
 
-  // 🟢 1) ΠΡΩΤΑ direct (όπως πριν – δεν χαλάμε streams)
-  try {
-    const r = await fetch(url, init);
-    const t = await r.text();
-    if (r.ok) return t;
-  } catch (_) {
-    // CORS ή network error → συνεχίζουμε
+  const forceProxy = init.forceProxy === true;
+
+  // 🟢 1) direct ΜΟΝΟ αν δεν είναι forced
+  if (!forceProxy) {
+    try {
+      const r = await fetch(url);
+      const t = await r.text();
+      if (r.ok) return t;
+    } catch (_) {}
   }
 
-  // 🟡 2) Proxies με σειρά, ΧΩΡΙΣ double-proxy
+  // 🟡 2) proxies
   for (const proxy of proxyList) {
-
-    // skip direct (το δοκιμάσαμε ήδη)
     if (!proxy) continue;
 
-    // 🚫 ΜΗΝ κάνεις proxy αν το url είναι ήδη proxied
+    // μην κάνεις double-proxy
     if (
-      url.startsWith('https://corsproxy.io/?') ||
-      url.startsWith('https://api.allorigins.win/raw?url=') ||
-      url.startsWith('https://api.codetabs.com/v1/proxy/?quest=') ||
-      url.startsWith('https://thingproxy.freeboard.io/fetch/')
-    ) {
-      continue;
-    }
+      url.startsWith('https://api.allorigins.win/') ||
+      url.startsWith('https://api.codetabs.com/') ||
+      url.startsWith('https://thingproxy.freeboard.io/') ||
+      url.startsWith('https://corsproxy.io/')
+    ) continue;
 
     const proxiedUrl =
       proxy.endsWith('=') || proxy.endsWith('?')
@@ -70,22 +68,14 @@ async function fetchTextWithCorsFallback(url, init = {}) {
         : proxy + url;
 
     try {
-      const r = await fetch(proxiedUrl, init);
+      const r = await fetch(proxiedUrl);
       if (!r.ok) continue;
-
       const t = await r.text();
-
-      // ❌ αν proxy γυρίσει JSON error, το αγνοούμε
-      const ct = r.headers.get('content-type') || '';
-      if (ct.includes('application/json') && t.includes('error')) continue;
-
       return t;
-    } catch (_) {
-      // δοκίμασε τον επόμενο proxy
-    }
+    } catch (_) {}
   }
 
-  throw new Error('CORS fallback exhausted for: ' + url);
+  throw new Error('EPG load failed (all proxies)');
 }
 
 // Τύποι/ανιχνεύσεις/καθαρισμοί URL
