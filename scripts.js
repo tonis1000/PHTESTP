@@ -300,7 +300,7 @@ let epgData = {};
 // === EPG loader με fallback ===
 function loadEPGData() {
   const epgUrl = 'https://ext.greektv.app/epg/epg.xml';
-  fetchTextWithCorsFallback(epgUrl)
+  fetchTextWithCorsFallback(epgUrl, { forceProxy: true })
     .then(data => {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data, "application/xml");
