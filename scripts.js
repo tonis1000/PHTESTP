@@ -36,28 +36,42 @@ const proxyList = [
    ========================= */
 
 // === Helper: Fetch text με CORS fallback ===
-async function fetchTextWithCorsFallback(url, init = {}) {
-  // 1) Δοκιμάζει direct
-  try {
-    const r = await fetch(url, init);
-    const t = await r.text(); // εδώ θα αποτύχει αν υπάρχει CORS block
-    if (r.ok) return t;
-  } catch (_) { /* συνεχίζουμε σε proxies */ }
+async function fetchTextWithCorsFallback(url, init = {}, options = {}) {
+  const { skipDirect = false } = options;
 
-  // 2) Δοκιμάζει όλους τους proxies στη σειρά
-  for (const proxy of proxyList) {
-    if (!proxy) continue; // direct έγινε ήδη
-    const proxiedUrl = (proxy.endsWith('=') || proxy.endsWith('?'))
-      ? proxy + encodeURIComponent(url)
-      : proxy + url;
+  // 1) Direct μόνο αν ΔΕΝ ζητήθηκε skip
+  if (!skipDirect) {
     try {
-      const r = await fetch(proxiedUrl, init);
-      const t = await r.text();
-      if (r.ok) return t;
-    } catch (_) { /* πάμε επόμενο proxy */ }
+      const r = await fetch(url, init);
+      if (r.ok) return await r.text();
+    } catch (e) {
+      // συνεχίζουμε σε proxy
+    }
   }
 
-  throw new Error('CORS fallback exhausted for: ' + url);
+  // 2) Proxies
+  for (const proxy of proxyList) {
+    try {
+      // Αν το URL είναι ήδη proxied, μην το ξανα-proxy-άρεις
+      const proxiedUrl = url.startsWith('http') ? proxy + encodeURIComponent(url) : url;
+
+      const r = await fetch(proxiedUrl, init);
+      if (!r.ok) continue;
+
+      const txt = await r.text();
+
+      // Αν ο proxy γυρίζει JSON error, το απορρίπτουμε
+      if ((r.headers.get('content-type') || '').includes('application/json') && txt.includes('error')) {
+        continue;
+      }
+
+      return txt;
+    } catch (e) {
+      // δοκίμασε τον επόμενο proxy
+    }
+  }
+
+  throw new Error('All CORS fallbacks failed');
 }
 
 
