@@ -24,11 +24,11 @@ const log = (...args) => { if (DEBUG) console.log(...args); };
 
 // scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
 const proxyList = [
-  'https://corsproxy.io/?',
-  'https://api.codetabs.com/v1/proxy/?quest=',
-  'https://proxy.cors.sh/',
-  'https://thingproxy.freeboard.io/fetch/',
   'https://api.allorigins.win/raw?url=',
+  'https://api.codetabs.com/v1/proxy/?quest=',
+  'https://thingproxy.freeboard.io/fetch/',
+  // βγάλε ή άσε τελευταίο το corsproxy.io αφού σου δίνει 403
+  'https://corsproxy.io/?'
 ];
 
 /* =========================
@@ -272,8 +272,8 @@ let epgData = {};
 
 // === EPG loader με fallback ===
 function loadEPGData() {
-  const epgUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://ext.greektv.app/epg/epg.xml');
-  fetchTextWithCorsFallback(epgUrl)
+  const epgUrl = 'https://ext.greektv.app/epg/epg.xml';
+  fetchTextWithCorsFallback(epgUrl, {}, { skipDirect: true })
     .then(data => {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data, "application/xml");
