@@ -24,54 +24,42 @@ const log = (...args) => { if (DEBUG) console.log(...args); };
 
 // scripts.js – Ανανεωμένη έκδοση με γρηγορότερη ανίχνευση και Proxy fallback
 const proxyList = [
-  'https://api.allorigins.win/raw?url=',
+  "", // ➔ Πρώτα δοκιμάζουμε direct χωρίς proxy
+  'https://corsproxy.io/?',
   'https://api.codetabs.com/v1/proxy/?quest=',
+  'https://proxy.cors.sh/',
   'https://thingproxy.freeboard.io/fetch/',
-  // βγάλε ή άσε τελευταίο το corsproxy.io αφού σου δίνει 403
-  'https://corsproxy.io/?'
+  'https://api.allorigins.win/raw?url=',
 ];
+
 
 /* =========================
    ======== Helpers ========
    ========================= */
 
 // === Helper: Fetch text με CORS fallback ===
-async function fetchTextWithCorsFallback(url, init = {}, options = {}) {
-  const { skipDirect = false } = options;
+async function fetchTextWithCorsFallback(url, init = {}) {
+  // 1) Δοκιμάζει direct
+  try {
+    const r = await fetch(url, init);
+    const t = await r.text(); // εδώ θα αποτύχει αν υπάρχει CORS block
+    if (r.ok) return t;
+  } catch (_) { /* συνεχίζουμε σε proxies */ }
 
-  // 1) Direct μόνο αν ΔΕΝ ζητήθηκε skip
-  if (!skipDirect) {
-    try {
-      const r = await fetch(url, init);
-      if (r.ok) return await r.text();
-    } catch (e) {
-      // συνεχίζουμε σε proxy
-    }
-  }
-
-  // 2) Proxies
+  // 2) Δοκιμάζει όλους τους proxies στη σειρά
   for (const proxy of proxyList) {
+    if (!proxy) continue; // direct έγινε ήδη
+    const proxiedUrl = (proxy.endsWith('=') || proxy.endsWith('?'))
+      ? proxy + encodeURIComponent(url)
+      : proxy + url;
     try {
-      // Αν το URL είναι ήδη proxied, μην το ξανα-proxy-άρεις
-      const proxiedUrl = url.startsWith('http') ? proxy + encodeURIComponent(url) : url;
-
       const r = await fetch(proxiedUrl, init);
-      if (!r.ok) continue;
-
-      const txt = await r.text();
-
-      // Αν ο proxy γυρίζει JSON error, το απορρίπτουμε
-      if ((r.headers.get('content-type') || '').includes('application/json') && txt.includes('error')) {
-        continue;
-      }
-
-      return txt;
-    } catch (e) {
-      // δοκίμασε τον επόμενο proxy
-    }
+      const t = await r.text();
+      if (r.ok) return t;
+    } catch (_) { /* πάμε επόμενο proxy */ }
   }
 
-  throw new Error('All CORS fallbacks failed');
+  throw new Error('CORS fallback exhausted for: ' + url);
 }
 
 
@@ -287,7 +275,7 @@ let epgData = {};
 // === EPG loader με fallback ===
 function loadEPGData() {
   const epgUrl = 'https://ext.greektv.app/epg/epg.xml';
-  fetchTextWithCorsFallback(epgUrl, {}, { skipDirect: true })
+  fetchTextWithCorsFallback(epgUrl)
     .then(data => {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data, "application/xml");
