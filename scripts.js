@@ -25,8 +25,8 @@ const log = (...args) => { if (DEBUG) console.log(...args); };
 // === Proxy list (σειρά προτεραιότητας) ===
 const proxyList = [
   "", // 1️⃣ direct (χωρίς proxy)
-  'https://api.allorigins.win/raw?url=',           // 2️⃣ σταθερός για XML
   'https://api.codetabs.com/v1/proxy/?quest=',     // 3️⃣ συχνά δουλεύει
+  'https://api.allorigins.win/raw?url=',           // 2️⃣ σταθερός για XML
   'https://thingproxy.freeboard.io/fetch/',        // 4️⃣ backup
   'https://corsproxy.io/?',                        // 5️⃣ τελευταίο (συχνά 403)
 ];
