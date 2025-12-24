@@ -289,7 +289,7 @@ let epgData = {};
 
 // === EPG loader με fallback ===
 function loadEPGData() {
-  const epgUrl = 'https://ext.greektv.app/epg/epg.xml';
+  const epgUrl = 'https://raw.githubusercontent.com/Greek-IPTV/epg/master/epg.xml';
   fetchTextWithCorsFallback(epgUrl, { forceProxy: true })
     .then(data => {
       const parser = new DOMParser();
