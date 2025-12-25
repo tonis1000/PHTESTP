@@ -625,36 +625,35 @@ function epgCacheLoad() {
 // Public API: load EPG (same name as before)
 // --------------------------
 function loadEPGData() {
-const epgUrl = 'https://epg-proxy-gr.atonis.workers.dev/epg.xml';
+  const epgUrl = 'https://epg-proxy-gr.atonis.workers.dev/epg.xml';
 
   // 1) try cache first (instant UI)
   const cached = epgCacheLoad();
   if (cached) {
     epgData = cached;
     EPGEngine.setFromLegacy(epgData);
-    // Προαιρετικό: άμεσο refresh αν ήδη υπάρχουν κανάλια
+
     setTimeout(() => {
       try { refreshEpgTimelines(); } catch (_) {}
     }, 300);
   }
 
   // 2) fetch fresh (update cache + state)
-  fetchTextWithCorsFallback(epgUrl, { forceProxy: true })
+  fetchTextWithCorsFallback(epgUrl)
     .then(xmlText => {
-      const parsed = EPGEngine.parseXmlTv(xmlText);
-      epgData = EPGEngine.dumpLegacy();
+      EPGEngine.parseXmlTv(xmlText);      // γεμίζει engine
+      epgData = EPGEngine.dumpLegacy();   // legacy format για cache/UI
       epgCacheSave(epgData);
 
-      // ενημέρωσε UI
       setTimeout(() => {
         try { refreshEpgTimelines(); } catch (_) {}
       }, 200);
     })
     .catch(error => {
       console.error('Fehler beim Laden der EPG-Daten:', error);
-      // Αν δεν έχουμε cache, θα φαίνεται "Keine EPG-Daten verfügbar"
     });
 }
+
 
 // --------------------------
 // Public API: current program (same signature/return as before)
