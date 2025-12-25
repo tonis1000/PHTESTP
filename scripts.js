@@ -615,7 +615,7 @@ function epgCacheLoad() {
 // Public API: load EPG (same name as before)
 // --------------------------
 function loadEPGData() {
-  const epgUrl = 'https://ext.greektv.app/epg/epg.xml';
+const epgUrl = 'https://epg-proxy-gr.atonis.workers.dev/epg.xml';
 
   // 1) try cache first (instant UI)
   const cached = epgCacheLoad();
