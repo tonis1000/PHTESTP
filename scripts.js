@@ -849,16 +849,28 @@ async function loadExternalPlaylist() {
         const groupMatch = lines[i].match(/group-title="([^"]+)"/);
         const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
 
-        const tvgId = idMatch ? idMatch[1] : null;
-        const name = nameTagMatch
-          ? nameTagMatch[1].trim()
-          : nameMatch
-          ? nameMatch[1].trim()
-          : 'Unbekannt';
-        const group = groupMatch ? groupMatch[1].trim() : '';
-        const logo = imgMatch ? imgMatch[1] : 'default_logo.png';
+// Για streamMap χρειάζεται tvg-id (όπως πριν)
+const tvgId = idMatch ? idMatch[1].trim() : null;
 
-        if (!tvgId || !streamMap[tvgId]) continue;
+// Για EPG επιτρέπουμε tvg-name fallback
+const channelId =
+  (tvgId || '') ||
+  (nameTagMatch && nameTagMatch[1] ? nameTagMatch[1].trim() : '') ||
+  (nameMatch && nameMatch[1] ? nameMatch[1].trim() : '') ||
+  null;
+
+const name = nameTagMatch
+  ? nameTagMatch[1].trim()
+  : nameMatch
+  ? nameMatch[1].trim()
+  : 'Unbekannt';
+
+const group = groupMatch ? groupMatch[1].trim() : '';
+const logo = imgMatch ? imgMatch[1] : 'default_logo.png';
+
+// Streaming mapping: Θέλει tvgId
+if (!tvgId || !streamMap[tvgId]) continue;
+
 
         let finalUrl = null;
         let usedIndex = -1;
