@@ -907,7 +907,7 @@ if (!tvgId || !streamMap[tvgId]) continue;
             ? `<span style="color: orange; font-size: 0.85em;"> 🔁</span>`
             : '';
 
-        const programInfo = getCurrentProgram(tvgId);
+        const programInfo = getCurrentProgram(channelId);
 
         const listItem = document.createElement('li');
         listItem.innerHTML = `
