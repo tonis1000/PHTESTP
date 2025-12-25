@@ -36,18 +36,67 @@ const proxyList = [
    ======== Helpers ========
    ========================= */
 
-// === Helper: Fetch text με CORS fallback ===
+// === Helper: Fetch text με CORS fallback (EPG-safe) ===
 async function fetchTextWithCorsFallback(url, init = {}) {
-
   const forceProxy = init.forceProxy === true;
+  const timeoutMs = init.timeoutMs ?? 15000;
+
+  // --------------- helpers ---------------
+  const isLikelyXmlTv = (text) => {
+    if (!text) return false;
+    const t = text.trim().slice(0, 6000).toLowerCase();
+
+    // Αν μυρίζει HTML (συχνά GitHub Pages / error pages) -> reject
+    if (
+      t.startsWith('<!doctype html') ||
+      t.startsWith('<html') ||
+      t.includes('<head') ||
+      t.includes('<body')
+    ) return false;
+
+    // XMLTV usually contains <tv> root and <channel>/<programme>
+    return t.includes('<tv') && (t.includes('<channel') || t.includes('<programme'));
+  };
+
+  const fetchWithTimeout = async (u) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const r = await fetch(u, { signal: controller.signal });
+      const text = await r.text();
+      return { ok: r.ok, status: r.status, text };
+    } finally {
+      clearTimeout(id);
+    }
+  };
+
+  const tryOne = async (label, u, validateXml = false) => {
+    try {
+      const res = await fetchWithTimeout(u);
+
+      if (!res.ok) {
+        console.warn(`[EPG] ${label} HTTP ${res.status} -> skip`);
+        return null;
+      }
+
+      if (validateXml && !isLikelyXmlTv(res.text)) {
+        console.warn(`[EPG] ${label} returned NON-XMLTV (likely HTML) -> skip`);
+        console.debug(`[EPG] ${label} preview:`, res.text.trim().slice(0, 120));
+        return null;
+      }
+
+      console.log(`[EPG] ${label} OK`);
+      return res.text;
+    } catch (e) {
+      console.warn(`[EPG] ${label} error -> skip`, e?.message || e);
+      return null;
+    }
+  };
 
   // 🟢 1) direct ΜΟΝΟ αν δεν είναι forced
   if (!forceProxy) {
-    try {
-      const r = await fetch(url);
-      const t = await r.text();
-      if (r.ok) return t;
-    } catch (_) {}
+    const direct = await tryOne('direct', url, true); // validate XMLTV
+    if (direct) return direct;
   }
 
   // 🟡 2) proxies
@@ -63,20 +112,17 @@ async function fetchTextWithCorsFallback(url, init = {}) {
     ) continue;
 
     const proxiedUrl =
-      proxy.endsWith('=') || proxy.endsWith('?')
+      proxy.endsWith('=') || proxy.endsWith('?') || proxy.includes('allorigins.win/raw?url=')
         ? proxy + encodeURIComponent(url)
         : proxy + url;
 
-    try {
-      const r = await fetch(proxiedUrl);
-      if (!r.ok) continue;
-      const t = await r.text();
-      return t;
-    } catch (_) {}
+    const out = await tryOne(`proxy:${proxy}`, proxiedUrl, true); // validate XMLTV
+    if (out) return out;
   }
 
-  throw new Error('EPG load failed (all proxies)');
+  throw new Error('EPG load failed (all proxies returned non-XMLTV or failed)');
 }
+
 
 // Τύποι/ανιχνεύσεις/καθαρισμοί URL
 function cleanProxyFromUrl(url) {
