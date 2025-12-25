@@ -1472,14 +1472,22 @@ function updateSidebarFromM3U(data) {
       const groupMatch = lines[i].match(/group-title="([^"]+)"/);
       const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
 
-      const channelId = idMatch ? idMatch[1] : null;
-      const name = nameTagMatch
-        ? nameTagMatch[1].trim()
-        : nameMatch
-        ? nameMatch[1].trim()
-        : 'Unbekannt';
-      const group = groupMatch ? groupMatch[1].trim() : '';
-      const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
+// ✅ tvg-id -> tvg-name -> display name (για EPG matching)
+const channelId =
+  (idMatch && idMatch[1] ? idMatch[1].trim() : '') ||
+  (nameTagMatch && nameTagMatch[1] ? nameTagMatch[1].trim() : '') ||
+  (nameMatch && nameMatch[1] ? nameMatch[1].trim() : '') ||
+  null;
+
+const name = nameTagMatch
+  ? nameTagMatch[1].trim()
+  : nameMatch
+  ? nameMatch[1].trim()
+  : 'Unbekannt';
+
+const group = groupMatch ? groupMatch[1].trim() : '';
+const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
+
 
       const streamLine = lines[i + 1] || '';
       const streamURL = streamLine.trim().startsWith('http')
