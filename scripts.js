@@ -336,6 +336,24 @@ async function findWorkingUrl(initialURL) {
 }
 
 
+function getAttr(extinfLine, attr) {
+  const m = extinfLine.match(new RegExp(`${attr}="([^"]*)"`, 'i'));
+  return m ? m[1].trim() : '';
+}
+
+// tvg-id -> tvg-name -> display-name (μετά το κόμμα)
+function getEpgKey(extinfLine) {
+  const tvgId = getAttr(extinfLine, 'tvg-id');
+  const tvgName = getAttr(extinfLine, 'tvg-name');
+
+  // όνομα μετά το κόμμα: #EXTINF...,CHANNEL NAME
+  const namePart = (extinfLine.split(',').slice(1).join(',') || '').trim();
+
+  const key = (tvgId || tvgName || namePart || '').trim();
+  return key ? key.toLowerCase() : '';
+}
+
+
 /* =========================
    ========== EPG ==========
    ========================= */
