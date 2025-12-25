@@ -913,7 +913,7 @@ if (!tvgId || !streamMap[tvgId]) continue;
         listItem.innerHTML = `
           <div class="channel-info"
                data-stream="${finalUrl}"
-               data-channel-id="${tvgId}"
+               data-channel-id="${channelId}"
                data-group="${group}"
                data-source="external">
             <div class="logo-container">
