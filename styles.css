@@ -465,8 +465,8 @@ div.next-program p, div.next-program h4 { margin-top: 0; }
 
 /* 1) Σταθερό “κουτί” sidebar (προαιρετικά βάλε ό,τι πλάτος θες) */
 .sidebar {
-  width: 360px;        /* διάλεξε π.χ. 340–400px */
-  max-width: 360px;
+  width: 390px;        /* διάλεξε π.χ. 340–400px */
+  max-width: 390px;
 }
 
 /* 2) Πολύ σημαντικό για flex: να ΜΗΝ μεγαλώνει οριζόντια λόγω κειμένου */
