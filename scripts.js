@@ -935,7 +935,7 @@ if (!tvgId || !streamMap[tvgId]) continue;
         `;
 
         // 🔑 στοιχεία για αποθήκευση/restore σειράς
-        listItem.dataset.channelId = tvgId || '';
+        listItem.dataset.channelId = channelId || '';
         listItem.dataset.stream = finalUrl;
 
         sidebarList.appendChild(listItem);
