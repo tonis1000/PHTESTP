@@ -284,110 +284,375 @@ async function findWorkingUrl(initialURL) {
    ========== EPG ==========
    ========================= */
 
-// Globales Objekt für EPG-Daten
+/**
+ * Επαγγελματικό EPG Engine (Browser-first)
+ * - Robust parsing σε διαφορετικές παραλλαγές XMLTV timestamps
+ * - Channel ID resolver (tvg-id ↔ xml channel id / display-name) με normalization
+ * - Indexing για γρήγορο getCurrent/getNext
+ * - Lightweight cache (localStorage) με TTL
+ *
+ * Δεν αλλάζει το public API που χρησιμοποιεί το UI:
+ * - loadEPGData()
+ * - getCurrentProgram(channelId)
+ * - updateNextPrograms(channelId)
+ * - refreshEpgTimelines()
+ */
+
+const EPG_CACHE_KEY = 'phtestp_epg_cache_v1';
+const EPG_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 ώρες
+
+// Global EPG store (κρατάμε το ίδιο όνομα για συμβατότητα με τον υπάρχοντα κώδικα)
 let epgData = {};
 
-// === EPG loader με fallback ===
+// --------------------------
+// Utils: normalization
+// --------------------------
+function epgNormalizeId(s) {
+  return (s || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')          // remove spaces
+    .replace(/&amp;/g, '&')
+    .replace(/[|]/g, '')          // remove separators
+    .replace(/[^\p{L}\p{N}._:-]/gu, ''); // keep letters/numbers + safe symbols
+}
+
+// --------------------------
+// Utils: robust XMLTV time parsing
+// Accepts e.g.
+//  - "20251225183000 +0200"
+//  - "20251225183000+0200"
+//  - "20251225183000 +02:00"
+//  - "20251225183000Z"
+//  - "20251225183000" (assume UTC if missing tz)
+// --------------------------
+function parseDateTimeFlexible(epgTime) {
+  if (!epgTime) return null;
+
+  const raw = epgTime.toString().trim();
+  // Basic date part: YYYYMMDDhhmmss
+  const m = raw.match(/^(\d{14})(?:\s*([+-]\d{2}:?\d{2}|Z))?$/i);
+  if (!m) {
+    console.warn('Ungültige EPG-Zeitangabe (unmatched):', raw);
+    return null;
+  }
+
+  const dt = m[1];
+  const tz = (m[2] || '').toUpperCase();
+
+  const year = parseInt(dt.slice(0, 4), 10);
+  const month = parseInt(dt.slice(4, 6), 10) - 1;
+  const day = parseInt(dt.slice(6, 8), 10);
+  const hour = parseInt(dt.slice(8, 10), 10);
+  const minute = parseInt(dt.slice(10, 12), 10);
+  const second = parseInt(dt.slice(12, 14), 10);
+
+  if (
+    [year, month, day, hour, minute, second].some(n => Number.isNaN(n)) ||
+    month < 0 || month > 11 || day < 1 || day > 31
+  ) {
+    console.warn('Ungültige EPG-Zeitangabe (nan/range):', raw);
+    return null;
+  }
+
+  // Default: treat as UTC if tz missing
+  if (!tz) {
+    return new Date(Date.UTC(year, month, day, hour, minute, second));
+  }
+
+  // Zulu
+  if (tz === 'Z') {
+    return new Date(Date.UTC(year, month, day, hour, minute, second));
+  }
+
+  // +hhmm, +hh:mm, -hhmm, -hh:mm
+  const tzMatch = tz.match(/^([+-])(\d{2}):?(\d{2})$/);
+  if (!tzMatch) {
+    console.warn('Ungültige EPG-Zeitangabe (tz parse):', raw);
+    return null;
+  }
+
+  const sign = tzMatch[1] === '-' ? -1 : 1;
+  const tzH = parseInt(tzMatch[2], 10);
+  const tzM = parseInt(tzMatch[3], 10);
+
+  const offsetMin = sign * (tzH * 60 + tzM);
+
+  // Local time in source -> convert to UTC by subtracting offset
+  const utcMs = Date.UTC(year, month, day, hour, minute, second) - offsetMin * 60 * 1000;
+  return new Date(utcMs);
+}
+
+// --------------------------
+// EPG Engine
+// --------------------------
+const EPGEngine = (() => {
+  // Internal maps
+  let byChannel = {};            // resolvedChannelId -> [{start, stop, title, desc}]
+  let resolverMap = new Map();   // normalizedKey -> resolvedChannelId
+  let isReady = false;
+
+  function sanitizeText(s, fallback = '') {
+    const txt = (s == null ? '' : String(s)).trim();
+    return txt || fallback;
+  }
+
+  function cleanTitle(title) {
+    return (title || '')
+      .replace(/\s*\[.*?\]\s*/g, '')
+      .replace(/[\[\]]/g, '')
+      .trim();
+  }
+
+  function sortProgrammes() {
+    Object.keys(byChannel).forEach(ch => {
+      byChannel[ch].sort((a, b) => (a.start?.getTime?.() || 0) - (b.start?.getTime?.() || 0));
+    });
+  }
+
+  function buildResolver(xmlDoc) {
+    resolverMap = new Map();
+
+    const channelNodes = Array.from(xmlDoc.getElementsByTagName('channel'));
+    channelNodes.forEach(node => {
+      const id = node.getAttribute('id') || '';
+      const idNorm = epgNormalizeId(id);
+      if (idNorm) resolverMap.set(idNorm, id);
+
+      const names = Array.from(node.getElementsByTagName('display-name')).map(n => (n.textContent || '').trim());
+      names.forEach(name => {
+        const nameNorm = epgNormalizeId(name);
+        if (nameNorm) resolverMap.set(nameNorm, id);
+      });
+    });
+  }
+
+  function resolveChannelId(inputId) {
+    if (!inputId) return null;
+
+    // direct hit
+    if (byChannel[inputId]) return inputId;
+
+    const norm = epgNormalizeId(inputId);
+    if (!norm) return null;
+
+    // try resolverMap (xml channel id / display-name)
+    const mapped = resolverMap.get(norm);
+    if (mapped && byChannel[mapped]) return mapped;
+
+    // try loose match: find a channel id that normalizes equal
+    const keys = Object.keys(byChannel);
+    for (const k of keys) {
+      if (epgNormalizeId(k) === norm) return k;
+    }
+
+    return null;
+  }
+
+  function parseXmlTv(xmlText) {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, "application/xml");
+
+    // detect parse errors
+    const parseError = xmlDoc.getElementsByTagName('parsererror')?.[0];
+    if (parseError) {
+      console.warn('EPG XML parsererror:', parseError.textContent?.slice(0, 200));
+      // συνεχίζουμε, ίσως έχει ακόμα usable nodes
+    }
+
+    buildResolver(xmlDoc);
+
+    const programmes = Array.from(xmlDoc.getElementsByTagName('programme'));
+    const tmp = {};
+
+    programmes.forEach(prog => {
+      const channelId = prog.getAttribute('channel') || '';
+      const startRaw = prog.getAttribute('start');
+      const stopRaw = prog.getAttribute('stop');
+
+      if (!startRaw || !stopRaw) return;
+
+      const start = parseDateTimeFlexible(startRaw);
+      const stop = parseDateTimeFlexible(stopRaw);
+      if (!start || !stop) return;
+
+      const titleElement = prog.getElementsByTagName('title')[0];
+      const descElement = prog.getElementsByTagName('desc')[0];
+
+      const title = cleanTitle(sanitizeText(titleElement?.textContent, ''));
+      const desc = sanitizeText(descElement?.textContent, 'Keine Beschreibung verfügbar');
+
+      if (!title) return;
+
+      if (!tmp[channelId]) tmp[channelId] = [];
+      tmp[channelId].push({ start, stop, title, desc });
+    });
+
+    byChannel = tmp;
+    sortProgrammes();
+    isReady = true;
+
+    // Επιστρέφουμε και “legacy” format για epgData (συμβατότητα)
+    return byChannel;
+  }
+
+  function getCurrent(channelId, now = new Date()) {
+    if (!isReady) return null;
+    const resolved = resolveChannelId(channelId);
+    if (!resolved) return null;
+
+    const list = byChannel[resolved] || [];
+    // linear search ok for moderate size; can be upgraded to binary if needed
+    return list.find(p => now >= p.start && now < p.stop) || null;
+  }
+
+  function getNext(channelId, limit = 4, now = new Date()) {
+    if (!isReady) return [];
+    const resolved = resolveChannelId(channelId);
+    if (!resolved) return [];
+
+    const list = byChannel[resolved] || [];
+    return list.filter(p => p.start > now).slice(0, limit);
+  }
+
+  function dumpLegacy() {
+    // κρατάμε το epgData format ίδιο: channelId -> programmes[]
+    return byChannel;
+  }
+
+  function setFromLegacy(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    byChannel = obj;
+    isReady = true;
+  }
+
+  return {
+    parseXmlTv,
+    getCurrent,
+    getNext,
+    dumpLegacy,
+    setFromLegacy
+  };
+})();
+
+// --------------------------
+// Cache helpers
+// --------------------------
+function epgCacheSave(epgObj) {
+  try {
+    const payload = {
+      ts: Date.now(),
+      epg: epgObj
+    };
+    localStorage.setItem(EPG_CACHE_KEY, JSON.stringify(payload));
+  } catch (e) {
+    // ignore (quota/private mode)
+  }
+}
+
+function epgCacheLoad() {
+  try {
+    const raw = localStorage.getItem(EPG_CACHE_KEY);
+    if (!raw) return null;
+    const payload = JSON.parse(raw);
+    if (!payload?.ts || !payload?.epg) return null;
+
+    if ((Date.now() - payload.ts) > EPG_CACHE_TTL_MS) return null;
+    return payload.epg;
+  } catch (e) {
+    return null;
+  }
+}
+
+// --------------------------
+// Public API: load EPG (same name as before)
+// --------------------------
 function loadEPGData() {
   const epgUrl = 'https://ext.greektv.app/epg/epg.xml';
+
+  // 1) try cache first (instant UI)
+  const cached = epgCacheLoad();
+  if (cached) {
+    epgData = cached;
+    EPGEngine.setFromLegacy(epgData);
+    // Προαιρετικό: άμεσο refresh αν ήδη υπάρχουν κανάλια
+    setTimeout(() => {
+      try { refreshEpgTimelines(); } catch (_) {}
+    }, 300);
+  }
+
+  // 2) fetch fresh (update cache + state)
   fetchTextWithCorsFallback(epgUrl, { forceProxy: true })
-    .then(data => {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(data, "application/xml");
-      const programmes = xmlDoc.getElementsByTagName('programme');
-      Array.from(programmes).forEach(prog => {
-        const channelId = prog.getAttribute('channel');
-        const start = prog.getAttribute('start');
-        const stop = prog.getAttribute('stop');
+    .then(xmlText => {
+      const parsed = EPGEngine.parseXmlTv(xmlText);
+      epgData = EPGEngine.dumpLegacy();
+      epgCacheSave(epgData);
 
-        // ➤ Αν λείπουν start ή stop, αγνόησε αυτό το πρόγραμμα
-        if (!start || !stop) return;
-
-        const titleElement = prog.getElementsByTagName('title')[0];
-        const descElement = prog.getElementsByTagName('desc')[0];
-        if (titleElement) {
-          const title = titleElement.textContent;
-          const desc = descElement
-            ? descElement.textContent
-            : 'Keine Beschreibung verfügbar';
-          if (!epgData[channelId]) epgData[channelId] = [];
-          epgData[channelId].push({
-            start: parseDateTime(start),
-            stop: parseDateTime(stop),
-            title,
-            desc
-          });
-        }
-      });
+      // ενημέρωσε UI
+      setTimeout(() => {
+        try { refreshEpgTimelines(); } catch (_) {}
+      }, 200);
     })
     .catch(error => {
       console.error('Fehler beim Laden der EPG-Daten:', error);
-      // Optional: document.getElementById('program-title').textContent = 'EPG nicht verfügbar';
+      // Αν δεν έχουμε cache, θα φαίνεται "Keine EPG-Daten verfügbar"
     });
 }
 
-
-// Hilfsfunktion zum Umwandeln der EPG-Zeitangaben in Date-Objekte
-function parseDateTime(epgTime) {
-  if (!epgTime || epgTime.length < 19) {
-    console.error('Ungültige EPG-Zeitangabe:', epgTime);
-    return null;
-  }
-
-  const year = parseInt(epgTime.substr(0, 4), 10);
-  const month = parseInt(epgTime.substr(4, 2), 10) - 1;
-  const day = parseInt(epgTime.substr(6, 2), 10);
-  const hour = parseInt(epgTime.substr(8, 2), 10);
-  const minute = parseInt(epgTime.substr(10, 2), 10);
-  const second = parseInt(epgTime.substr(12, 2), 10);
-  const tzHour = parseInt(epgTime.substr(15, 3), 10);
-  const tzMin = parseInt(epgTime.substr(18, 2), 10) * (epgTime[14] === '+' ? 1 : -1);
-
-  if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute) || isNaN(second) || isNaN(tzHour) || isNaN(tzMin)) {
-    console.error('Ungültige EPG-Zeitangabe:', epgTime);
-    return null;
-  }
-
-  if (year < 0 || month < 0 || month > 11 || day < 1 || day > 31) {
-    console.error('Ungültige EPG-Zeitangabe:', epgTime);
-    return null;
-  }
-
-  const date = new Date(Date.UTC(year, month, day, hour - tzHour, minute - tzMin, second));
-  return date;
-}
-
-// Funktion zum Finden des aktuellen Programms basierend auf der Uhrzeit
+// --------------------------
+// Public API: current program (same signature/return as before)
+// --------------------------
 function getCurrentProgram(channelId) {
   const now = new Date();
-  if (epgData[channelId]) {
-    const currentProgram = epgData[channelId].find(prog => now >= prog.start && now < prog.stop);
-    if (currentProgram) {
-      const pastTime = now - currentProgram.start;
-      const futureTime = currentProgram.stop - now;
-      const totalTime = currentProgram.stop - currentProgram.start;
-      const pastPercentage = (pastTime / totalTime) * 100;
-      const futurePercentage = (futureTime / totalTime) * 100;
-      const description = currentProgram.desc || 'Keine Beschreibung verfügbar';
-      const start = currentProgram.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); // Startzeit
-      const end = currentProgram.stop.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });   // Endzeit
-      const title = currentProgram.title.replace(/\s*\[.*?\]\s*/g, '').replace(/[\[\]]/g, '');
 
-      return {
-        title: `${title} (${start} - ${end})`,
-        description: description,
-        pastPercentage: pastPercentage,
-        futurePercentage: futurePercentage
-      };
+  const currentProgram = EPGEngine.getCurrent(channelId, now);
 
-    } else {
-      return { title: 'Keine aktuelle Sendung verfügbar', description: 'Keine Beschreibung verfügbar', pastPercentage: 0, futurePercentage: 0 };
-    }
+  if (currentProgram) {
+    const pastTime = now - currentProgram.start;
+    const futureTime = currentProgram.stop - now;
+    const totalTime = currentProgram.stop - currentProgram.start;
+
+    const pastPercentage = totalTime > 0 ? (pastTime / totalTime) * 100 : 0;
+    const futurePercentage = totalTime > 0 ? (futureTime / totalTime) * 100 : 0;
+
+    const description = currentProgram.desc || 'Keine Beschreibung verfügbar';
+    const start = currentProgram.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const end = currentProgram.stop.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const title = (currentProgram.title || '').replace(/\s*\[.*?\]\s*/g, '').replace(/[\[\]]/g, '').trim();
+
+    return {
+      title: `${title} (${start} - ${end})`,
+      description,
+      pastPercentage,
+      futurePercentage
+    };
   }
-  return { title: 'Keine EPG-Daten verfügbar', description: 'Keine Beschreibung verfügbar', pastPercentage: 0, futurePercentage: 0 };
+
+  // Αν δεν υπάρχει EPG ή δεν resolve-άρει το channelId:
+  // κρατάμε τα ίδια fallback strings με πριν (για UI συνέπεια)
+  const hasSomeEpg = epgData && Object.keys(epgData).length > 0;
+  if (hasSomeEpg) {
+    return {
+      title: 'Keine aktuelle Sendung verfügbar',
+      description: 'Keine Beschreibung verfügbar',
+      pastPercentage: 0,
+      futurePercentage: 0
+    };
+  }
+
+  return {
+    title: 'Keine EPG-Daten verfügbar',
+    description: 'Keine Beschreibung verfügbar',
+    pastPercentage: 0,
+    futurePercentage: 0
+  };
 }
 
+// --------------------------
 // 🔄 Ελαφρύ live refresh των EPG bars χωρίς re-render του sidebar
+// (ίδιο όνομα/λειτουργία όπως πριν)
+// --------------------------
 function refreshEpgTimelines() {
   const items = document.querySelectorAll('#sidebar-list .channel-info');
   items.forEach(el => {
@@ -402,7 +667,7 @@ function refreshEpgTimelines() {
     const epgWrap = el.querySelector('.epg-channel');
     if (!epgWrap) return;
 
-    // τίτλος τρέχοντος προγράμματος (π.χ. "Show (12:00 - 13:00)")
+    // τίτλος τρέχοντος προγράμματος
     const titleSpan = epgWrap.querySelector('span');
     if (titleSpan && info.title) titleSpan.textContent = info.title;
 
@@ -418,8 +683,10 @@ function refreshEpgTimelines() {
   });
 }
 
-
+// --------------------------
 // Player description / next programs
+// (ίδια API όπως πριν)
+// --------------------------
 function updatePlayerDescription(title, description) {
   console.log('Updating player description:', title, description);
   document.getElementById('program-title').textContent = title;
@@ -431,46 +698,44 @@ function updateNextPrograms(channelId) {
   const nextProgramsContainer = document.getElementById('next-programs');
   nextProgramsContainer.innerHTML = '';
 
-  if (epgData[channelId]) {
-    const now = new Date();
-    const upcomingPrograms = epgData[channelId]
-      .filter(prog => prog.start > now)
-      .slice(0, 4);
+  const upcomingPrograms = EPGEngine.getNext(channelId, 4, new Date());
 
-    upcomingPrograms.forEach(program => {
-      const nextProgramDiv = document.createElement('div');
-      nextProgramDiv.classList.add('next-program');
+  upcomingPrograms.forEach(program => {
+    const nextProgramDiv = document.createElement('div');
+    nextProgramDiv.classList.add('next-program');
 
-      const nextProgramTitle = document.createElement('h4');
-      nextProgramTitle.classList.add('next-program-title');
-      const start = program.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const end = program.stop.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const title = program.title.replace(/\s*\[.*?\]\s*/g, '').replace(/[\[\]]/g, '');
-      nextProgramTitle.textContent = `${title} (${start} - ${end})`;
+    const nextProgramTitle = document.createElement('h4');
+    nextProgramTitle.classList.add('next-program-title');
 
-      const nextProgramDesc = document.createElement('p');
-      nextProgramDesc.classList.add('next-program-desc');
-      nextProgramDesc.textContent = program.desc || 'Keine Beschreibung verfügbar';
-      nextProgramDesc.style.display = 'none';
+    const start = program.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const end = program.stop.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const title = (program.title || '').replace(/\s*\[.*?\]\s*/g, '').replace(/[\[\]]/g, '').trim();
 
-      nextProgramDiv.appendChild(nextProgramTitle);
-      nextProgramDiv.appendChild(nextProgramDesc);
+    nextProgramTitle.textContent = `${title} (${start} - ${end})`;
 
-      nextProgramTitle.addEventListener('click', function() {
-        if (nextProgramDesc.style.display === 'none') {
-          nextProgramDesc.style.display = 'block';
-          // NOTE: Σκόπιμα δεν πειράζω το σημείο 8 (κρατάω την υπάρχουσα κλήση)
+    const nextProgramDesc = document.createElement('p');
+    nextProgramDesc.classList.add('next-program-desc');
+    nextProgramDesc.textContent = program.desc || 'Keine Beschreibung verfügbar';
+    nextProgramDesc.style.display = 'none';
+
+    nextProgramDiv.appendChild(nextProgramTitle);
+    nextProgramDiv.appendChild(nextProgramDesc);
+
+    nextProgramTitle.addEventListener('click', function() {
+      if (nextProgramDesc.style.display === 'none') {
+        nextProgramDesc.style.display = 'block';
+        // NOTE: δεν πειράζω το σημείο σου: κρατάω την υπάρχουσα κλήση όπως ήταν
+        if (typeof updateProgramInfo === 'function') {
           updateProgramInfo(title, nextProgramDesc.textContent);
-        } else {
-          nextProgramDesc.style.display = 'none';
         }
-      });
-
-      nextProgramsContainer.appendChild(nextProgramDiv);
+      } else {
+        nextProgramDesc.style.display = 'none';
+      }
     });
-  }
-}
 
+    nextProgramsContainer.appendChild(nextProgramDiv);
+  });
+}
 
 /* =========================
    ======== Playlists ======
