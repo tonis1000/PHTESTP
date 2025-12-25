@@ -93,6 +93,15 @@ async function fetchTextWithCorsFallback(url, init = {}) {
     }
   };
 
+  // ✅ ΕΠΑΓΓΕΛΜΑΤΙΚΟΣ ΚΑΝΟΝΑΣ:
+  // Αν είναι Cloudflare Worker URL (.workers.dev), ΜΗΝ χρησιμοποιείς public proxies.
+  // Ο Worker ήδη κάνει server-side proxy και έχει CORS.
+  if (url.includes('.workers.dev')) {
+    const directWorker = await tryOne('direct(worker)', url, true);
+    if (directWorker) return directWorker;
+    throw new Error('EPG load failed (worker direct)');
+  }
+
   // 🟢 1) direct ΜΟΝΟ αν δεν είναι forced
   if (!forceProxy) {
     const direct = await tryOne('direct', url, true); // validate XMLTV
@@ -122,6 +131,7 @@ async function fetchTextWithCorsFallback(url, init = {}) {
 
   throw new Error('EPG load failed (all proxies returned non-XMLTV or failed)');
 }
+
 
 
 // Τύποι/ανιχνεύσεις/καθαρισμοί URL
