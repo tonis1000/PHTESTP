@@ -82,6 +82,7 @@ button:disabled {
 }
 
 /* Search bar stays aligned even when list loads / scrollbar appears */
+/* Search bar stays aligned even when list loads / scrollbar appears */
 .search-bar {
   /* ✅ σταθερό layout (δεν “πετάει” δεξιά-αριστερά) */
   display: grid;
@@ -90,9 +91,11 @@ button:disabled {
   column-gap: 10px;
   row-gap: 8px;
 
-  padding: 0 6px 0 0;
+  padding: 0 6px;        /* ✅ ΙΔΙΟ padding αριστερά & δεξιά */
+  width: 100%;           /* ✅ γεμίζει όλο το sidebar */
   box-sizing: border-box;
 }
+
 
 /* Group filter block (label + select) */
 #group-filter-container {
