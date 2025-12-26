@@ -190,7 +190,7 @@ button:disabled {
 /* ✅ key: fixed columns for every row */
 .channel-info {
   display: grid;
-  grid-template-columns: 34px 90px 1fr; /* logo | name | EPG block */
+  grid-template-columns: 34px 70px 1fr; /* logo | name | EPG block */
   align-items: stretch;
   gap: 8px;
 
