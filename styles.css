@@ -1,8 +1,10 @@
 /* ===========================================================
-   📺 PHTESTP – Main Stylesheet (optimized order, same behavior)
+   📺 PHTESTP – Main Stylesheet (fixed sidebar layout + stable rows)
    =========================================================== */
 
-/* ---------- Βασικά χρώματα & γραμματοσειρές ---------- */
+/* =========================
+   Base
+   ========================= */
 body,
 .base-background {
   background-color: #333;
@@ -11,7 +13,9 @@ body,
 .text-white { color: #fff; }
 .online { color: lightgreen; font-weight: bold; }
 
-/* ---------- Κουμπιά γενικής χρήσης ---------- */
+/* =========================
+   Buttons (global)
+   ========================= */
 button {
   background-color: #444;
   color: #fff;
@@ -38,33 +42,72 @@ button:disabled {
   box-shadow: none;
 }
 
-/* ---------- Κεντρικά containers ---------- */
+/* =========================
+   Top containers
+   ========================= */
 .main-container { float: left; margin-right: 10px; }
+
 .container {
   border-top: 0;
   padding-top: 5px;
   font-size: 16px;
   background-color: #333;
 }
-.info-panel, .button-row {
+
+.info-panel,
+.button-row {
   display: flex;
   padding-left: 15px;
 }
+
 .info-panel { font-style: italic; }
+.info-group { margin-right: 20px; color: #fff; }
+
 .button-row {
   gap: 10px;
   margin-top: 10px;
   padding-bottom: 10px;
 }
-.info-group { margin-right: 20px; color: #fff; }
 
-/* ---------- Sidebar ---------- */
-.sidebar { height: 740px; }
+/* =========================
+   Sidebar (FIXED width, stable search-bar)
+   ========================= */
+.sidebar {
+  height: 740px;
 
-.search-bar {
-  display: flex;
-  gap: 10px;
+  /* 🔒 ΣΤΑΘΕΡΟ ΠΛΑΙΣΙΟ */
+  width: 360px;
+  min-width: 360px;
+  max-width: 360px;
 }
+
+/* Search bar stays aligned even when list loads / scrollbar appears */
+.search-bar {
+  /* ✅ σταθερό layout (δεν “πετάει” δεξιά-αριστερά) */
+  display: grid;
+  grid-template-columns: 1fr 130px 70px 60px;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 8px;
+
+  padding: 0 6px 0 0;
+  box-sizing: border-box;
+}
+
+/* Group filter block (label + select) */
+#group-filter-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 !important; /* μην αλλάζει layout από inline styles */
+}
+
+#group-select {
+  width: 150px;
+  max-width: 150px;
+}
+
+/* Search input fixed width */
 #search-input {
   padding-top: 1px;
   width: 120px;
@@ -76,15 +119,22 @@ button:disabled {
   margin: 1px 0 1px 0;
   padding-bottom: 10px;
 }
+
+/* Sidebar scroll area: keep scrollbar space always (no shifting) */
 .sidebar-content {
-  overflow-y: auto;
-  height: calc(100% - 40px);
   background-color: #0f0e0e;
   padding: 0 5px;
   border-top: 5px solid;
+
+  height: calc(100% - 46px);
+
+  /* ✅ πάντα reserve scrollbar width */
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  box-sizing: border-box;
 }
 
-/* Sidebar buttons */
+/* Sidebar buttons (Online/Alle) */
 #filter-online-button,
 #show-all-button {
   padding: 6px 10px;
@@ -93,98 +143,150 @@ button:disabled {
   border-radius: 5px;
   color: #fff;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.3s, transform 0.15s;
   margin: 2px 0 8px 0;
 }
+
 #filter-online-button { background-color: #4caf50; }
 #filter-online-button:hover { background-color: #45a049; transform: translateY(-2px); }
+
 #show-all-button { background-color: #007bff; }
 #show-all-button:hover { background-color: #0056b3; transform: translateY(-2px); }
 
-/* ---------- Λίστα καναλιών ---------- */
+/* =========================
+   Channel list (ROWS: stable columns, grow only vertically)
+   ========================= */
 #sidebar-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
+
 #sidebar-list li {
   background-color: #333;
   padding: 5px 0 0 5px;
   margin-bottom: 5px;
 }
+
+/* ✅ key: fixed columns for every row */
 .channel-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 34px 90px 1fr; /* logo | name | EPG block */
+  align-items: stretch;
+  gap: 8px;
+
   background-color: #444;
   cursor: pointer;
+  padding: 4px 6px;
+  box-sizing: border-box;
 }
+
+/* Hover effect for sidebar channels */
+.channel-info:hover {
+  background-color: #505050;
+  border-radius: 4px;
+  transform: scale(1.03);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.35);
+  z-index: 5;
+  position: relative;
+  transition: all 0.18s ease-in-out;
+}
+
+/* Selected */
 .channel-info.selected {
   background-color: #555;
   border: 2px solid #00ffff;
-  border-radius: 4px; /* ελαφρύ για να μην είναι τελείως “κοφτερό” */
-  box-shadow: 0 0 12px rgba(0, 255, 255, 0.6); /* εξωτερική λάμψη */
+  border-radius: 4px;
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.6);
   transition: all 0.25s ease-in-out;
 }
 
-/* Logo + Όνομα */
+/* Keep selected on hover */
+.channel-info.selected:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 14px rgba(0, 255, 255, 0.65);
+  background-color: #575757;
+}
+
+/* Logo box: fixed column, never expands sidebar */
 .logo-container {
-  width: 30px;
+  width: 34px;
+  display: flex;
   justify-content: center;
   align-items: center;
   overflow: hidden;
 }
 .logo-container img {
   width: 100%;
-  object-fit: cover;
+  max-height: 32px;
+  object-fit: contain;
 }
 
+/* Sender name column fixed width (wraps vertically) */
 .sender-name {
   font-size: 18px;
   color: #fff;
-  width: 70px;                /* ✔ ίδιο με πριν */
-  position: relative;         /* ✔ για το info-icon */
-  display: inline-block;
-  line-height: 1.2;
-  word-wrap: break-word;      /* ✔ ώστε τα μεγάλα ονόματα να πάνε 2 γραμμές */
+  line-height: 1.15;
+
+  /* ✅ allow wrap, but NEVER change sidebar width */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+
+  position: relative; /* for info-icon */
+  display: block;
 }
 
-
-/* Μικρό ⓘ πάνω στο όνομα καναλιού */
+/* Small ⓘ info icon */
 .info-icon {
   position: absolute;
-  top: 0;                     /* ✔ πάνω */
-  right: -12px;               /* ✔ δεξιά, ΧΩΡΙΣ να μεγαλώνει το box */
+  top: 0;
+  right: -12px;
   font-size: 13px;
   color: #00ffff;
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
   cursor: pointer;
 }
+.sender-name:hover .info-icon { opacity: 1; }
 
-.sender-name:hover .info-icon {
-  opacity: 1;                 /* ✔ εμφανίζεται μόνο στο hover του ονόματος */
-}
-
-
-/* ---------- EPG Timeline ---------- */
+/* =========================
+   EPG block (title + timeline): fixed width, wraps vertically only
+   ========================= */
 .epg-channel {
+  /* important: allow text to wrap without expanding grid */
+  min-width: 0;
+
   display: flex;
   flex-direction: column;
-  flex: 1;
-  width: 120px;
-  margin-left: 10px;
+
+  margin-left: 0;
+  width: auto;
   font-size: 12px;
   color: #fff;
 }
-.epg-channel span { padding-bottom: 5px; }
 
+.epg-channel span {
+  /* ✅ wrap long titles, keep sidebar width stable */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+
+  padding-bottom: 6px;
+  line-height: 1.2;
+}
+
+/* Timeline fixed height at bottom */
 .epg-timeline {
   display: flex;
   height: 5px;
   border-radius: 2px;
   padding-right: 15px;
+
+  /* ✅ keeps timeline in same column width */
+  flex: 0 0 5px;
 }
+
 .epg-past,
 .epg-future {
   transition: width .8s linear;
@@ -192,13 +294,15 @@ button:disabled {
 .epg-past   { flex-grow: 1; background-color: #f00; }
 .epg-future { flex-grow: 1; background-color: #0f0; }
 
-/* Drag & Drop στο sidebar */
+/* Drag & Drop */
 #sidebar-list li.dragging {
   opacity: 0.5;
   border: 1px dashed #0ff;
 }
 
-/* ---------- Player section ---------- */
+/* =========================
+   Player section
+   ========================= */
 .player-container {
   width: 1000px;
   min-width: 1000px;
@@ -208,6 +312,7 @@ button:disabled {
   position: relative;
   scroll-margin-top: 80px;
 }
+
 .player-header {
   display: flex;
   align-items: flex-start;
@@ -215,22 +320,27 @@ button:disabled {
   color: #fff;
   border-bottom: 1px solid #ccc;
 }
+
 .player-logo-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100px; height: 100px;
+  width: 100px;
+  height: 100px;
 }
 .player-logo-container img {
-  width: 100%; height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
+
 .player-info-container {
   display: flex;
   flex-direction: column;
   flex: 1;
   margin-left: 10px;
 }
+
 .player-info-top {
   display: flex;
   align-items: center;
@@ -238,6 +348,7 @@ button:disabled {
   width: 100%;
   margin-bottom: 5px;
 }
+
 #current-channel-name { font-size: 35px; color: #fff; }
 
 label[for="subtitle-file"] {
@@ -248,11 +359,13 @@ label[for="subtitle-file"] {
   border-radius: 5px;
   margin-left: 10px;
 }
+
 .player-info-bottom {
   display: flex;
   align-items: center;
   margin-top: 15px;
 }
+
 #stream-url {
   flex: 1;
   padding: 5px;
@@ -260,6 +373,7 @@ label[for="subtitle-file"] {
   border-radius: 5px;
   margin-right: 10px;
 }
+
 #play-button {
   padding: 5px 10px;
   background-color: #007bff;
@@ -270,8 +384,11 @@ label[for="subtitle-file"] {
 }
 #play-button:hover { background-color: #0056b3; }
 
-/* ---------- Περιεχόμενο κάτω από τον player ---------- */
+/* =========================
+   Content wrapper + right panels
+   ========================= */
 .content-wrapper { display: flex; }
+
 .additional-content {
   background-color: #333;
   border: 1px solid #ccc;
@@ -281,6 +398,7 @@ label[for="subtitle-file"] {
   margin-bottom: 20px;
   color: #fff;
 }
+
 .content-title {
   background-color: #444;
   padding: 10px;
@@ -288,6 +406,7 @@ label[for="subtitle-file"] {
   user-select: none;
 }
 .content-title:hover { background-color: #0056b3; }
+
 .content-body {
   padding: 10px;
   overflow: hidden;
@@ -295,12 +414,9 @@ label[for="subtitle-file"] {
   max-height: 0;
 }
 
-/* Όταν ανοίγει (toggle ενεργό) */
-.content-body.expanded {
-  max-height: 700px;
-}
+.content-body.expanded { max-height: 700px; }
 
-/* === Ειδικά για τα iframe panels (TV, Foothubhd, Wetter, TV-Programm, Playlist) === */
+/* panels */
 #TV-Spor-content.expanded,
 #foothubhd-content.expanded,
 #wetter-content.expanded,
@@ -311,7 +427,7 @@ label[for="subtitle-file"] {
   transition: all 0.5s ease-in-out;
 }
 
-/* Προσαρμογή iframes */
+/* iframes */
 #TV-Spor-content iframe,
 #foothubhd-content iframe,
 #wetter-content iframe,
@@ -321,12 +437,25 @@ label[for="subtitle-file"] {
   height: 500px;
 }
 
-#program-info, .next-program, .next-program-desc, .next-program-title { color: #fff; }
-.next-program { margin: 2px 0; }
-div.next-program p, div.next-program h4 { margin-top: 0; }
-.next-program-title { font-weight: bold; cursor: pointer; margin-bottom: 2px; }
+/* Program info */
+#program-info,
+.next-program,
+.next-program-desc,
+.next-program-title { color: #fff; }
 
-/* ---------- Playlist URLs section ---------- */
+.next-program { margin: 2px 0; }
+div.next-program p,
+div.next-program h4 { margin-top: 0; }
+
+.next-program-title {
+  font-weight: bold;
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+
+/* =========================
+   Playlist URLs section
+   ========================= */
 #playlist-urls {
   background-color: #444;
   color: #fff;
@@ -339,7 +468,7 @@ div.next-program p, div.next-program h4 { margin-top: 0; }
   padding: 5px;
   border-radius: 3px;
 }
-/* Εμφάνιση links σε playlist */
+
 #playlist-url-list a {
   color: #ffcc00 !important;
   font-weight: bold;
@@ -349,7 +478,9 @@ div.next-program p, div.next-program h4 { margin-top: 0; }
 #playlist-url-list a:hover { color: #ffff66 !important; text-decoration: underline; }
 #playlist-url-list a.active { color: #90ee90 !important; }
 
-/* ---------- Άλλα UI στοιχεία ---------- */
+/* =========================
+   Other UI
+   ========================= */
 #seite2-link button,
 .seite2-button {
   background-color: #4caf50;
@@ -379,7 +510,9 @@ div.next-program p, div.next-program h4 { margin-top: 0; }
   box-shadow: 0 0 5px rgba(0,0,0,0.5);
 }
 
-/* ---------- Iframe & video players ---------- */
+/* =========================
+   Players (video/iframe)
+   ========================= */
 #iframe-player,
 #video-player {
   width: 100%;
@@ -391,47 +524,38 @@ div.next-program p, div.next-program h4 { margin-top: 0; }
 #iframe-player { display: none; }
 
 @media screen and (max-width:768px) {
-  #iframe-player, #video-player { height: 400px; }
+  #iframe-player,
+  #video-player { height: 400px; }
 }
 
-/* ---------- Responsive breakpoints ---------- */
+/* =========================
+   Responsive
+   ========================= */
 @media only screen and (max-width:480px),
        only screen and (min-width:481px) and (max-width:800px),
        only screen and (min-width:801px) and (max-width:1024px) {
-  .player-container { width: 100%; }
+  .player-container { width: 100%; min-width: 0; }
   .content-wrapper { flex-direction: column; }
+  .sidebar { width: 100%; min-width: 0; max-width: none; }
 }
+
 @media only screen and (min-width:1025px) {
   .player-container { width: 900px; }
   .content-wrapper { flex-direction: row; }
 }
 
-/* ---------- Λοιπά (demo/test) ---------- */
+/* =========================
+   Demo/Test
+   ========================= */
 .example {
   -webkit-transform: rotate(30deg);
   -ms-transform: rotate(30deg);
   transform: rotate(30deg);
 }
 
-/* Hover effect για Sidebar κανάλια */
-.channel-info:hover {
-  background-color: #505050;
-  border-radius: 4px;
-  transform: scale(1.03);
-  box-shadow: 0 0 10px rgba(0, 255, 255, 0.35);
-  z-index: 5;
-  position: relative;
-  transition: all 0.18s ease-in-out;
-}
-
-/* Για να μην χαλάει το selected όταν κάνεις hover */
-.channel-info.selected:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 14px rgba(0, 255, 255, 0.65);
-  background-color: #575757;
-}
-
-/* ===== EPG Tooltip για τα κανάλια στο Sidebar ===== */
+/* =========================
+   EPG Tooltip
+   ========================= */
 .epg-tooltip {
   position: fixed;
   max-width: 460px;
@@ -440,8 +564,8 @@ div.next-program p, div.next-program h4 { margin-top: 0; }
   padding: 10px 12px;
   border-radius: 4px;
   border: 1px solid rgba(0, 255, 255, 0.7);
-  font-size: 15px;            /* ⭐ ΠΙΟ ΜΕΓΑΛΑ ΓΡΑΜΜΑΤΑ */
-  line-height: 1.35;          /* ⭐ Καλύτερη απόσταση */
+  font-size: 15px;
+  line-height: 1.35;
   z-index: 99999;
   pointer-events: none;
   box-shadow: 0 0 14px rgba(0, 255, 255, 0.6);
@@ -450,54 +574,11 @@ div.next-program p, div.next-program h4 { margin-top: 0; }
 
 .epg-tooltip-title {
   font-weight: bold;
-  font-size: 16px;            /* ⭐ Μεγάλος, καθαρός τίτλος */
+  font-size: 16px;
   margin-bottom: 6px;
 }
 
 .epg-tooltip-desc {
-  font-size: 14px;            /* ⭐ Λίγο μεγαλύτερη περιγραφή */
+  font-size: 14px;
   white-space: normal;
-}
-
-/* =========================
-   Sidebar: σταθερό πλάτος, κάθετο wrapping για EPG
-   ========================= */
-
-/* 1) Σταθερό “κουτί” sidebar (προαιρετικά βάλε ό,τι πλάτος θες) */
-.sidebar {
-  width: 390px;        /* διάλεξε π.χ. 340–400px */
-  max-width: 390px;
-}
-
-/* 2) Πολύ σημαντικό για flex: να ΜΗΝ μεγαλώνει οριζόντια λόγω κειμένου */
-.channel-info {
-  width: 100%;
-  min-width: 0;              /* 🔥 key: επιτρέπει στο κείμενο να σπάει */
-  align-items: flex-start;   /* για να φαίνεται ωραία όταν γίνεται 2+ γραμμές */
-}
-
-/* 3) Και το sender-name και το epg-channel πρέπει να επιτρέπουν shrink */
-.sender-name {
-  min-width: 0;              /* 🔥 key */
-}
-
-.epg-channel {
-  flex: 1 1 auto;
-  width: auto;               /* μην “κλειδώνεις” πλάτος εδώ */
-  min-width: 0;              /* 🔥 key */
-}
-
-/* 4) Το κείμενο του EPG να σπάει σε γραμμές, ΟΧΙ να σπρώχνει το sidebar */
-.epg-channel span {
-  white-space: normal;       /* επιτρέπει 2η/3η γραμμή */
-  overflow-wrap: anywhere;   /* σπάει και “περίεργες” ακολουθίες */
-  word-break: break-word;
-  line-height: 1.15;
-}
-
-/* 5) Αν έχεις κάπου nowrap (ή έρχεται από browser default), το ακυρώνουμε */
-#sidebar-list li,
-.epg-channel,
-.epg-channel span {
-  max-width: 100%;
 }
