@@ -82,18 +82,33 @@ button:disabled {
 }
 
 /* Search bar stays aligned even when list loads / scrollbar appears */
-/* Search bar stays aligned even when list loads / scrollbar appears */
-.search-bar {
-  /* ✅ σταθερό layout (δεν “πετάει” δεξιά-αριστερά) */
+/* ✅ Search-bar: όλα σε 1 ευθεία */
+.search-bar{
   display: grid;
-  grid-template-columns: 1fr 130px 70px 60px;
   align-items: center;
   column-gap: 10px;
-  row-gap: 8px;
 
-  padding: 0 6px;        /* ✅ ΙΔΙΟ padding αριστερά & δεξιά */
-  width: 100%;           /* ✅ γεμίζει όλο το sidebar */
+  /* 5 στήλες: icon | categories | search | Online | Alle */
+  grid-template-columns: 24px 150px 1fr 80px 70px;
+
+  width: 100%;
+  padding: 0 6px;
   box-sizing: border-box;
+
+  /* μην κάνει wrap / 2η σειρά */
+  grid-auto-flow: column;
+  white-space: nowrap;
+}
+/* το block των κατηγοριών να μη μεγαλώνει */
+#group-filter-container{
+  margin: 0 !important;
+  min-width: 0;
+}
+
+/* search input να γεμίζει το υπόλοιπο */
+#search-input{
+  width: 100% !important;
+  min-width: 0;
 }
 
 
