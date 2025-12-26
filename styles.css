@@ -144,13 +144,14 @@ button:disabled {
   padding: 0 5px;
   border-top: 5px solid;
 
-  height: calc(100% - 46px);
+  /* ✅ η search-bar τώρα είναι 2 σειρές, οπότε θέλει περισσότερο χώρο */
+  height: calc(100% - 80px);
 
-  /* ✅ πάντα reserve scrollbar width */
   overflow-y: scroll;
   scrollbar-gutter: stable;
   box-sizing: border-box;
 }
+
 
 /* Sidebar buttons (Online/Alle) */
 #filter-online-button,
