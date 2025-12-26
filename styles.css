@@ -115,7 +115,7 @@ button:disabled {
 
 #group-select{
   width: 100%;
-  max-width: 100%;
+  max-width: 360px;   /* ✅ ίδια αίσθηση μέσα στο sidebar 390 */
 }
 
 /* Suche Sender */
