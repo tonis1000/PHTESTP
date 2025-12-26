@@ -81,56 +81,56 @@ button:disabled {
   max-width: 390px;
 }
 
-/* Search bar stays aligned even when list loads / scrollbar appears */
-/* ✅ Search-bar: όλα σε 1 ευθεία */
+/* =========================
+   Search-bar (2 σειρές, χωρίς overlap)
+   1η σειρά: Κατηγορίες
+   2η σειρά: Suche + Online + Alle
+   ========================= */
+
 .search-bar{
   display: grid;
-  align-items: center;
-  column-gap: 10px;
-
-  /* 5 στήλες: icon | categories | search | Online | Alle */
-  grid-template-columns: 24px 150px 1fr 80px 70px;
-
   width: 100%;
   padding: 0 6px;
   box-sizing: border-box;
 
-  /* μην κάνει wrap / 2η σειρά */
-  grid-auto-flow: column;
-  white-space: nowrap;
+  grid-template-columns: 1fr 80px 70px;
+  grid-template-areas:
+    "group  group  group"
+    "search online alle";
+
+  column-gap: 10px;
+  row-gap: 8px;
+  align-items: center;
 }
-/* το block των κατηγοριών να μη μεγαλώνει */
+
+/* Κατηγορίες */
 #group-filter-container{
+  grid-area: group;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0 !important;
   min-width: 0;
 }
 
-/* search input να γεμίζει το υπόλοιπο */
+#group-select{
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Suche Sender */
 #search-input{
+  grid-area: search;
   width: 100% !important;
   min-width: 0;
-}
-
-
-/* Group filter block (label + select) */
-#group-filter-container {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 !important; /* μην αλλάζει layout από inline styles */
-}
-
-#group-select {
-  width: 150px;
-  max-width: 150px;
-}
-
-/* Search input fixed width */
-#search-input {
-  padding-top: 1px;
-  width: 120px;
   height: 25px;
+  padding-top: 1px;
 }
+
+/* Buttons */
+#filter-online-button{ grid-area: online; }
+#show-all-button{ grid-area: alle; }
+
 
 .sidebar h2 {
   color: #f10d0d;
