@@ -121,10 +121,9 @@ button:disabled {
 /* Suche Sender */
 #search-input{
   grid-area: search;
-  width: 100% !important;
-  min-width: 0;
-  height: 25px;
-  padding-top: 1px;
+  height: 28px;           /* ⬅ ίδιο ύψος */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Buttons */
