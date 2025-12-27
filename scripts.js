@@ -320,17 +320,32 @@ async function findWorkingUrl(initialURL) {
         continue;
       }
 
-      // direct .ts
-      const tsMatch = text.match(/https?:\/\/[^\s"']+\.ts[^\s"']*/i);
-      if (tsMatch) {
-        const tsUrl = tsMatch[0];
-        log("⏳ HEAD έλεγχος στο ts:", tsUrl);
-        const tsHead = await fetch(tsUrl, { method: "HEAD" });
-        if (tsHead.ok) {
-          log("✅ Βρέθηκε άμεσα ts!");
-          return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
-        }
-      }
+// ✅ LIVE-HLS: πάρε το τελευταίο .ts (πιο φρέσκο) και κάνε Range probe
+const tsLines = [...text.matchAll(/(^|[\r\n])\s*([^#\r\n]+\.ts[^\r\n]*)/gi)]
+  .map(m => m[2].trim())
+  .filter(Boolean);
+
+if (tsLines.length) {
+  const lastTs = tsLines[tsLines.length - 1];
+
+  // φτιάξε absolute url αν είναι relative
+  const baseUrl = initialURL.substring(0, initialURL.lastIndexOf("/") + 1);
+  const tsUrl = lastTs.startsWith("http") ? lastTs : baseUrl + lastTs;
+
+  log("⏳ Range probe στο πιο φρέσκο ts:", tsUrl);
+
+  const ok = await probeTsRange(tsUrl);
+
+  if (ok) {
+    log("✅ TS probe OK (φρέσκο segment)");
+    return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
+  }
+
+  // ⚠️ Αν αποτύχει, ΜΗΝ απορρίπτεις live stream (μπορεί να έληξε το window)
+  log("⚠️ TS probe απέτυχε. Fallback: αποδέχομαι το m3u8 και αφήνω τον player να κάνει fresh requests.");
+  return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
+}
+
 
       // Fallback αν μοιάζει με m3u8/ts
       if (text.includes("#EXTM3U") || text.includes(".ts")) {
