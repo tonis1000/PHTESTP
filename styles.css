@@ -126,9 +126,15 @@ button:disabled {
   box-sizing: border-box;
 }
 
-/* Buttons */
-#filter-online-button{ grid-area: online; }
-#show-all-button{ grid-area: alle; }
+/* Online / Alle */
+#filter-online-button,
+#show-all-button{
+  height: 28px;           /* ⬅ ίδιο ύψος */
+  display: flex;
+  align-items: center;    /* ⬅ κάθετο κεντράρισμα */
+  justify-content: center;
+  margin: 0;              /* ⬅ ΤΕΛΟΣ τα random offsets */
+}
 
 
 .sidebar h2 {
