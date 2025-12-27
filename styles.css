@@ -118,22 +118,35 @@ button:disabled {
   max-width: 360px;   /* ✅ ίδια αίσθηση μέσα στο sidebar 390 */
 }
 
-/* Suche Sender */
+/* Suche Sender = ίδιο σχήμα με Online / Alle */
 #search-input{
   grid-area: search;
-  height: 28px;           /* ⬅ ίδιο ύψος */
-  width: 100%;
+
+  height: 28px;              /* ίδιο ύψος */
+  padding: 0 10px;
   box-sizing: border-box;
+
+  background-color: #444;    /* ίδιο χρώμα */
+  color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 5px;        /* ίδια στρογγυλάδα */
+
+  font-size: 13px;
+  outline: none;
 }
+
 
 /* Online / Alle */
 #filter-online-button,
 #show-all-button{
-  height: 28px;           /* ⬅ ίδιο ύψος */
+  height: 28px;              /* ίδιο ύψος */
+  border-radius: 5px;
+
   display: flex;
-  align-items: center;    /* ⬅ κάθετο κεντράρισμα */
+  align-items: center;
   justify-content: center;
-  margin: 0;              /* ⬅ ΤΕΛΟΣ τα random offsets */
+
+  margin: 0;
 }
 
 
