@@ -273,6 +273,19 @@ async function findM3U8inIframe(url) {
   return null;
 }
 
+// Tiny GET probe για live HLS segments (όχι HEAD)
+async function probeTsRange(tsUrl) {
+  try {
+    const r = await fetch(tsUrl, {
+      method: "GET",
+      headers: { Range: "bytes=0-1023" }
+    });
+    return r.status === 206 || r.status === 200;
+  } catch {
+    return false;
+  }
+}
+
 // Proxy cycling / validation — τώρα χρησιμοποιεί το global proxyList
 async function findWorkingUrl(initialURL) {
   for (const proxy of proxyList) {
