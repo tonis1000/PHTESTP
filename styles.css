@@ -126,15 +126,19 @@ button:disabled {
   padding: 0 10px;
   box-sizing: border-box;
 
-  background-color: #444;    /* ίδιο χρώμα */
+  background-color: #444;    /* ✅ σωστό */
   color: #fff;
   border: 1px solid #ccc;
-  border-radius: 5px;        /* ίδια στρογγυλάδα */
+  border-radius: 5px;
 
   font-size: 13px;
   outline: none;
 }
 
+#search-input:focus{
+  border-color: #00ffff;
+  box-shadow: 0 0 6px rgba(0,255,255,0.6);
+}
 
 /* Online / Alle */
 #filter-online-button,
