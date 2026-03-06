@@ -1529,10 +1529,15 @@ const group = groupMatch ? groupMatch[1].trim() : '';
 const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
 
 
-      const streamLine = lines[i + 1] || '';
-      const streamURL = streamLine.trim().startsWith('http')
-        ? streamLine.trim()
-        : null;
+      const streamLine = (lines[i + 1] || '').trim();
+
+// Κόβει οτιδήποτε υπάρχει μετά το #
+// π.χ. ...index.m3u8#Referer=...  -> ...index.m3u8
+const cleanedStreamLine = streamLine.split('#')[0].trim();
+
+const streamURL = cleanedStreamLine.startsWith('http')
+  ? cleanedStreamLine
+  : null;
 
       if (streamURL) {
         try {
