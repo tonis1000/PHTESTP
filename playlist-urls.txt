@@ -1,4 +1,5 @@
 το δικο μου             ,https://raw.githubusercontent.com/tonis1000/mai/refs/heads/main/playlist.m3u
+itnickgr                ,https://raw.githubusercontent.com/hitnickgr/iptv/refs/heads/main/GreekChannels
 jimgate07/grtv          ,https://raw.githubusercontent.com/jimgate07/grtv/refs/heads/master/android.m3u
 Michatec/Greek-IPTV     ,https://raw.githubusercontent.com/Michatec/Greek-IPTV/refs/heads/main/greek-iptv.m3u8
 musics300/total         ,https://raw.githubusercontent.com/musics300/total/refs/heads/main/TOTAL.m3u
