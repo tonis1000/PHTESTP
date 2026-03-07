@@ -310,74 +310,92 @@ async function probeTsRange(tsUrl) {
 
 // Proxy cycling / validation — τώρα χρησιμοποιεί το global proxyList
 async function findWorkingUrl(initialURL) {
-  for (const proxy of proxyList) {
-    const fullUrl = proxy ? (proxy.endsWith("=") ? proxy + encodeURIComponent(initialURL) : proxy + initialURL) : initialURL;
-    log(`🔍 Δοκιμή proxy: ${proxy || "direct"} ➔ ${fullUrl}`);
+  const cleanedInitialURL = cleanHashFromStreamUrl(initialURL);
 
-    try {
-      const res = await fetch(fullUrl, { method: "GET", mode: "cors" });
-      if (!res.ok) {
-        console.warn(`❌ Αποτυχία fetch stream: ${res.status}`);
-        continue;
-      }
+  const originalSourceUrl = cleanedInitialURL.includes(`${CACHE_BASE_URL}/?url=`)
+    ? cleanHashFromStreamUrl(decodeURIComponent(new URL(cleanedInitialURL).searchParams.get('url') || ''))
+    : cleanedInitialURL;
 
-      const text = await res.text();
+  const workerCandidate =
+    shouldProxyThroughWorker(originalSourceUrl) ? toTvCacheUrl(originalSourceUrl) : originalSourceUrl;
 
-      // nested m3u8
-      const nestedMatch = text.match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i);
-      if (nestedMatch) {
-        const nestedURL = nestedMatch[0];
-        log('🔎 Βρέθηκε nested m3u8 ➔', nestedURL);
+  const candidateUrls = [workerCandidate];
 
-        const nestedRes = await fetch(proxy ? proxy + encodeURIComponent(nestedURL) : nestedURL);
-        if (nestedRes.ok) {
-          const nestedText = await nestedRes.text();
-          if (nestedText.includes(".ts")) {
-            log("✅ Βρέθηκε .ts μέσα στο nested .m3u8");
-            return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
-          } else {
-            console.warn("⚠️ Δεν βρέθηκε ts στο nested m3u8");
-          }
-        }
-        continue;
-      }
-
-// ✅ LIVE-HLS: πάρε το τελευταίο .ts (πιο φρέσκο) και κάνε Range probe
-const tsLines = [...text.matchAll(/(^|[\r\n])\s*([^#\r\n]+\.ts[^\r\n]*)/gi)]
-  .map(m => m[2].trim())
-  .filter(Boolean);
-
-if (tsLines.length) {
-  const lastTs = tsLines[tsLines.length - 1];
-
-  // φτιάξε absolute url αν είναι relative
-  const baseUrl = initialURL.substring(0, initialURL.lastIndexOf("/") + 1);
-  const tsUrl = lastTs.startsWith("http") ? lastTs : baseUrl + lastTs;
-
-  log("⏳ Range probe στο πιο φρέσκο ts:", tsUrl);
-
-  const ok = await probeTsRange(tsUrl);
-
-  if (ok) {
-    log("✅ TS probe OK (φρέσκο segment)");
-    return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
+  if (workerCandidate !== originalSourceUrl) {
+    candidateUrls.push(originalSourceUrl);
   }
 
-  // ⚠️ Αν αποτύχει, ΜΗΝ απορρίπτεις live stream (μπορεί να έληξε το window)
-  log("⚠️ TS probe απέτυχε. Fallback: αποδέχομαι το m3u8 και αφήνω τον player να κάνει fresh requests.");
-  return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
-}
+  for (const candidateURL of candidateUrls) {
+    for (const proxy of proxyList) {
+      const fullUrl = proxy
+        ? (proxy.endsWith("=") ? proxy + encodeURIComponent(candidateURL) : proxy + candidateURL)
+        : candidateURL;
 
+      log(`🔍 Δοκιμή proxy: ${proxy || "direct"} ➔ ${fullUrl}`);
 
-      // Fallback αν μοιάζει με m3u8/ts
-      if (text.includes("#EXTM3U") || text.includes(".ts")) {
-        log("✅ .m3u8 ή .ts περιεχόμενο OK");
-        return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
-      } else {
-        console.warn("⚠️ Δεν είναι έγκυρο .m3u8");
+      try {
+        const res = await fetch(fullUrl, { method: "GET", mode: "cors" });
+        if (!res.ok) {
+          console.warn(`❌ Αποτυχία fetch stream: ${res.status}`);
+          continue;
+        }
+
+        const text = await res.text();
+
+        const nestedMatch = text.match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i);
+        if (nestedMatch) {
+          const nestedURL = cleanHashFromStreamUrl(nestedMatch[0]);
+          log('🔎 Βρέθηκε nested m3u8 ➔', nestedURL);
+
+          const nestedFetchUrl = shouldProxyThroughWorker(nestedURL) ? toTvCacheUrl(nestedURL) : nestedURL;
+          const nestedRes = await fetch(proxy ? proxy + encodeURIComponent(nestedFetchUrl) : nestedFetchUrl);
+
+          if (nestedRes.ok) {
+            const nestedText = await nestedRes.text();
+            if (nestedText.includes(".ts") || nestedText.includes(".m4s")) {
+              log("✅ Βρέθηκε media μέσα στο nested .m3u8");
+              return fullUrl;
+            } else {
+              console.warn("⚠️ Δεν βρέθηκε media στο nested m3u8");
+            }
+          }
+          continue;
+        }
+
+        const tsLines = [...text.matchAll(/(^|[\r\n])\s*([^#\r\n]+\.(ts|m4s)[^\r\n]*)/gi)]
+          .map(m => m[2].trim())
+          .filter(Boolean);
+
+        if (tsLines.length) {
+          const lastMedia = tsLines[tsLines.length - 1];
+          const baseUrl = originalSourceUrl.substring(0, originalSourceUrl.lastIndexOf("/") + 1);
+          const mediaUrl = lastMedia.startsWith("http")
+            ? cleanHashFromStreamUrl(lastMedia)
+            : cleanHashFromStreamUrl(baseUrl + lastMedia);
+
+          log("⏳ Range probe στο πιο φρέσκο media:", mediaUrl);
+
+          const probeUrl = shouldProxyThroughWorker(mediaUrl) ? toTvCacheUrl(mediaUrl) : mediaUrl;
+          const ok = await probeTsRange(probeUrl);
+
+          if (ok) {
+            log("✅ Media probe OK");
+            return fullUrl;
+          }
+
+          log("⚠️ Media probe απέτυχε. Fallback: αποδέχομαι το playlist.");
+          return fullUrl;
+        }
+
+        if (text.includes("#EXTM3U") || text.includes(".ts") || text.includes(".m4s")) {
+          log("✅ Playlist/media περιεχόμενο OK");
+          return fullUrl;
+        } else {
+          console.warn("⚠️ Δεν είναι έγκυρο playlist/media response");
+        }
+      } catch (err) {
+        console.error("❌ Σφάλμα fetch proxy:", err.message);
       }
-    } catch (err) {
-      console.error("❌ Σφάλμα fetch proxy:", err.message);
     }
   }
 
