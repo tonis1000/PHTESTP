@@ -1576,6 +1576,19 @@ const streamURL = cleanedStreamLine.startsWith('http')
   ? cleanedStreamLine
   : null;
 
+// 🔍 Channel identity test
+const identityTest = detectChannelIdentity({
+  tvgId: channelId || '',
+  tvgName: name || '',
+  displayName: name || '',
+  url: streamURL || '',
+  logo: imgURL || ''
+});
+
+if (identityTest.matched) {
+  console.log('🎯 Channel matched:', identityTest.canonicalKey);
+}
+
       if (streamURL) {
         try {
           const programInfo = getCurrentProgram(channelId);
