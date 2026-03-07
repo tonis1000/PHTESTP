@@ -1612,9 +1612,10 @@ if (identityTest.matched) {
 
           listItem.innerHTML = `
             <div class="channel-info ${perf.player ? 'cached-stream' : ''}"
-                 data-stream="${streamURL}"
-                 data-channel-id="${channelId}"
-                 data-group="${group}">
+     data-stream="${streamURL}"
+     data-channel-id="${channelId}"
+     data-channel-key="${identityTest.matched ? identityTest.canonicalKey : ''}"
+     data-group="${group}">
               <div class="logo-container">
                 <img src="${imgURL}" alt="${name} Logo">
               </div>
