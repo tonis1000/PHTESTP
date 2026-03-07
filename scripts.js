@@ -17,8 +17,25 @@ const SIDEBAR_ORDER_KEY = 'phtestp_sidebar_order_v1';
 
 const CACHE_BASE_URL = 'https://tv-cache.atonis.workers.dev';
 const CACHE_UPLOAD_URL = `${CACHE_BASE_URL}/upload-cache`;
-
 let lastSentCache = {};
+
+const TV_CACHE_PROXY = `${CACHE_BASE_URL}/?url=`;
+
+function cleanHashFromStreamUrl(url) {
+  return (url || '').split('#')[0].trim();
+}
+
+function toTvCacheUrl(url) {
+  const cleaned = cleanHashFromStreamUrl(url);
+  if (!cleaned) return cleaned;
+  if (cleaned.startsWith(TV_CACHE_PROXY)) return cleaned;
+  return `${TV_CACHE_PROXY}${encodeURIComponent(cleaned)}`;
+}
+
+function shouldProxyThroughWorker(url) {
+  const cleaned = cleanHashFromStreamUrl(url);
+  return /\.m3u8(\?.*)?$/i.test(cleaned);
+}
 
 // Debug flag & light logger (μείωση θορύβου χωρίς αλλαγή ροής)
 const DEBUG = false;
