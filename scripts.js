@@ -198,7 +198,7 @@ async function resolveSTRM(url) {
     const res = await fetch(url);
     const text = await res.text();
     const match = text.match(/https?:\/\/[^\s]+/);
-    return match ? match[0] : null;
+    return match ? cleanHashFromStreamUrl(match[0]) : null;
   } catch (e) {
     return null;
   }
