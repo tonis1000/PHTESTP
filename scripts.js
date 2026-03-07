@@ -15,7 +15,9 @@ let epgTooltipEl = null;
 // Αποθήκευση σειράς sidebar στο localStorage
 const SIDEBAR_ORDER_KEY = 'phtestp_sidebar_order_v1';
 
-const CACHE_UPLOAD_URL = 'https://yellow-hulking-guan.glitch.me/upload-cache';
+const CACHE_BASE_URL = 'https://tv-cache.atonis.workers.dev';
+const CACHE_UPLOAD_URL = `${CACHE_BASE_URL}/upload-cache`;
+
 let lastSentCache = {};
 
 // Debug flag & light logger (μείωση θορύβου χωρίς αλλαγή ροής)
