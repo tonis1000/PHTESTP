@@ -1541,7 +1541,7 @@ function updateSidebarFromM3U(data) {
   sidebarList.innerHTML = '';
 
   const lines = data.split('\n');
-  const foundGroups = new Set(); // 🆕 Ομάδες για group-title
+  const foundGroups = new Set();
   const groupSelect = document.getElementById('group-select');
 
   for (let i = 0; i < lines.length; i++) {
@@ -1552,7 +1552,6 @@ function updateSidebarFromM3U(data) {
       const groupMatch = lines[i].match(/group-title="([^"]+)"/);
       const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
 
-      // ✅ tvg-id -> tvg-name -> display name (για EPG matching)
       const channelId =
         (idMatch && idMatch[1] ? idMatch[1].trim() : '') ||
         (nameTagMatch && nameTagMatch[1] ? nameTagMatch[1].trim() : '') ||
@@ -1575,24 +1574,10 @@ function updateSidebarFromM3U(data) {
         ? cleanedStreamLine
         : null;
 
-      // 🔍 Channel identity test
-      const identityTest = detectChannelIdentity({
-        tvgId: channelId || '',
-        tvgName: name || '',
-        displayName: name || '',
-        url: streamURL || '',
-        logo: imgURL || ''
-      });
-
-      if (identityTest.matched) {
-        console.log('🎯 Channel matched:', identityTest.canonicalKey);
-      }
-
       if (streamURL) {
         try {
           const programInfo = getCurrentProgram(channelId);
 
-          // 🧠 Εύρεση από cache
           const normalizedUrl = streamURL.replace(/^http:/, 'https:');
           const alternateUrl = streamURL.replace(/^https:/, 'http:');
           const perf =
@@ -1605,7 +1590,7 @@ function updateSidebarFromM3U(data) {
             ? `<span class="badge" style="font-size: 0.7em; color: gold; margin-left: 6px;">[${perf.player}]</span>`
             : '';
 
-          if (group) foundGroups.add(group); // 🆕 Προσθήκη group
+          if (group) foundGroups.add(group);
 
           const listItem = document.createElement('li');
 
@@ -1613,7 +1598,6 @@ function updateSidebarFromM3U(data) {
             <div class="channel-info ${perf.player ? 'cached-stream' : ''}"
                  data-stream="${streamURL}"
                  data-channel-id="${channelId}"
-                 data-channel-key="${identityTest.matched ? identityTest.canonicalKey : ''}"
                  data-group="${group}">
               <div class="logo-container">
                 <img src="${imgURL}" alt="${name} Logo">
@@ -1632,17 +1616,8 @@ function updateSidebarFromM3U(data) {
             </div>
           `;
 
-          // 🔑 Χρησιμοποιούνται για αποθήκευση/restore σειράς
           listItem.dataset.channelId = channelId || '';
           listItem.dataset.stream = streamURL;
-
-          const existingSameKey = sidebarList.querySelector(
-            `.channel-info[data-channel-key="${identityTest.matched ? identityTest.canonicalKey : ''}"]`
-          );
-
-          if (identityTest.matched && existingSameKey) {
-            console.log('🧩 Duplicate channel-key detected:', identityTest.canonicalKey, streamURL);
-          }
 
           sidebarList.appendChild(listItem);
         } catch (error) {
@@ -1655,7 +1630,6 @@ function updateSidebarFromM3U(data) {
     }
   }
 
-  // Γέμισμα dropdown group-select με ομάδες
   if (groupSelect) {
     if (foundGroups.size > 0) {
       groupSelect.disabled = false;
@@ -1673,7 +1647,6 @@ function updateSidebarFromM3U(data) {
     }
   }
 
-  // 📥 Εφαρμογή αποθηκευμένης σειράς + ενεργοποίηση drag & drop
   if (typeof applySavedSidebarOrder === 'function') {
     applySavedSidebarOrder();
   }
@@ -1684,7 +1657,6 @@ function updateSidebarFromM3U(data) {
     attachChannelHoverTooltips();
   }
 
-  // Έλεγχος online/marking
   checkStreamStatus();
 }
 
