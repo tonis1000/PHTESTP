@@ -1552,42 +1552,41 @@ function updateSidebarFromM3U(data) {
       const groupMatch = lines[i].match(/group-title="([^"]+)"/);
       const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
 
-// ✅ tvg-id -> tvg-name -> display name (για EPG matching)
-const channelId =
-  (idMatch && idMatch[1] ? idMatch[1].trim() : '') ||
-  (nameTagMatch && nameTagMatch[1] ? nameTagMatch[1].trim() : '') ||
-  (nameMatch && nameMatch[1] ? nameMatch[1].trim() : '') ||
-  null;
+      // ✅ tvg-id -> tvg-name -> display name (για EPG matching)
+      const channelId =
+        (idMatch && idMatch[1] ? idMatch[1].trim() : '') ||
+        (nameTagMatch && nameTagMatch[1] ? nameTagMatch[1].trim() : '') ||
+        (nameMatch && nameMatch[1] ? nameMatch[1].trim() : '') ||
+        null;
 
-const name = nameTagMatch
-  ? nameTagMatch[1].trim()
-  : nameMatch
-  ? nameMatch[1].trim()
-  : 'Unbekannt';
+      const name = nameTagMatch
+        ? nameTagMatch[1].trim()
+        : nameMatch
+        ? nameMatch[1].trim()
+        : 'Unbekannt';
 
-const group = groupMatch ? groupMatch[1].trim() : '';
-const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
+      const group = groupMatch ? groupMatch[1].trim() : '';
+      const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
 
+      const streamLine = (lines[i + 1] || '').trim();
+      const cleanedStreamLine = cleanHashFromStreamUrl(streamLine);
 
-const streamLine = (lines[i + 1] || '').trim();
-const cleanedStreamLine = cleanHashFromStreamUrl(streamLine);
+      const streamURL = cleanedStreamLine.startsWith('http')
+        ? cleanedStreamLine
+        : null;
 
-const streamURL = cleanedStreamLine.startsWith('http')
-  ? cleanedStreamLine
-  : null;
+      // 🔍 Channel identity test
+      const identityTest = detectChannelIdentity({
+        tvgId: channelId || '',
+        tvgName: name || '',
+        displayName: name || '',
+        url: streamURL || '',
+        logo: imgURL || ''
+      });
 
-// 🔍 Channel identity test
-const identityTest = detectChannelIdentity({
-  tvgId: channelId || '',
-  tvgName: name || '',
-  displayName: name || '',
-  url: streamURL || '',
-  logo: imgURL || ''
-});
-
-if (identityTest.matched) {
-  console.log('🎯 Channel matched:', identityTest.canonicalKey);
-}
+      if (identityTest.matched) {
+        console.log('🎯 Channel matched:', identityTest.canonicalKey);
+      }
 
       if (streamURL) {
         try {
@@ -1612,31 +1611,38 @@ if (identityTest.matched) {
 
           listItem.innerHTML = `
             <div class="channel-info ${perf.player ? 'cached-stream' : ''}"
-     data-stream="${streamURL}"
-     data-channel-id="${channelId}"
-     data-channel-key="${identityTest.matched ? identityTest.canonicalKey : ''}"
-     data-group="${group}">
+                 data-stream="${streamURL}"
+                 data-channel-id="${channelId}"
+                 data-channel-key="${identityTest.matched ? identityTest.canonicalKey : ''}"
+                 data-group="${group}">
               <div class="logo-container">
                 <img src="${imgURL}" alt="${name} Logo">
               </div>
               <span class="sender-name">
-  ${name}${playerBadge}
-  <span class="info-icon">ⓘ</span>
-</span>
-<span class="epg-channel">
-  <span>${programInfo.title}</span>
-  <div class="epg-timeline">
-    <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
-    <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
-  </div>
-</span>
-
+                ${name}${playerBadge}
+                <span class="info-icon">ⓘ</span>
+              </span>
+              <span class="epg-channel">
+                <span>${programInfo.title}</span>
+                <div class="epg-timeline">
+                  <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+                  <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+                </div>
+              </span>
             </div>
           `;
 
           // 🔑 Χρησιμοποιούνται για αποθήκευση/restore σειράς
           listItem.dataset.channelId = channelId || '';
           listItem.dataset.stream = streamURL;
+
+          const existingSameKey = sidebarList.querySelector(
+            `.channel-info[data-channel-key="${identityTest.matched ? identityTest.canonicalKey : ''}"]`
+          );
+
+          if (identityTest.matched && existingSameKey) {
+            console.log('🧩 Duplicate channel-key detected:', identityTest.canonicalKey, streamURL);
+          }
 
           sidebarList.appendChild(listItem);
         } catch (error) {
