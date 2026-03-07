@@ -281,67 +281,11 @@
 </div>
 
 <script src="channel-identity.js"></script>
+<script src="stream-finder-sources.js"></script>
 
 <script>
   let currentChannelKey = null;
   let currentHls = null;
-
-  const demoStreamMap = {
-    ert1: [
-      "https://ert-ucdn.broadpeak-aas.com/bpk-tv/ERT1/default/index.m3u8",
-      "https://cdn4.smart-tv-data.com/vid/ert1/playlist.m3u8"
-    ],
-    ert2: [
-      "https://ert-ucdn.broadpeak-aas.com/bpk-tv/ERT2/default/index.m3u8",
-      "https://wow.anixa.tv/live/ert2/playlist.m3u8"
-    ],
-    ert3: [
-      "https://ert-live.ascdn.broadpeak.io/bpk-tv/ERT3/default/index.m3u8",
-      "https://ertflix.akamaized.net/ertlive/ert3/clrdef24828n/playlist.m3u8"
-    ],
-    ertnews: [
-      "https://ertflix.akamaized.net/ertlive/ertnews/default/playlist.m3u8"
-    ],
-    ant1: [
-      "https://spark3.smart-tv-data.com/ant1HD/ant1HD/playlist.m3u8",
-      "https://cdn1.smart-tv-data.com/live/ant1_srt/playlist.m3u8"
-    ],
-    alpha: [
-      "https://alphatvlive2.siliconweb.com/alphatvlive/live_abr/playlist.m3u8",
-      "https://spark3.smart-tv-data.com/alphaHD/alphaHD/playlist.m3u8"
-    ],
-    skai: [
-      "http://skai-live.siliconweb.com/media/cambria4/index.m3u8",
-      "https://skai-live-back.siliconweb.com/media/cambria4/index.m3u8"
-    ],
-    open: [
-      "https://liveopencloud.siliconweb.com/1/ZlRza2R6L2tFRnFJ/eWVLSlQx/hls/live/playlist.m3u8",
-      "https://liveopen.siliconweb.com/openTvLive/liveopen/playlist.m3u8"
-    ],
-    mega: [
-      "https://www.lakatamia.tv/app/chans/gr/megaimage.php",
-      "https://embed.vindral.com/?core.channelId=alteregomedia_megatv1_ci_6cc490c7-e5c6-486b-acf0-9bb9c20fa670&core.minBufferTime=2000&player.aspectRatio=16:9"
-    ],
-    star: [
-      "https://livestar.siliconweb.com/media/star4/star4newhd.m3u8",
-      "https://spark3.smart-tv-data.com/starHD/starHD/playlist.m3u8"
-    ],
-    maktv: [
-      "https://spark3.smart-tv-data.com/makHD/makHD/playlist.m3u8"
-    ],
-    action24: [
-      "https://actionlive.siliconweb.com/actionabr/actiontv/playlist.m3u8"
-    ],
-    pronews: [
-      "https://pro.free.hr:3887/live/pronewslive.m3u8"
-    ],
-    kontra: [
-      "https://kontralive.siliconweb.com/live/kontratv/playlist.m3u8"
-    ],
-    tv100: [
-      "https://live.fm100.gr/hls/tv100/1_2/index.m3u8"
-    ]
-  };
 
   function destroyCurrentPlayer() {
     if (currentHls) {
@@ -447,7 +391,7 @@
 
     results.innerHTML = "";
 
-    const streams = demoStreamMap[key] || [];
+    const streams = getStreamFinderSources(key);
 
     if (!streams.length) {
       results.innerHTML = `
