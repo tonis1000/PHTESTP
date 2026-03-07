@@ -185,6 +185,21 @@
       color:#dbe6f4;
     }
 
+    .badge-status-checking{
+      background:#5a4a18;
+      color:#ffe8a3;
+    }
+
+    .badge-status-online{
+      background:#1f5131;
+      color:#d8ffe3;
+    }
+
+    .badge-status-dead{
+      background:#5a1e1e;
+      color:#ffd8d8;
+    }
+
     .player-title{
       font-size:20px;
       font-weight:bold;
@@ -343,6 +358,29 @@
     });
   }
 
+  async function checkStreamStatus(url, badge) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+
+      await fetch(url, {
+        method: "HEAD",
+        mode: "no-cors",
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+
+      badge.textContent = "✅ online";
+      badge.classList.remove("badge-status-checking", "badge-status-dead");
+      badge.classList.add("badge-status-online");
+    } catch (e) {
+      badge.textContent = "❌ dead";
+      badge.classList.remove("badge-status-checking", "badge-status-online");
+      badge.classList.add("badge-status-dead");
+    }
+  }
+
   function renderChannelList(filterText = "") {
     const list = document.getElementById("channelList");
     list.innerHTML = "";
@@ -411,7 +449,7 @@
         <div style="margin-bottom:8px;">
           <span class="badge">Source ${index + 1}</span>
           <span class="badge">${/\.m3u8(\?.*)?$/i.test(url) ? "HLS" : "Direct"}</span>
-          <span class="badge status-badge" data-url="${url}">⏳ checking</span>
+          <span class="badge status-badge badge-status-checking" data-url="${url}">⏳ checking</span>
         </div>
         <div class="stream-url">${url}</div>
         <div class="stream-actions">
@@ -427,6 +465,9 @@
       item.querySelector('[data-action="copy"]').addEventListener("click", () => {
         copyUrl(url);
       });
+
+      const badge = item.querySelector(".status-badge");
+      checkStreamStatus(url, badge);
 
       results.appendChild(item);
     });
