@@ -1814,7 +1814,7 @@ if (shouldProxyThroughWorker(streamURL)) {
         return;
       } else if (cached.player === 'clappr') {
         clapprDiv.style.display = 'block';
-        clapprPlayer = new Clappr.Player({ source: initialURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
+        clapprPlayer = new Clappr.Player({ source: streamURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
         showPlayerInfo('clappr', true);
         return;
       } else if (cached.player.startsWith('hls') && Hls.isSupported()) {
