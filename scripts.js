@@ -1799,7 +1799,7 @@ async function playStream(initialURL, subtitleURL = null) {
 if (shouldProxyThroughWorker(streamURL)) {
   streamURL = toTvCacheUrl(streamURL);
 }
-  const normalizedUrl = initialURL.replace(/^http:/, 'https:');
+  const normalizedUrl = streamURL.replace(/^http:/, 'https:');
   const alternateUrl = initialURL.replace(/^https:/, 'http:');
   const cached = streamPerfMap[normalizedUrl] || streamPerfMap[initialURL] || streamPerfMap[alternateUrl];
   console.log('🎯 Cache:', normalizedUrl, cached);
