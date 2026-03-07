@@ -1809,7 +1809,7 @@ if (shouldProxyThroughWorker(streamURL)) {
     try {
       if (cached.player === 'iframe') {
         iframePlayer.style.display = 'block';
-        iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+        iframePlayer.src = streamURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
         showPlayerInfo('iframe', true);
         return;
       } else if (cached.player === 'clappr') {
