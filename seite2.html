@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>🔎 Stream Finder</title>
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+
+body{
+background:#0b0f17;
+color:white;
+font-family:Arial,Helvetica,sans-serif;
+margin:0;
+}
+
+.main{
+display:flex;
+height:100vh;
+}
+
+/* SIDEBAR */
+
+.sidebar{
+width:260px;
+background:#111827;
+overflow-y:auto;
+border-right:1px solid #333;
+}
+
+.sidebar-header{
+padding:15px;
+font-size:18px;
+font-weight:bold;
+border-bottom:1px solid #333;
+}
+
+.channel-list{
+list-style:none;
+padding:0;
+margin:0;
+}
+
+.channel-list li{
+padding:10px 15px;
+cursor:pointer;
+border-bottom:1px solid #222;
+}
+
+.channel-list li:hover{
+background:#1f2937;
+}
+
+/* RIGHT PANEL */
+
+.content{
+flex:1;
+padding:25px;
+overflow:auto;
+}
+
+.channel-title{
+font-size:22px;
+margin-bottom:15px;
+}
+
+.stream-list{
+margin-top:20px;
+}
+
+.stream-item{
+background:#1e2a3a;
+padding:10px;
+margin-bottom:10px;
+border-radius:6px;
+font-size:14px;
+}
+
+.topbar{
+margin-bottom:20px;
+}
+
+button{
+padding:8px 12px;
+cursor:pointer;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="main">
+
+<!-- SIDEBAR -->
+
+<div class="sidebar">
+
+<div class="sidebar-header">
+🔎 Channels
+</div>
+
+<ul class="channel-list" id="channelList"></ul>
+
+</div>
+
+
+<!-- RIGHT PANEL -->
+
+<div class="content">
+
+<div class="topbar">
+
+<a href="index.html">
+<button>⬅ WebTV</button>
+</a>
+
+</div>
+
+<div id="channelTitle" class="channel-title">
+Select a channel
+</div>
+
+<div id="streamResults" class="stream-list"></div>
+
+</div>
+
+</div>
+
+<script src="channel-identity.js"></script>
+
+<script>
+
+/* ===== LOAD CHANNELS FROM channel-identity ===== */
+
+function loadChannels(){
+
+const list=document.getElementById("channelList");
+
+list.innerHTML="";
+
+const keys=Object.keys(channelIdentityMap);
+
+keys.sort();
+
+keys.forEach(key=>{
+
+const channel=channelIdentityMap[key];
+
+const li=document.createElement("li");
+
+li.textContent=channel.displayName;
+
+li.dataset.key=key;
+
+li.onclick=()=>selectChannel(key);
+
+list.appendChild(li);
+
+});
+
+}
+
+
+/* ===== SELECT CHANNEL ===== */
+
+function selectChannel(key){
+
+const channel=channelIdentityMap[key];
+
+document.getElementById("channelTitle").textContent=
+channel.displayName+" ("+key+")";
+
+const results=document.getElementById("streamResults");
+
+results.innerHTML="";
+
+const div=document.createElement("div");
+
+div.className="stream-item";
+
+div.innerHTML=`
+<b>Canonical Key:</b> ${key}<br>
+Aliases: ${channel.aliases.join(", ")}<br>
+TVG IDs: ${channel.tvgIds.join(", ")}
+`;
+
+results.appendChild(div);
+
+}
+
+
+/* INIT */
+
+loadChannels();
+
+</script>
+
+</body>
+</html>
