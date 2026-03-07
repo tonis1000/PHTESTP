@@ -272,16 +272,14 @@
 
   <div class="content">
     <div class="topbar">
-  <a href="index.html">
-    <button>⬅ WebTV</button>
-  </a>
+      <a href="index.html">
+        <button>⬅ WebTV</button>
+      </a>
 
-  <button id="reloadChannelsBtn">↻ Reload Channels</button>
+      <button id="reloadChannelsBtn">↻ Reload Channels</button>
 
-  <button id="scanGithubBtn">
-    🔎 Find New Sources
-  </button>
-</div>
+      <button id="scanGithubBtn">🔎 Find New Sources</button>
+    </div>
 
     <div class="content-inner">
       <div class="results-panel">
@@ -422,70 +420,88 @@
     });
   }
 
-function renderChannelDetails(key) {
-  const channel = channelIdentityMap[key];
-  const results = document.getElementById("streamResults");
+  function renderChannelDetails(key) {
+    const channel = channelIdentityMap[key];
+    const results = document.getElementById("streamResults");
 
-  document.getElementById("channelTitle").textContent =
-    `${channel.displayName || key} (${key})`;
+    document.getElementById("channelTitle").textContent =
+      `${channel.displayName || key} (${key})`;
 
-  document.getElementById("channelMeta").textContent =
-    `Aliases: ${(channel.aliases || []).join(", ")} | TVG IDs: ${(channel.tvgIds || []).join(", ")}`;
+    document.getElementById("channelMeta").textContent =
+      `Aliases: ${(channel.aliases || []).join(", ")} | TVG IDs: ${(channel.tvgIds || []).join(", ")}`;
 
-  results.innerHTML = "";
+    results.innerHTML = "";
 
-  sortStreamFinderSources(key);
-  const sources = getStreamFinderSources(key);
+    sortStreamFinderSources(key);
+    const sources = getStreamFinderSources(key);
 
-  if (!sources.length) {
-    results.innerHTML = `
-      <div class="empty-box">
-        No stream sources added yet for this channel.<br>
-        This is where GitHub discovery / validation results will appear next.
-      </div>
-    `;
-    return;
+    if (!sources.length) {
+      results.innerHTML = `
+        <div class="empty-box">
+          No stream sources added yet for this channel.<br>
+          This is where GitHub discovery / validation results will appear next.
+        </div>
+      `;
+      return;
+    }
+
+    sources.forEach((source, index) => {
+      const url = source.url;
+
+      const item = document.createElement("div");
+      item.className = "stream-item";
+
+      item.innerHTML = `
+        <div style="margin-bottom:8px;">
+          <span class="badge">Source ${index + 1}</span>
+          <span class="badge">${/\.m3u8(\?.*)?$/i.test(url) ? "HLS" : "Direct"}</span>
+          <span class="badge">${source.sourceType || "saved"}</span>
+          <span class="badge status-badge badge-status-checking" data-url="${url}">
+            ${source.status === "online" ? "✅ online" : source.status === "dead" ? "❌ dead" : "⏳ checking"}
+          </span>
+        </div>
+        <div class="stream-url">${url}</div>
+        <div style="font-size:12px; color:#aeb9c7; margin-bottom:8px;">
+          ${source.notes || ""}
+        </div>
+        <div class="stream-actions">
+          <button data-action="test">▶ Test Stream</button>
+          <button data-action="copy">⧉ Copy URL</button>
+        </div>
+      `;
+
+      item.querySelector('[data-action="test"]').addEventListener("click", () => {
+        playTest(url);
+      });
+
+      item.querySelector('[data-action="copy"]').addEventListener("click", () => {
+        copyUrl(url);
+      });
+
+      const badge = item.querySelector(".status-badge");
+      checkStreamStatus(url, badge);
+
+      results.appendChild(item);
+    });
   }
 
-  sources.forEach((source, index) => {
-    const url = source.url;
+  function scanGithubForChannel(channelKey) {
+    const channel = channelIdentityMap[channelKey];
 
-    const item = document.createElement("div");
-    item.className = "stream-item";
-
-    item.innerHTML = `
-      <div style="margin-bottom:8px;">
-        <span class="badge">Source ${index + 1}</span>
-        <span class="badge">${/\.m3u8(\?.*)?$/i.test(url) ? "HLS" : "Direct"}</span>
-        <span class="badge">${source.sourceType || "saved"}</span>
-        <span class="badge status-badge badge-status-checking" data-url="${url}">
-          ${source.status === "online" ? "✅ online" : source.status === "dead" ? "❌ dead" : "⏳ checking"}
-        </span>
-      </div>
-      <div class="stream-url">${url}</div>
-      <div style="font-size:12px; color:#aeb9c7; margin-bottom:8px;">
-        ${source.notes || ""}
-      </div>
-      <div class="stream-actions">
-        <button data-action="test">▶ Test Stream</button>
-        <button data-action="copy">⧉ Copy URL</button>
-      </div>
-    `;
-
-    item.querySelector('[data-action="test"]').addEventListener("click", () => {
-      playTest(url);
+    console.log("🔎 GitHub scan started for:", channelKey);
+    console.log("Search profile:", {
+      tvgIds: channel.tvgIds,
+      aliases: channel.aliases
     });
 
-    item.querySelector('[data-action="copy"]').addEventListener("click", () => {
-      copyUrl(url);
-    });
+    alert(
+      "GitHub search started for: " +
+      (channel.displayName || channelKey) +
+      "\n\nNext step: scanning GitHub playlists."
+    );
 
-    const badge = item.querySelector(".status-badge");
-    checkStreamStatus(url, badge);
-
-    results.appendChild(item);
-  });
-}
+    setPlayerStatus("🔎 Searching GitHub sources for: " + channelKey);
+  }
 
   document.getElementById("channelFilter").addEventListener("input", function () {
     renderChannelList(this.value.trim());
@@ -494,6 +510,15 @@ function renderChannelDetails(key) {
   document.getElementById("reloadChannelsBtn").addEventListener("click", function () {
     renderChannelList(document.getElementById("channelFilter").value.trim());
     setPlayerStatus("Channel list reloaded.");
+  });
+
+  document.getElementById("scanGithubBtn").addEventListener("click", function () {
+    if (!currentChannelKey) {
+      alert("Select a channel first.");
+      return;
+    }
+
+    scanGithubForChannel(currentChannelKey);
   });
 
   renderChannelList();
