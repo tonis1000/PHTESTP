@@ -1694,7 +1694,7 @@ function checkStreamStatus() {
       }
 
       // ➤ Κανονικός έλεγχος fetch για m3u8, mp4 κλπ
-      fetch(streamURL)
+      fetch(shouldProxyThroughWorker(streamURL) ? toTvCacheUrl(streamURL) : streamURL)
         .then(response => {
           const senderName = channel.querySelector('.sender-name');
           if (response.ok) {
