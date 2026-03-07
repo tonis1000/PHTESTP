@@ -1023,7 +1023,7 @@ async function loadSportPlaylist() {
   sidebarList.innerHTML = '';
 
   const proxy = 'https://cors-anywhere-production-d9b6.up.railway.app/';
-  const sourceUrl = 'https://foothubhd.online/program.txt';
+  const sourceUrl = 'https://foothubhd.info/program.txt';
   const finalUrl = proxy + sourceUrl;
 
   try {
