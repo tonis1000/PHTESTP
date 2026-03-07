@@ -2212,7 +2212,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Κύριο DOMContentLoaded: φόρτωση χαρτών, EPG, handlers, search/filters
 document.addEventListener('DOMContentLoaded', function () {
   // Φόρτωση proxy-map.json
-  fetch('https://yellow-hulking-guan.glitch.me/proxy-map.json')
+  fetch(`${CACHE_BASE_URL}/proxy-map.json`)
     .then(res => res.json())
     .then(data => {
       streamPerfMap = data;
