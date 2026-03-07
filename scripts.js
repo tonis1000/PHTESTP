@@ -280,10 +280,11 @@ async function findM3U8inIframe(url) {
     const res = await fetch(foundUrl);
     if (res.ok) {
       const html = await res.text();
-      const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/i);
+      const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
       if (match) {
-        console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', match[1]);
-        return match[1];
+        const cleaned = cleanHashFromStreamUrl(match[1]);
+        console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', cleaned);
+        return cleaned;
       }
     }
   } catch (e) {
