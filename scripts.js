@@ -944,7 +944,7 @@ if (!tvgId || !streamMap[tvgId]) continue;
         let usedIndex = -1;
 
         for (let index = 0; index < streamMap[tvgId].length; index++) {
-          const url = streamMap[tvgId][index];
+          const url = cleanHashFromStreamUrl(streamMap[tvgId][index]);
           try {
             const res = await fetch(url);
             if (!res.ok) continue;
