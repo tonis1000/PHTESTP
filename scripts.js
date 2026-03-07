@@ -2006,7 +2006,7 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
   statusEl.textContent = '⏳ Γίνεται αποστολή cache...';
 
   try {
-    const response = await fetch('https://yellow-hulking-guan.glitch.me/upload-cache', {
+    const response = await fetch(`${CACHE_BASE_URL}/upload-cache`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(globalStreamCache)
