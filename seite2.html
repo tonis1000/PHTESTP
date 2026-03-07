@@ -411,6 +411,7 @@
         <div style="margin-bottom:8px;">
           <span class="badge">Source ${index + 1}</span>
           <span class="badge">${/\.m3u8(\?.*)?$/i.test(url) ? "HLS" : "Direct"}</span>
+          <span class="badge status-badge" data-url="${url}">⏳ checking</span>
         </div>
         <div class="stream-url">${url}</div>
         <div class="stream-actions">
