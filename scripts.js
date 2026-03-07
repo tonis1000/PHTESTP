@@ -1819,7 +1819,7 @@ if (shouldProxyThroughWorker(streamURL)) {
         return;
       } else if (cached.player.startsWith('hls') && Hls.isSupported()) {
         const hls = new Hls();
-        hls.loadSource(initialURL);
+        hls.loadSource(streamURL);
         hls.attachMedia(videoPlayer);
         hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
         showVideoPlayer();
