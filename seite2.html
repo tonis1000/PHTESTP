@@ -417,61 +417,70 @@
     });
   }
 
-  function renderChannelDetails(key) {
-    const channel = channelIdentityMap[key];
-    const results = document.getElementById("streamResults");
+function renderChannelDetails(key) {
+  const channel = channelIdentityMap[key];
+  const results = document.getElementById("streamResults");
 
-    document.getElementById("channelTitle").textContent =
-      `${channel.displayName || key} (${key})`;
+  document.getElementById("channelTitle").textContent =
+    `${channel.displayName || key} (${key})`;
 
-    document.getElementById("channelMeta").textContent =
-      `Aliases: ${(channel.aliases || []).join(", ")} | TVG IDs: ${(channel.tvgIds || []).join(", ")}`;
+  document.getElementById("channelMeta").textContent =
+    `Aliases: ${(channel.aliases || []).join(", ")} | TVG IDs: ${(channel.tvgIds || []).join(", ")}`;
 
-    results.innerHTML = "";
+  results.innerHTML = "";
 
-    const streams = getStreamFinderSources(key);
+  sortStreamFinderSources(key);
+  const sources = getStreamFinderSources(key);
 
-    if (!streams.length) {
-      results.innerHTML = `
-        <div class="empty-box">
-          No stream sources added yet for this channel.<br>
-          This is where GitHub discovery / validation results will appear next.
-        </div>
-      `;
-      return;
-    }
-
-    streams.forEach((url, index) => {
-      const item = document.createElement("div");
-      item.className = "stream-item";
-
-      item.innerHTML = `
-        <div style="margin-bottom:8px;">
-          <span class="badge">Source ${index + 1}</span>
-          <span class="badge">${/\.m3u8(\?.*)?$/i.test(url) ? "HLS" : "Direct"}</span>
-          <span class="badge status-badge badge-status-checking" data-url="${url}">⏳ checking</span>
-        </div>
-        <div class="stream-url">${url}</div>
-        <div class="stream-actions">
-          <button data-action="test">▶ Test Stream</button>
-          <button data-action="copy">⧉ Copy URL</button>
-        </div>
-      `;
-
-      item.querySelector('[data-action="test"]').addEventListener("click", () => {
-        playTest(url);
-      });
-
-      item.querySelector('[data-action="copy"]').addEventListener("click", () => {
-        copyUrl(url);
-      });
-
-      const badge = item.querySelector(".status-badge");
-      checkStreamStatus(url, badge);
-
-      results.appendChild(item);
-    });
+  if (!sources.length) {
+    results.innerHTML = `
+      <div class="empty-box">
+        No stream sources added yet for this channel.<br>
+        This is where GitHub discovery / validation results will appear next.
+      </div>
+    `;
+    return;
   }
+
+  sources.forEach((source, index) => {
+    const url = source.url;
+
+    const item = document.createElement("div");
+    item.className = "stream-item";
+
+    item.innerHTML = `
+      <div style="margin-bottom:8px;">
+        <span class="badge">Source ${index + 1}</span>
+        <span class="badge">${/\.m3u8(\?.*)?$/i.test(url) ? "HLS" : "Direct"}</span>
+        <span class="badge">${source.sourceType || "saved"}</span>
+        <span class="badge status-badge badge-status-checking" data-url="${url}">
+          ${source.status === "online" ? "✅ online" : source.status === "dead" ? "❌ dead" : "⏳ checking"}
+        </span>
+      </div>
+      <div class="stream-url">${url}</div>
+      <div style="font-size:12px; color:#aeb9c7; margin-bottom:8px;">
+        ${source.notes || ""}
+      </div>
+      <div class="stream-actions">
+        <button data-action="test">▶ Test Stream</button>
+        <button data-action="copy">⧉ Copy URL</button>
+      </div>
+    `;
+
+    item.querySelector('[data-action="test"]').addEventListener("click", () => {
+      playTest(url);
+    });
+
+    item.querySelector('[data-action="copy"]').addEventListener("click", () => {
+      copyUrl(url);
+    });
+
+    const badge = item.querySelector(".status-badge");
+    checkStreamStatus(url, badge);
+
+    results.appendChild(item);
+  });
+}
 
   document.getElementById("channelFilter").addEventListener("input", function () {
     renderChannelList(this.value.trim());
