@@ -228,6 +228,12 @@
       color:#aeb9c7;
     }
 
+    .note{
+      font-size:12px;
+      color:#9fb0c7;
+      margin-top:8px;
+    }
+
     @media (max-width: 980px){
       .main{
         flex-direction:column;
@@ -277,7 +283,6 @@
       </a>
 
       <button id="reloadChannelsBtn">↻ Reload Channels</button>
-
       <button id="scanGithubBtn">🔎 Find New Sources</button>
     </div>
 
@@ -292,6 +297,9 @@
         <div class="player-title">▶ Stream Test Player</div>
         <video id="testPlayer" controls></video>
         <div id="playerStatus" class="player-status">No stream loaded.</div>
+        <div class="note">
+          Optional later: add GitHub token for higher limits.
+        </div>
       </div>
     </div>
   </div>
@@ -304,6 +312,12 @@
 <script>
   let currentChannelKey = null;
   let currentHls = null;
+
+  // Optional: insert your GitHub token later if you want higher limits.
+  // Example: const GITHUB_TOKEN = "ghp_xxxxxxxxx";
+  const GITHUB_TOKEN = "";
+
+  const STREAM_FINDER_DISCOVERED_KEY = "stream_finder_discovered_v1";
 
   function destroyCurrentPlayer() {
     if (currentHls) {
@@ -382,6 +396,134 @@
       badge.classList.remove("badge-status-checking", "badge-status-online");
       badge.classList.add("badge-status-dead");
     }
+  }
+
+  function normalizeSourceUrl(url) {
+    return String(url || "").split("#")[0].trim();
+  }
+
+  function githubHeaders() {
+    const headers = {
+      "Accept": "application/vnd.github+json"
+    };
+
+    if (GITHUB_TOKEN) {
+      headers["Authorization"] = `Bearer ${GITHUB_TOKEN}`;
+    }
+
+    return headers;
+  }
+
+  function getDateDaysAgo(days) {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function getSearchTermsForChannel(channelKey) {
+    const channel = channelIdentityMap[channelKey];
+    if (!channel) return [];
+
+    const terms = new Set();
+
+    (channel.tvgIds || []).forEach(v => {
+      if (v) terms.add(v);
+    });
+
+    (channel.aliases || []).forEach(v => {
+      if (v) terms.add(v);
+    });
+
+    terms.add(channelKey);
+
+    return [...terms].filter(Boolean).slice(0, 8);
+  }
+
+  function parseM3UEntries(text) {
+    const lines = text.split(/\r?\n/);
+    const entries = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      if (!line.startsWith("#EXTINF")) continue;
+
+      const idMatch = line.match(/tvg-id="([^"]+)"/i);
+      const nameTagMatch = line.match(/tvg-name="([^"]+)"/i);
+      const logoMatch = line.match(/tvg-logo="([^"]+)"/i);
+      const displayNameMatch = line.match(/,(.*)$/);
+
+      const nextLine = (lines[i + 1] || "").trim();
+      if (!nextLine.startsWith("http")) continue;
+
+      entries.push({
+        tvgId: idMatch ? idMatch[1].trim() : "",
+        tvgName: nameTagMatch ? nameTagMatch[1].trim() : "",
+        displayName: displayNameMatch ? displayNameMatch[1].trim() : "",
+        logo: logoMatch ? logoMatch[1].trim() : "",
+        url: normalizeSourceUrl(nextLine)
+      });
+    }
+
+    return entries;
+  }
+
+  function loadDiscoveredSourcesFromStorage() {
+    try {
+      const raw = localStorage.getItem(STREAM_FINDER_DISCOVERED_KEY);
+      if (!raw) return;
+
+      const persisted = JSON.parse(raw);
+      if (!persisted || typeof persisted !== "object") return;
+
+      Object.keys(persisted).forEach(channelKey => {
+        const arr = persisted[channelKey];
+        if (!Array.isArray(arr)) return;
+
+        arr.forEach(sourceObj => {
+          addStreamFinderSource(channelKey, sourceObj);
+        });
+
+        sortStreamFinderSources(channelKey);
+      });
+    } catch (e) {
+      console.warn("Could not load persisted discovered sources:", e);
+    }
+  }
+
+  function saveDiscoveredSourcesToStorage() {
+    try {
+      const output = {};
+
+      Object.keys(streamFinderSources).forEach(channelKey => {
+        const foundOnly = (streamFinderSources[channelKey] || []).filter(
+          s => s.sourceType === "found"
+        );
+
+        if (foundOnly.length) {
+          output[channelKey] = foundOnly;
+        }
+      });
+
+      localStorage.setItem(STREAM_FINDER_DISCOVERED_KEY, JSON.stringify(output));
+    } catch (e) {
+      console.warn("Could not persist discovered sources:", e);
+    }
+  }
+
+  function addPermanentFoundSource(channelKey, url, note) {
+    const sourceObj = {
+      url: normalizeSourceUrl(url),
+      status: "unknown",
+      sourceType: "found",
+      lastChecked: null,
+      lastFound: new Date().toISOString(),
+      notes: note || "Found via GitHub scan"
+    };
+
+    addStreamFinderSource(channelKey, sourceObj);
+    sortStreamFinderSources(channelKey);
+    saveDiscoveredSourcesToStorage();
   }
 
   function renderChannelList(filterText = "") {
@@ -485,22 +627,121 @@
     });
   }
 
-  function scanGithubForChannel(channelKey) {
-    const channel = channelIdentityMap[channelKey];
+  async function searchRecentGithubRepos(channelKey) {
+    const terms = getSearchTermsForChannel(channelKey);
+    const sinceDate = getDateDaysAgo(7);
 
-    console.log("🔎 GitHub scan started for:", channelKey);
-    console.log("Search profile:", {
-      tvgIds: channel.tvgIds,
-      aliases: channel.aliases
-    });
+    const q = `${terms.slice(0, 3).join(" OR ")} pushed:>=${sinceDate}`;
+    const endpoint = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=12`;
 
-    alert(
-      "GitHub search started for: " +
-      (channel.displayName || channelKey) +
-      "\n\nNext step: scanning GitHub playlists."
+    const res = await fetch(endpoint, { headers: githubHeaders() });
+    if (!res.ok) {
+      throw new Error(`GitHub repo search failed: ${res.status}`);
+    }
+
+    const data = await res.json();
+    return Array.isArray(data.items) ? data.items : [];
+  }
+
+  async function listRepoRootContents(owner, repo) {
+    const endpoint = `https://api.github.com/repos/${owner}/${repo}/contents`;
+    const res = await fetch(endpoint, { headers: githubHeaders() });
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }
+
+  function isPlaylistLikeFile(name) {
+    const n = String(name || "").toLowerCase();
+
+    return (
+      n.endsWith(".m3u") ||
+      n.endsWith(".m3u8") ||
+      n.includes("playlist") ||
+      n.includes("channels") ||
+      n.includes("iptv")
     );
+  }
+
+  async function fetchRawText(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Raw fetch failed: ${res.status}`);
+    return await res.text();
+  }
+
+  async function scanGithubForChannel(channelKey) {
+    const channel = channelIdentityMap[channelKey];
+    if (!channel) return;
 
     setPlayerStatus("🔎 Searching GitHub sources for: " + channelKey);
+
+    try {
+      const repos = await searchRecentGithubRepos(channelKey);
+
+      if (!repos.length) {
+        setPlayerStatus("No recent GitHub repositories found for " + channelKey);
+        return;
+      }
+
+      let foundCount = 0;
+
+      for (const repo of repos.slice(0, 8)) {
+        const owner = repo.owner && repo.owner.login ? repo.owner.login : null;
+        const repoName = repo.name;
+
+        if (!owner || !repoName) continue;
+
+        const contents = await listRepoRootContents(owner, repoName);
+        const candidateFiles = contents.filter(item =>
+          item &&
+          item.type === "file" &&
+          isPlaylistLikeFile(item.name) &&
+          item.download_url
+        );
+
+        for (const file of candidateFiles.slice(0, 6)) {
+          try {
+            const text = await fetchRawText(file.download_url);
+            const entries = parseM3UEntries(text);
+
+            entries.forEach(entry => {
+              const match = detectChannelIdentity({
+                tvgId: entry.tvgId,
+                tvgName: entry.tvgName,
+                displayName: entry.displayName,
+                url: entry.url,
+                logo: entry.logo
+              });
+
+              if (match.matched && match.canonicalKey === channelKey) {
+                addPermanentFoundSource(
+                  channelKey,
+                  entry.url,
+                  `Found in ${owner}/${repoName} → ${file.name}`
+                );
+                foundCount++;
+              }
+            });
+          } catch (e) {
+            console.warn("Failed to inspect playlist file:", file.download_url, e);
+          }
+        }
+      }
+
+      sortStreamFinderSources(channelKey);
+      renderChannelDetails(channelKey);
+
+      if (foundCount > 0) {
+        setPlayerStatus(`✅ Found ${foundCount} new source matches for ${channel.displayName || channelKey}`);
+      } else {
+        setPlayerStatus(`ℹ️ No new GitHub sources found for ${channel.displayName || channelKey}`);
+      }
+    } catch (e) {
+      console.error(e);
+      setPlayerStatus("❌ GitHub scan failed: " + e.message);
+    }
   }
 
   document.getElementById("channelFilter").addEventListener("input", function () {
@@ -521,6 +762,7 @@
     scanGithubForChannel(currentChannelKey);
   });
 
+  loadDiscoveredSourcesFromStorage();
   renderChannelList();
 </script>
 
