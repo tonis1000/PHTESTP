@@ -238,19 +238,21 @@ async function playStreamByTvgId(tvgId) {
       return;
     }
 
-    const url = urls[currentIndex];
-    currentIndex++;
+const rawUrl = cleanHashFromStreamUrl(urls[currentIndex]);
+currentIndex++;
 
-    try {
-      const head = await fetch(url, { method: 'HEAD' });
-      if (!head.ok) throw new Error('Not OK');
-    } catch (e) {
-      console.warn(`❌ Stream νεκρό: ${url}`);
-      return tryNext(); // ➤ επόμενο
-    }
+const testUrl = shouldProxyThroughWorker(rawUrl) ? toTvCacheUrl(rawUrl) : rawUrl;
 
-    console.log(`🎯 Παίζει stream για ${tvgId}:`, url);
-    playStream(url);
+try {
+  const head = await fetch(testUrl, { method: 'HEAD' });
+  if (!head.ok) throw new Error('Not OK');
+} catch (e) {
+  console.warn(`❌ Stream νεκρό: ${rawUrl}`);
+  return tryNext(); // ➤ επόμενο
+}
+
+console.log(`🎯 Παίζει stream για ${tvgId}:`, rawUrl);
+playStream(rawUrl);
 
     const video = document.getElementById('video-player');
     video.onerror = () => {
