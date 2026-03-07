@@ -203,7 +203,7 @@ function extractChunksUrl(m3uText, baseUrl) {
 async function playStreamByTvgId(tvgId) {
   if (!tvgId) return;
 
-  const res = await fetch('https://yellow-hulking-guan.glitch.me/channel-streams.json');
+  const res = await fetch(`${CACHE_BASE_URL}/channel-streams.json`);
   const streamData = await res.json();
   const urls = streamData[tvgId];
 
