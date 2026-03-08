@@ -15,8 +15,27 @@ let epgTooltipEl = null;
 // Αποθήκευση σειράς sidebar στο localStorage
 const SIDEBAR_ORDER_KEY = 'phtestp_sidebar_order_v1';
 
-const CACHE_UPLOAD_URL = 'https://yellow-hulking-guan.glitch.me/upload-cache';
+const CACHE_BASE_URL = 'https://tv-cache.atonis.workers.dev';
+const CACHE_UPLOAD_URL = `${CACHE_BASE_URL}/upload-cache`;
 let lastSentCache = {};
+
+const TV_CACHE_PROXY = `${CACHE_BASE_URL}/?url=`;
+
+function cleanHashFromStreamUrl(url) {
+  return (url || '').split('#')[0].trim();
+}
+
+function toTvCacheUrl(url) {
+  const cleaned = cleanHashFromStreamUrl(url);
+  if (!cleaned) return cleaned;
+  if (cleaned.startsWith(TV_CACHE_PROXY)) return cleaned;
+  return `${TV_CACHE_PROXY}${encodeURIComponent(cleaned)}`;
+}
+
+function shouldProxyThroughWorker(url) {
+  const cleaned = cleanHashFromStreamUrl(url);
+  return /\.m3u8(\?.*)?$/i.test(cleaned);
+}
 
 // Debug flag & light logger (μείωση θορύβου χωρίς αλλαγή ροής)
 const DEBUG = false;
@@ -179,7 +198,7 @@ async function resolveSTRM(url) {
     const res = await fetch(url);
     const text = await res.text();
     const match = text.match(/https?:\/\/[^\s]+/);
-    return match ? match[0] : null;
+    return match ? cleanHashFromStreamUrl(match[0]) : null;
   } catch (e) {
     return null;
   }
@@ -201,7 +220,7 @@ function extractChunksUrl(m3uText, baseUrl) {
 async function playStreamByTvgId(tvgId) {
   if (!tvgId) return;
 
-  const res = await fetch('https://yellow-hulking-guan.glitch.me/channel-streams.json');
+  const res = await fetch(`${CACHE_BASE_URL}/channel-streams.json`);
   const streamData = await res.json();
   const urls = streamData[tvgId];
 
@@ -219,19 +238,21 @@ async function playStreamByTvgId(tvgId) {
       return;
     }
 
-    const url = urls[currentIndex];
-    currentIndex++;
+const rawUrl = cleanHashFromStreamUrl(urls[currentIndex]);
+currentIndex++;
 
-    try {
-      const head = await fetch(url, { method: 'HEAD' });
-      if (!head.ok) throw new Error('Not OK');
-    } catch (e) {
-      console.warn(`❌ Stream νεκρό: ${url}`);
-      return tryNext(); // ➤ επόμενο
-    }
+const testUrl = shouldProxyThroughWorker(rawUrl) ? toTvCacheUrl(rawUrl) : rawUrl;
 
-    console.log(`🎯 Παίζει stream για ${tvgId}:`, url);
-    playStream(url);
+try {
+  const head = await fetch(testUrl, { method: 'HEAD' });
+  if (!head.ok) throw new Error('Not OK');
+} catch (e) {
+  console.warn(`❌ Stream νεκρό: ${rawUrl}`);
+  return tryNext(); // ➤ επόμενο
+}
+
+console.log(`🎯 Παίζει stream για ${tvgId}:`, rawUrl);
+playStream(rawUrl);
 
     const video = document.getElementById('video-player');
     video.onerror = () => {
@@ -259,10 +280,11 @@ async function findM3U8inIframe(url) {
     const res = await fetch(foundUrl);
     if (res.ok) {
       const html = await res.text();
-      const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8)/i);
+      const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
       if (match) {
-        console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', match[1]);
-        return match[1];
+        const cleaned = cleanHashFromStreamUrl(match[1]);
+        console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', cleaned);
+        return cleaned;
       }
     }
   } catch (e) {
@@ -288,74 +310,92 @@ async function probeTsRange(tsUrl) {
 
 // Proxy cycling / validation — τώρα χρησιμοποιεί το global proxyList
 async function findWorkingUrl(initialURL) {
-  for (const proxy of proxyList) {
-    const fullUrl = proxy ? (proxy.endsWith("=") ? proxy + encodeURIComponent(initialURL) : proxy + initialURL) : initialURL;
-    log(`🔍 Δοκιμή proxy: ${proxy || "direct"} ➔ ${fullUrl}`);
+  const cleanedInitialURL = cleanHashFromStreamUrl(initialURL);
 
-    try {
-      const res = await fetch(fullUrl, { method: "GET", mode: "cors" });
-      if (!res.ok) {
-        console.warn(`❌ Αποτυχία fetch stream: ${res.status}`);
-        continue;
-      }
+  const originalSourceUrl = cleanedInitialURL.includes(`${CACHE_BASE_URL}/?url=`)
+    ? cleanHashFromStreamUrl(decodeURIComponent(new URL(cleanedInitialURL).searchParams.get('url') || ''))
+    : cleanedInitialURL;
 
-      const text = await res.text();
+  const workerCandidate =
+    shouldProxyThroughWorker(originalSourceUrl) ? toTvCacheUrl(originalSourceUrl) : originalSourceUrl;
 
-      // nested m3u8
-      const nestedMatch = text.match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i);
-      if (nestedMatch) {
-        const nestedURL = nestedMatch[0];
-        log('🔎 Βρέθηκε nested m3u8 ➔', nestedURL);
+  const candidateUrls = [workerCandidate];
 
-        const nestedRes = await fetch(proxy ? proxy + encodeURIComponent(nestedURL) : nestedURL);
-        if (nestedRes.ok) {
-          const nestedText = await nestedRes.text();
-          if (nestedText.includes(".ts")) {
-            log("✅ Βρέθηκε .ts μέσα στο nested .m3u8");
-            return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
-          } else {
-            console.warn("⚠️ Δεν βρέθηκε ts στο nested m3u8");
-          }
-        }
-        continue;
-      }
-
-// ✅ LIVE-HLS: πάρε το τελευταίο .ts (πιο φρέσκο) και κάνε Range probe
-const tsLines = [...text.matchAll(/(^|[\r\n])\s*([^#\r\n]+\.ts[^\r\n]*)/gi)]
-  .map(m => m[2].trim())
-  .filter(Boolean);
-
-if (tsLines.length) {
-  const lastTs = tsLines[tsLines.length - 1];
-
-  // φτιάξε absolute url αν είναι relative
-  const baseUrl = initialURL.substring(0, initialURL.lastIndexOf("/") + 1);
-  const tsUrl = lastTs.startsWith("http") ? lastTs : baseUrl + lastTs;
-
-  log("⏳ Range probe στο πιο φρέσκο ts:", tsUrl);
-
-  const ok = await probeTsRange(tsUrl);
-
-  if (ok) {
-    log("✅ TS probe OK (φρέσκο segment)");
-    return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
+  if (workerCandidate !== originalSourceUrl) {
+    candidateUrls.push(originalSourceUrl);
   }
 
-  // ⚠️ Αν αποτύχει, ΜΗΝ απορρίπτεις live stream (μπορεί να έληξε το window)
-  log("⚠️ TS probe απέτυχε. Fallback: αποδέχομαι το m3u8 και αφήνω τον player να κάνει fresh requests.");
-  return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
-}
+  for (const candidateURL of candidateUrls) {
+    for (const proxy of proxyList) {
+      const fullUrl = proxy
+        ? (proxy.endsWith("=") ? proxy + encodeURIComponent(candidateURL) : proxy + candidateURL)
+        : candidateURL;
 
+      log(`🔍 Δοκιμή proxy: ${proxy || "direct"} ➔ ${fullUrl}`);
 
-      // Fallback αν μοιάζει με m3u8/ts
-      if (text.includes("#EXTM3U") || text.includes(".ts")) {
-        log("✅ .m3u8 ή .ts περιεχόμενο OK");
-        return proxy ? proxy + encodeURIComponent(initialURL) : initialURL;
-      } else {
-        console.warn("⚠️ Δεν είναι έγκυρο .m3u8");
+      try {
+        const res = await fetch(fullUrl, { method: "GET", mode: "cors" });
+        if (!res.ok) {
+          console.warn(`❌ Αποτυχία fetch stream: ${res.status}`);
+          continue;
+        }
+
+        const text = await res.text();
+
+        const nestedMatch = text.match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i);
+        if (nestedMatch) {
+          const nestedURL = cleanHashFromStreamUrl(nestedMatch[0]);
+          log('🔎 Βρέθηκε nested m3u8 ➔', nestedURL);
+
+          const nestedFetchUrl = shouldProxyThroughWorker(nestedURL) ? toTvCacheUrl(nestedURL) : nestedURL;
+          const nestedRes = await fetch(proxy ? proxy + encodeURIComponent(nestedFetchUrl) : nestedFetchUrl);
+
+          if (nestedRes.ok) {
+            const nestedText = await nestedRes.text();
+            if (nestedText.includes(".ts") || nestedText.includes(".m4s")) {
+              log("✅ Βρέθηκε media μέσα στο nested .m3u8");
+              return fullUrl;
+            } else {
+              console.warn("⚠️ Δεν βρέθηκε media στο nested m3u8");
+            }
+          }
+          continue;
+        }
+
+        const tsLines = [...text.matchAll(/(^|[\r\n])\s*([^#\r\n]+\.(ts|m4s)[^\r\n]*)/gi)]
+          .map(m => m[2].trim())
+          .filter(Boolean);
+
+        if (tsLines.length) {
+          const lastMedia = tsLines[tsLines.length - 1];
+          const baseUrl = originalSourceUrl.substring(0, originalSourceUrl.lastIndexOf("/") + 1);
+          const mediaUrl = lastMedia.startsWith("http")
+            ? cleanHashFromStreamUrl(lastMedia)
+            : cleanHashFromStreamUrl(baseUrl + lastMedia);
+
+          log("⏳ Range probe στο πιο φρέσκο media:", mediaUrl);
+
+          const probeUrl = shouldProxyThroughWorker(mediaUrl) ? toTvCacheUrl(mediaUrl) : mediaUrl;
+          const ok = await probeTsRange(probeUrl);
+
+          if (ok) {
+            log("✅ Media probe OK");
+            return fullUrl;
+          }
+
+          log("⚠️ Media probe απέτυχε. Fallback: αποδέχομαι το playlist.");
+          return fullUrl;
+        }
+
+        if (text.includes("#EXTM3U") || text.includes(".ts") || text.includes(".m4s")) {
+          log("✅ Playlist/media περιεχόμενο OK");
+          return fullUrl;
+        } else {
+          console.warn("⚠️ Δεν είναι έγκυρο playlist/media response");
+        }
+      } catch (err) {
+        console.error("❌ Σφάλμα fetch proxy:", err.message);
       }
-    } catch (err) {
-      console.error("❌ Σφάλμα fetch proxy:", err.message);
     }
   }
 
@@ -407,64 +447,17 @@ const EPG_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 ώρες
 let epgData = {};
 
 // --------------------------
-// Utils: normalization / aliases
+// Utils: normalization
 // --------------------------
 function epgNormalizeId(s) {
   return (s || '')
     .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
+    .replace(/\s+/g, '')          // remove spaces
     .replace(/&amp;/g, '&')
-    .replace(/\s+/g, '')
-    .replace(/[|]/g, '')
-    .replace(/[^\p{L}\p{N}._:-]/gu, '');
-}
-
-function epgLooseKey(s) {
-  return epgNormalizeId(s)
-    .replace(/[._:-]/g, '')
-    .replace(/\b(fhd|uhd|hd|sd|4k|gr|tv|channel)\b/g, '')
-    .replace(/(fhd|uhd|hd|sd|4k|gr|tv|channel)/g, '')
-    .trim();
-}
-
-const EPG_ALIAS_GROUPS = [
-  ['ert1', 'ΕΡΤ1', 'ΕΡΤ 1', 'ΕΡΤ1 HD', 'ERT1 HD', 'ERT1.HD.gr', 'ERT1.gr'],
-  ['ert2', 'ΕΡΤ2', 'ΕΡΤ 2', 'ΕΡΤ2 HD', 'ERT2 HD', 'ERT2.HD.gr', 'ERT2.gr'],
-  ['ert3', 'ΕΡΤ3', 'ΕΡΤ 3', 'ΕΡΤ3 HD', 'ERT3 HD', 'ERT3.HD.gr', 'ERT3.gr'],
-  ['ertnews', 'ert news', 'ΕΡΤ News', 'ERT News', 'ERTNEWS.HD.gr', 'ERTNEWS.gr'],
-  ['ant1', 'ANT1', 'ΑΝΤ1', 'Antenna 1', 'Antenna1', 'ANT1 HD', 'ANT1.HD.gr', 'ANT1.gr'],
-  ['alpha', 'Alpha', 'AlphaTV', 'ALPHA TV', 'ΑΛΦΑ', 'ALPHA HD', 'ALPHA.HD.gr', 'ALPHA.gr'],
-  ['skai', 'Skai', 'ΣΚΑΙ', 'ΣΚΑΪ', 'SKAI TV', 'SKAI HD', 'SKAI.HD.gr', 'SKAI.gr'],
-  ['mega', 'Mega', 'MegaTV', 'MEGA TV', 'MEGA HD', 'MEGA.HD.gr', 'MEGA.NEWS.HD.gr', 'MEGA.gr', 'ΜΕΓΚΑ', 'ΜΕΓΑ'],
-  ['open', 'Open', 'Open TV', 'OPEN TV', 'OPEN HD', 'OPEN.BEYOND.HD.gr', 'OPEN.gr', 'ΟΠΕΝ'],
-  ['star', 'Star', 'Star TV', 'STAR Channel', 'STAR HD', 'STAR.HD.gr', 'STAR.gr', 'ΣΤΑΡ'],
-  ['mak', 'MAK', 'MAK TV', 'MAKTV', 'mtv', 'MAKTV.HD.gr']
-];
-
-function getEpgAliasCandidates(input) {
-  const raw = (input || '').toString().trim();
-  if (!raw) return [];
-
-  const norm = epgNormalizeId(raw);
-  const loose = epgLooseKey(raw);
-  const out = new Set([raw, norm, loose]);
-
-  EPG_ALIAS_GROUPS.forEach(group => {
-    const groupNorms = group.map(epgNormalizeId);
-    const groupLoose = group.map(epgLooseKey);
-    if (groupNorms.includes(norm) || groupLoose.includes(loose)) {
-      group.forEach(v => {
-        out.add(v);
-        out.add(epgNormalizeId(v));
-        out.add(epgLooseKey(v));
-      });
-    }
-  });
-
-  return [...out].filter(Boolean);
+    .replace(/[|]/g, '')          // remove separators
+    .replace(/[^\p{L}\p{N}._:-]/gu, ''); // keep letters/numbers + safe symbols
 }
 
 // --------------------------
@@ -560,57 +553,40 @@ const EPGEngine = (() => {
     });
   }
 
-  function addResolverEntry(key, id) {
-    const norm = epgNormalizeId(key);
-    const loose = epgLooseKey(key);
-    if (norm && !resolverMap.has(norm)) resolverMap.set(norm, id);
-    if (loose && !resolverMap.has(loose)) resolverMap.set(loose, id);
-  }
-
   function buildResolver(xmlDoc) {
     resolverMap = new Map();
 
     const channelNodes = Array.from(xmlDoc.getElementsByTagName('channel'));
     channelNodes.forEach(node => {
       const id = node.getAttribute('id') || '';
-      addResolverEntry(id, id);
+      const idNorm = epgNormalizeId(id);
+      if (idNorm) resolverMap.set(idNorm, id);
 
       const names = Array.from(node.getElementsByTagName('display-name')).map(n => (n.textContent || '').trim());
-      names.forEach(name => addResolverEntry(name, id));
+      names.forEach(name => {
+        const nameNorm = epgNormalizeId(name);
+        if (nameNorm) resolverMap.set(nameNorm, id);
+      });
     });
   }
 
   function resolveChannelId(inputId) {
     if (!inputId) return null;
 
+    // direct hit
     if (byChannel[inputId]) return inputId;
 
     const norm = epgNormalizeId(inputId);
-    const loose = epgLooseKey(inputId);
-    if (!norm && !loose) return null;
+    if (!norm) return null;
 
-    const directMapped = resolverMap.get(norm) || resolverMap.get(loose);
-    if (directMapped && byChannel[directMapped]) return directMapped;
+    // try resolverMap (xml channel id / display-name)
+    const mapped = resolverMap.get(norm);
+    if (mapped && byChannel[mapped]) return mapped;
 
-    const aliasCandidates = getEpgAliasCandidates(inputId);
-    for (const candidate of aliasCandidates) {
-      if (byChannel[candidate]) return candidate;
-
-      const mapped = resolverMap.get(candidate) || resolverMap.get(epgNormalizeId(candidate)) || resolverMap.get(epgLooseKey(candidate));
-      if (mapped && byChannel[mapped]) return mapped;
-    }
-
+    // try loose match: find a channel id that normalizes equal
     const keys = Object.keys(byChannel);
     for (const k of keys) {
-      const kNorm = epgNormalizeId(k);
-      const kLoose = epgLooseKey(k);
-      if (kNorm === norm || kLoose === loose) return k;
-    }
-
-    for (const k of keys) {
-      const kLoose = epgLooseKey(k);
-      if (!kLoose) continue;
-      if (kLoose.includes(loose) || loose.includes(kLoose)) return k;
+      if (epgNormalizeId(k) === norm) return k;
     }
 
     return null;
@@ -921,7 +897,7 @@ async function loadExternalPlaylist() {
   sidebarList.innerHTML = '';
 
   const m3uUrl = 'https://raw.githubusercontent.com/tonis1000/PHTESTP/main/my-channels.m3u';
-  const streamsJsonUrl = 'https://yellow-hulking-guan.glitch.me/channel-streams.json';
+  const streamsJsonUrl = `${CACHE_BASE_URL}/channel-streams.json`;
 
   try {
     const [m3uRes, jsonRes] = await Promise.all([
@@ -968,7 +944,7 @@ if (!tvgId || !streamMap[tvgId]) continue;
         let usedIndex = -1;
 
         for (let index = 0; index < streamMap[tvgId].length; index++) {
-          const url = streamMap[tvgId][index];
+          const url = cleanHashFromStreamUrl(streamMap[tvgId][index]);
           try {
             const res = await fetch(url);
             if (!res.ok) continue;
@@ -1087,7 +1063,7 @@ async function loadSportPlaylist() {
   sidebarList.innerHTML = '';
 
   const proxy = 'https://cors-anywhere-production-d9b6.up.railway.app/';
-  const sourceUrl = 'https://foothubhd.online/program.txt';
+  const sourceUrl = 'https://foothubhd.info/program.txt';
   const finalUrl = proxy + sourceUrl;
 
   try {
@@ -1593,10 +1569,12 @@ const group = groupMatch ? groupMatch[1].trim() : '';
 const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
 
 
-      const streamLine = lines[i + 1] || '';
-      const streamURL = streamLine.trim().startsWith('http')
-        ? streamLine.trim()
-        : null;
+const streamLine = (lines[i + 1] || '').trim();
+const cleanedStreamLine = cleanHashFromStreamUrl(streamLine);
+
+const streamURL = cleanedStreamLine.startsWith('http')
+  ? cleanedStreamLine
+  : null;
 
       if (streamURL) {
         try {
@@ -1713,7 +1691,7 @@ function checkStreamStatus() {
       }
 
       // ➤ Κανονικός έλεγχος fetch για m3u8, mp4 κλπ
-      fetch(streamURL)
+      fetch(shouldProxyThroughWorker(streamURL) ? toTvCacheUrl(streamURL) : streamURL)
         .then(response => {
           const senderName = channel.querySelector('.sender-name');
           if (response.ok) {
@@ -1816,8 +1794,12 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   };
 
-  let streamURL = initialURL;
-  const normalizedUrl = initialURL.replace(/^http:/, 'https:');
+  let streamURL = cleanHashFromStreamUrl(initialURL);
+
+if (shouldProxyThroughWorker(streamURL)) {
+  streamURL = toTvCacheUrl(streamURL);
+}
+  const normalizedUrl = streamURL.replace(/^http:/, 'https:');
   const alternateUrl = initialURL.replace(/^https:/, 'http:');
   const cached = streamPerfMap[normalizedUrl] || streamPerfMap[initialURL] || streamPerfMap[alternateUrl];
   console.log('🎯 Cache:', normalizedUrl, cached);
@@ -1827,17 +1809,17 @@ async function playStream(initialURL, subtitleURL = null) {
     try {
       if (cached.player === 'iframe') {
         iframePlayer.style.display = 'block';
-        iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+        iframePlayer.src = streamURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
         showPlayerInfo('iframe', true);
         return;
       } else if (cached.player === 'clappr') {
         clapprDiv.style.display = 'block';
-        clapprPlayer = new Clappr.Player({ source: initialURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
+        clapprPlayer = new Clappr.Player({ source: streamURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
         showPlayerInfo('clappr', true);
         return;
       } else if (cached.player.startsWith('hls') && Hls.isSupported()) {
         const hls = new Hls();
-        hls.loadSource(initialURL);
+        hls.loadSource(streamURL);
         hls.attachMedia(videoPlayer);
         hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
         showVideoPlayer();
@@ -2063,7 +2045,7 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
   statusEl.textContent = '⏳ Γίνεται αποστολή cache...';
 
   try {
-    const response = await fetch('https://yellow-hulking-guan.glitch.me/upload-cache', {
+    const response = await fetch(`${CACHE_BASE_URL}/upload-cache`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(globalStreamCache)
@@ -2269,7 +2251,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Κύριο DOMContentLoaded: φόρτωση χαρτών, EPG, handlers, search/filters
 document.addEventListener('DOMContentLoaded', function () {
   // Φόρτωση proxy-map.json
-  fetch('https://yellow-hulking-guan.glitch.me/proxy-map.json')
+  fetch(`${CACHE_BASE_URL}/proxy-map.json`)
     .then(res => res.json())
     .then(data => {
       streamPerfMap = data;
