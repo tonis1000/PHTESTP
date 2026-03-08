@@ -699,6 +699,29 @@ function resolveChannelId(inputId) {
     }
   }
 
+  // 4.5) ειδικό fallback για ERT <-> EPT
+  if (norm.startsWith('ert')) {
+    const eptNorm = norm.replace(/^ert/, 'ept');
+
+    const eptMapped = resolverMap.get(eptNorm);
+    if (eptMapped && byChannel[eptMapped]) return eptMapped;
+
+    for (const k of Object.keys(byChannel)) {
+      if (epgNormalizeId(k) === eptNorm) return k;
+    }
+  }
+
+  if (norm.startsWith('ept')) {
+    const ertNorm = norm.replace(/^ept/, 'ert');
+
+    const ertMapped = resolverMap.get(ertNorm);
+    if (ertMapped && byChannel[ertMapped]) return ertMapped;
+
+    for (const k of Object.keys(byChannel)) {
+      if (epgNormalizeId(k) === ertNorm) return k;
+    }
+  }
+
   // 5) loose match fallback
   const loose = epgLooseKey(inputId);
   for (const k of Object.keys(byChannel)) {
