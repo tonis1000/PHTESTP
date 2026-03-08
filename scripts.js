@@ -518,7 +518,7 @@ novasportsextra4: ["Novasportsextra4HD.gr"],
 novasportsnews: ["Novasports.News.gr", "Novasports.News.HD.gr"],
 novasportsprime: ["Novasports.Prime.gr", "Novasports.Prime.HD.gr"],
 novasportsstart: ["Novasports.Start.gr", "Novasports.Start.HD.gr"],
-novasportspremierleague: ["Novasports.Premier.League..gr", "Novasports.Premier.League.HD.gr"],
+novasportspremierleague: ["Novasports.Premier.League.gr", "Novasports.Premier.League.HD.gr"],
 
 novamadgreekz: ["Nova.MAD.GREEKZ.gr"],
 
