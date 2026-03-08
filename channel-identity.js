@@ -1,164 +1,190 @@
 /* channel-identity.js
    =========================================================
-   Channel Identity Map for WebTV
-   - Κανονικοποίηση ονομάτων
-   - Alias / tvg-id / keyword matching
-   - Βασικό scoring για εύρεση καναλιού
+   Channel Identity Map for Stream Finder / WebTV Tools
+   - channel matching
+   - canonical keys
+   - GitHub search profiles
    ========================================================= */
-
-/* =========================
-   ===== Identity Data =====
-   ========================= */
 
 const channelIdentityMap = {
   ert1: {
-    canonicalKey: 'ert1',
-    displayName: 'ERT1',
-    tvgIds: ['ert1', 'ert-1'],
-    aliases: ['ert1', 'ert 1', 'ert1 hd', 'ert 1 hd', 'ερτ1', 'ερτ 1'],
-    keywords: ['ert1', 'ert 1', 'ερτ1', 'ερτ 1'],
-    pathHints: ['ert1'],
-    logoHints: []
+    canonicalKey: "ert1",
+    displayName: "ERT1",
+    tvgIds: ["ert1", "ert-1"],
+    aliases: ["ert1", "ert 1", "ert1 hd", "ert 1 hd", "ερτ1", "ερτ 1"],
+    keywords: ["ert1", "ert 1", "ερτ1", "ερτ 1"],
+    pathHints: ["ert1"],
+    negativeHints: [],
+    githubSearchTerms: ["ert1", "\"ert 1\"", "ερτ1", "\"ερτ 1\""],
+    githubAvoidTerms: []
   },
 
   ert2: {
-    canonicalKey: 'ert2',
-    displayName: 'ERT2',
-    tvgIds: ['ert2', 'ert-2'],
-    aliases: ['ert2', 'ert 2', 'ert2 hd', 'ert 2 hd', 'ερτ2', 'ερτ 2'],
-    keywords: ['ert2', 'ert 2', 'ερτ2', 'ερτ 2'],
-    pathHints: ['ert2'],
-    logoHints: []
+    canonicalKey: "ert2",
+    displayName: "ERT2",
+    tvgIds: ["ert2", "ert-2"],
+    aliases: ["ert2", "ert 2", "ert2 hd", "ert 2 hd", "ερτ2", "ερτ 2"],
+    keywords: ["ert2", "ert 2", "ερτ2", "ερτ 2"],
+    pathHints: ["ert2"],
+    negativeHints: [],
+    githubSearchTerms: ["ert2", "\"ert 2\"", "ερτ2", "\"ερτ 2\""],
+    githubAvoidTerms: []
   },
 
   ert3: {
-    canonicalKey: 'ert3',
-    displayName: 'ERT3',
-    tvgIds: ['ert3', 'ert-3'],
-    aliases: ['ert3', 'ert 3', 'ert3 hd', 'ert 3 hd', 'ερτ3', 'ερτ 3'],
-    keywords: ['ert3', 'ert 3', 'ερτ3', 'ερτ 3'],
-    pathHints: ['ert3'],
-    logoHints: []
+    canonicalKey: "ert3",
+    displayName: "ERT3",
+    tvgIds: ["ert3", "ert-3"],
+    aliases: ["ert3", "ert 3", "ert3 hd", "ert 3 hd", "ερτ3", "ερτ 3"],
+    keywords: ["ert3", "ert 3", "ερτ3", "ερτ 3"],
+    pathHints: ["ert3"],
+    negativeHints: [],
+    githubSearchTerms: ["ert3", "\"ert 3\"", "ερτ3", "\"ερτ 3\""],
+    githubAvoidTerms: []
   },
 
   ertnews: {
-    canonicalKey: 'ertnews',
-    displayName: 'ERT News',
-    tvgIds: ['ertnews', 'ert-news'],
-    aliases: ['ert news', 'ertnews', 'ερτ news', 'ερτ νews', 'ert news hd'],
-    keywords: ['ertnews', 'ert news', 'ερτ news'],
-    pathHints: ['ertnews', 'news'],
-    logoHints: []
+    canonicalKey: "ertnews",
+    displayName: "ERT News",
+    tvgIds: ["ertnews", "ert-news"],
+    aliases: ["ertnews", "ert news", "ert-news", "ερτ news", "ερτnews"],
+    keywords: ["ertnews", "ert news", "ερτ news"],
+    pathHints: ["ertnews", "ert-news"],
+    negativeHints: [],
+    githubSearchTerms: ["ertnews", "\"ert news\"", "\"ert-news\"", "\"ερτ news\""],
+    githubAvoidTerms: []
   },
 
   ant1: {
-    canonicalKey: 'ant1',
-    displayName: 'ANT1',
-    tvgIds: ['ant1', 'ant-1'],
-    aliases: ['ant1', 'ant 1', 'ant1 hd', 'ant 1 hd', 'antenna', 'antenna tv'],
-    keywords: ['ant1', 'ant 1', 'antenna'],
-    pathHints: ['ant1', 'antenna'],
-    logoHints: []
+    canonicalKey: "ant1",
+    displayName: "ANT1",
+    tvgIds: ["ant1", "ant-1"],
+    aliases: ["ant1", "ant 1", "ant1 hd", "ant 1 hd", "antenna", "antenna tv"],
+    keywords: ["ant1", "ant 1", "antenna", "antenna tv"],
+    pathHints: ["ant1", "antenna"],
+    negativeHints: ["f1", "formula 1", "plus", "plus1", "sport", "sports"],
+    githubSearchTerms: ["ant1", "\"ant 1\"", "\"antenna tv\"", "antenna"],
+    githubAvoidTerms: ["f1", "\"formula 1\"", "plus", "sport", "sports"]
   },
 
   alpha: {
-    canonicalKey: 'alpha',
-    displayName: 'Alpha TV',
-    tvgIds: ['alpha'],
-    aliases: ['alpha', 'alpha tv', 'alpha hd', 'αλφα', 'άλφα'],
-    keywords: ['alpha', 'alpha tv', 'αλφα', 'άλφα'],
-    pathHints: ['alpha'],
-    logoHints: []
+    canonicalKey: "alpha",
+    displayName: "Alpha TV",
+    tvgIds: ["alpha"],
+    aliases: ["alpha", "alpha tv", "alpha hd", "αλφα", "άλφα"],
+    keywords: ["alpha", "alpha tv", "αλφα", "άλφα"],
+    pathHints: ["alpha"],
+    negativeHints: [],
+    githubSearchTerms: ["alpha", "\"alpha tv\"", "αλφα", "άλφα"],
+    githubAvoidTerms: []
   },
 
   skai: {
-    canonicalKey: 'skai',
-    displayName: 'SKAI',
-    tvgIds: ['skai'],
-    aliases: ['skai', 'skai tv', 'skai hd', 'σκαι', 'σκάι'],
-    keywords: ['skai', 'σκαι', 'σκάι'],
-    pathHints: ['skai'],
-    logoHints: []
+    canonicalKey: "skai",
+    displayName: "SKAI",
+    tvgIds: ["skai"],
+    aliases: ["skai", "skai tv", "skai hd", "σκαι", "σκάι"],
+    keywords: ["skai", "skai tv", "σκαι", "σκάι"],
+    pathHints: ["skai"],
+    negativeHints: [],
+    githubSearchTerms: ["skai", "\"skai tv\"", "σκαι", "σκάι"],
+    githubAvoidTerms: []
   },
 
   open: {
-    canonicalKey: 'open',
-    displayName: 'Open TV',
-    tvgIds: ['open'],
-    aliases: ['open', 'open tv', 'open beyond', 'open hd'],
-    keywords: ['open', 'open tv'],
-    pathHints: ['open'],
-    logoHints: []
+    canonicalKey: "open",
+    displayName: "Open TV",
+    tvgIds: ["open"],
+    aliases: ["open", "open tv", "open beyond", "open hd"],
+    keywords: ["open", "open tv", "open beyond"],
+    pathHints: ["open"],
+    negativeHints: ["vpn", "port", "openwrt", "openvpn", "opensource"],
+    githubSearchTerms: ["\"open tv\"", "\"open beyond\"", "opentv"],
+    githubAvoidTerms: ["openvpn", "openwrt", "opensource", "port", "api"]
   },
 
   mega: {
-    canonicalKey: 'mega',
-    displayName: 'MEGA',
-    tvgIds: ['mega'],
-    aliases: ['mega', 'mega tv', 'mega hd', 'μεγκα', 'μέγκα'],
-    keywords: ['mega', 'mega tv', 'μεγκα', 'μέγκα'],
-    pathHints: ['mega'],
-    logoHints: []
+    canonicalKey: "mega",
+    displayName: "MEGA",
+    tvgIds: ["mega"],
+    aliases: ["mega", "mega tv", "mega hd", "μεγκα", "μέγκα"],
+    keywords: ["mega", "mega tv", "μεγκα", "μέγκα"],
+    pathHints: ["mega"],
+    negativeHints: ["mega.nz", "megasync", "megadrive"],
+    githubSearchTerms: ["\"mega tv\"", "mega", "μεγκα", "μέγκα"],
+    githubAvoidTerms: ["mega.nz", "megasync", "megadrive", "storage"]
   },
 
   star: {
-    canonicalKey: 'star',
-    displayName: 'Star',
-    tvgIds: ['star'],
-    aliases: ['star', 'star tv', 'star hd', 'σταρ'],
-    keywords: ['star', 'star tv', 'σταρ'],
-    pathHints: ['star'],
-    logoHints: []
+    canonicalKey: "star",
+    displayName: "Star",
+    tvgIds: ["star"],
+    aliases: ["star", "star tv", "star hd", "σταρ"],
+    keywords: ["star", "star tv", "σταρ"],
+    pathHints: ["star"],
+    negativeHints: ["star plus", "star+", "starlink", "star wars"],
+    githubSearchTerms: ["\"star tv\"", "star", "σταρ"],
+    githubAvoidTerms: ["starlink", "\"star wars\"", "\"star plus\"", "star+"]
   },
 
   maktv: {
-    canonicalKey: 'maktv',
-    displayName: 'MAK TV',
-    tvgIds: ['mtv', 'maktv', 'maktv.gr'],
-    aliases: ['mak tv', 'maktv', 'mak tv hd'],
-    keywords: ['mak', 'maktv', 'mak tv'],
-    pathHints: ['mak', 'maktv'],
-    logoHints: []
+    canonicalKey: "maktv",
+    displayName: "MAK TV",
+    tvgIds: ["maktv", "maktv.gr", "mtv"],
+    aliases: ["mak tv", "maktv", "mak tv hd", "maktv.gr"],
+    keywords: ["mak tv", "maktv", "maktv.gr"],
+    pathHints: ["maktv", "maktv.gr", "mak"],
+    negativeHints: ["mtv", "music television", "spotify", "api", "kubectl", "django"],
+    githubSearchTerms: ["maktv", "\"mak tv\"", "\"maktv.gr\""],
+    githubAvoidTerms: ["mtv", "spotify", "api", "kubectl", "django", "music"]
   },
 
   action24: {
-    canonicalKey: 'action24',
-    displayName: 'Action 24',
-    tvgIds: ['action24', 'action-24'],
-    aliases: ['action24', 'action 24', 'action 24 hd'],
-    keywords: ['action24', 'action 24'],
-    pathHints: ['action24'],
-    logoHints: []
+    canonicalKey: "action24",
+    displayName: "Action 24",
+    tvgIds: ["action24", "action-24"],
+    aliases: ["action24", "action 24", "action 24 hd"],
+    keywords: ["action24", "action 24"],
+    pathHints: ["action24", "action-24"],
+    negativeHints: [],
+    githubSearchTerms: ["action24", "\"action 24\""],
+    githubAvoidTerms: []
   },
 
   kontra: {
-    canonicalKey: 'kontra',
-    displayName: 'Kontra',
-    tvgIds: ['kontra'],
-    aliases: ['kontra', 'kontra tv', 'kontra channel'],
-    keywords: ['kontra', 'kontra tv'],
-    pathHints: ['kontra'],
-    logoHints: []
+    canonicalKey: "kontra",
+    displayName: "Kontra",
+    tvgIds: ["kontra"],
+    aliases: ["kontra", "kontra tv", "kontra channel"],
+    keywords: ["kontra", "kontra tv", "kontra channel"],
+    pathHints: ["kontra"],
+    negativeHints: [],
+    githubSearchTerms: ["kontra", "\"kontra tv\"", "\"kontra channel\""],
+    githubAvoidTerms: []
   },
 
   tv100: {
-    canonicalKey: 'tv100',
-    displayName: 'TV100',
-    tvgIds: ['tv100'],
-    aliases: ['tv100', 'tv 100'],
-    keywords: ['tv100', 'tv 100'],
-    pathHints: ['tv100'],
-    logoHints: []
+    canonicalKey: "tv100",
+    displayName: "TV100",
+    tvgIds: ["tv100"],
+    aliases: ["tv100", "tv 100"],
+    keywords: ["tv100", "tv 100"],
+    pathHints: ["tv100"],
+    negativeHints: [],
+    githubSearchTerms: ["tv100", "\"tv 100\""],
+    githubAvoidTerms: []
   },
 
   pronews: {
-    canonicalKey: 'pronews',
-    displayName: 'ProNews',
-    tvgIds: ['pronews'],
-    aliases: ['pronews', 'pro news'],
-    keywords: ['pronews', 'pro news'],
-    pathHints: ['pronews'],
-    logoHints: []
+    canonicalKey: "pronews",
+    displayName: "ProNews",
+    tvgIds: ["pronews"],
+    aliases: ["pronews", "pro news"],
+    keywords: ["pronews", "pro news"],
+    pathHints: ["pronews"],
+    negativeHints: ["newsapi", "newsletter", "project", "profile"],
+    githubSearchTerms: ["pronews", "\"pro news\""],
+    githubAvoidTerms: ["newsapi", "newsletter", "profile", "project"]
   }
 };
 
@@ -168,21 +194,21 @@ const channelIdentityMap = {
    ========================= */
 
 function normalizeChannelText(value) {
-  return (value || '')
+  return (value || "")
     .toString()
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // remove accents
-    .replace(/&amp;/g, '&')
-    .replace(/\b(hd|fhd|uhd|4k|backup|bup|web|live|tv|channel|greece|gr)\b/g, ' ')
-    .replace(/[_|/\\()[\]{}.,:+]+/g, ' ')
-    .replace(/-/g, ' ')
-    .replace(/\s+/g, ' ')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/\b(hd|fhd|uhd|4k|backup|bup|web|live|tv|channel|greece|gr)\b/g, " ")
+    .replace(/[_|/\\()[\]{}.,:+]+/g, " ")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
 function compactChannelText(value) {
-  return normalizeChannelText(value).replace(/\s+/g, '');
+  return normalizeChannelText(value).replace(/\s+/g, "");
 }
 
 function normalizeTvgId(value) {
@@ -212,6 +238,21 @@ function getChannelTvgIds(canonicalKey) {
   return item ? item.tvgIds || [] : [];
 }
 
+function getGithubSearchProfile(canonicalKey) {
+  const item = getChannelIdentity(canonicalKey);
+  if (!item) {
+    return {
+      searchTerms: [],
+      avoidTerms: []
+    };
+  }
+
+  return {
+    searchTerms: item.githubSearchTerms || [],
+    avoidTerms: item.githubAvoidTerms || []
+  };
+}
+
 
 /* =========================
    ===== Match Helpers =====
@@ -220,11 +261,11 @@ function getChannelTvgIds(canonicalKey) {
 function scoreIdentityMatch(identity, input) {
   let score = 0;
 
-  const rawTvgId = input.tvgId || '';
-  const rawTvgName = input.tvgName || '';
-  const rawDisplayName = input.displayName || '';
-  const rawUrl = input.url || '';
-  const rawLogo = input.logo || '';
+  const rawTvgId = input.tvgId || "";
+  const rawTvgName = input.tvgName || "";
+  const rawDisplayName = input.displayName || "";
+  const rawUrl = input.url || "";
+  const rawLogo = input.logo || "";
 
   const tvgId = normalizeTvgId(rawTvgId);
   const tvgName = compactChannelText(rawTvgName);
@@ -236,47 +277,50 @@ function scoreIdentityMatch(identity, input) {
   const aliases = (identity.aliases || []).map(compactChannelText);
   const keywords = (identity.keywords || []).map(compactChannelText);
   const pathHints = (identity.pathHints || []).map(compactChannelText);
-  const logoHints = (identity.logoHints || []).map(compactChannelText);
+  const negativeHints = (identity.negativeHints || []).map(compactChannelText);
 
-  // 1. Strongest signal: tvg-id exact
+  // Strongest signal
   if (tvgId && tvgIds.includes(tvgId)) {
     score += 100;
   }
 
-  // 2. tvg-name exact alias
+  // Exact alias hits
   if (tvgName && aliases.includes(tvgName)) {
     score += 70;
   }
 
-  // 3. display-name exact alias
   if (displayName && aliases.includes(displayName)) {
     score += 60;
   }
 
-  // 4. partial alias inclusion
+  // Partial alias hits
   aliases.forEach(alias => {
     if (!alias) return;
     if (tvgName && tvgName.includes(alias)) score += 20;
     if (displayName && displayName.includes(alias)) score += 20;
   });
 
-  // 5. keywords in names
+  // Keywords
   keywords.forEach(keyword => {
     if (!keyword) return;
     if (tvgName && tvgName.includes(keyword)) score += 10;
     if (displayName && displayName.includes(keyword)) score += 10;
+    if (url && url.includes(keyword)) score += 6;
+    if (logo && logo.includes(keyword)) score += 4;
   });
 
-  // 6. path hints in URL
+  // URL/path hints
   pathHints.forEach(hint => {
     if (!hint) return;
     if (url && url.includes(hint)) score += 8;
   });
 
-  // 7. logo hints
-  logoHints.forEach(hint => {
+  // Negative hints
+  negativeHints.forEach(hint => {
     if (!hint) return;
-    if (logo && logo.includes(hint)) score += 6;
+    if (tvgName && tvgName.includes(hint)) score -= 35;
+    if (displayName && displayName.includes(hint)) score -= 35;
+    if (url && url.includes(hint)) score -= 20;
   });
 
   return score;
@@ -284,7 +328,7 @@ function scoreIdentityMatch(identity, input) {
 
 function detectChannelIdentity(input = {}) {
   let bestKey = null;
-  let bestScore = 0;
+  let bestScore = -9999;
 
   for (const canonicalKey of getAllChannelCanonicalKeys()) {
     const identity = getChannelIdentity(canonicalKey);
@@ -303,11 +347,6 @@ function detectChannelIdentity(input = {}) {
     identity: bestKey ? getChannelIdentity(bestKey) : null
   };
 }
-
-
-/* =========================
-   ===== Public Search =====
-   ========================= */
 
 function resolveChannelCanonicalKey(input = {}) {
   const result = detectChannelIdentity(input);
