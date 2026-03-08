@@ -454,10 +454,100 @@ function epgNormalizeId(s) {
     .toString()
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, '')          // remove spaces
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove accents
     .replace(/&amp;/g, '&')
-    .replace(/[|]/g, '')          // remove separators
-    .replace(/[^\p{L}\p{N}._:-]/gu, ''); // keep letters/numbers + safe symbols
+    .replace(/\s+/g, '')
+    .replace(/[|]/g, '')
+    .replace(/[^\p{L}\p{N}._:-]/gu, '');
+}
+
+function epgLooseKey(s) {
+  return epgNormalizeId(s)
+    .replace(/hd/g, '')
+    .replace(/gr/g, '')
+    .replace(/tv/g, '')
+    .replace(/channel/g, '')
+    .replace(/beyond/g, '')
+    .replace(/\.+/g, '');
+}
+
+const EPG_ALIAS = {
+  // Δημόσια
+  ert1: ["ERT1.HD.gr", "ERT1.gr", "ERT1HD.gr"],
+  ert2: ["ERT2.HD.gr", "ERT2.gr", "ERT2HD.gr"],
+  ert3: ["ERT3.HD.gr", "ERT3.gr", "ERT3HD.gr"],
+  ertnews: ["ERTNEWS.HD.gr", "ERTNEWS.gr", "ERT.NEWS.gr"],
+
+  // Ιδιωτικά
+  ant1: ["ANT1.HD.gr", "ANT1.gr", "Antenna1.gr"],
+  alpha: ["ALPHA.HD.gr", "ALPHA.gr", "Alpha.HD.gr", "Alpha.gr"],
+  skai: ["SKAI.HD.gr", "SKAI.gr"],
+  mega: ["MEGA.HD.gr", "MEGA.gr", "Mega.HD.gr", "Mega.gr", "MegaChannel.gr"],
+  meganews: ["MEGA.NEWS.HD.gr", "MEGA.NEWS.gr"],
+  open: ["OPEN.HD.gr", "OPEN.gr", "OPEN.BEYOND.HD.gr", "Open.HD.gr", "Open.gr"],
+  star: ["STAR.HD.gr", "STAR.gr", "Star.HD.gr", "Star.gr"],
+  maktv: ["MAKTV.HD.gr", "MAKTV.gr", "MAK.TV.gr", "MAK.HD.gr", "MAK.gr", "mtv"],
+  action24: ["ACTION24.HD.gr", "ACTION24.gr", "Action24.HD.gr", "Action24.gr"],
+  kontra: ["KONTRA.HD.gr", "KONTRA.gr", "Kontra.HD.gr", "Kontra.gr"],
+
+  // Ειδησεογραφικά / θεματικά
+  one: ["One.Channel.HD.gr", "One.Channel.gr", "ONE.HD.gr", "ONE.gr"],
+  naftemporikitv: ["Naftemporiki.TV.gr", "Naftemporiki.gr"],
+
+  // Συνδρομητικά
+// ===== NOVA =====
+novacinema1: ["Novacinema1.gr", "NovaCinema1.gr"],
+novacinema2: ["Novacinema2.gr", "NovaCinema2.gr"],
+novacinema3: ["Novacinema3.gr", "NovaCinema3.gr"],
+novacinema4: ["Novacinema4.gr", "NovaCinema4.gr"],
+novalife: ["Novalife.gr", "NovaLife.gr"],
+
+novasports1: ["Novasports1.gr", "Novasports1HD.gr"],
+novasports2: ["Novasports2.gr", "Novasports2HD.gr"],
+novasports3: ["Novasports3.gr", "Novasports3HD.gr"],
+novasports4: ["Novasports4.gr", "Novasports4HD.gr"],
+novasports5: ["Novasports5.gr", "Novasports5HD.gr"],
+novasports6: ["Novasports6.gr", "Novasports6HD.gr"],
+
+novasportsextra1: ["Novasportsextra1HD.gr"],
+novasportsextra2: ["Novasportsextra2HD.gr"],
+novasportsextra3: ["Novasportsextra3HD.gr"],
+novasportsextra4: ["Novasportsextra4HD.gr"],
+
+novasportsnews: ["Novasports.News.gr", "Novasports.News.HD.gr"],
+novasportsprime: ["Novasports.Prime.gr", "Novasports.Prime.HD.gr"],
+novasportsstart: ["Novasports.Start.gr", "Novasports.Start.HD.gr"],
+novasportspremierleague: ["Novasports.Premier.League..gr", "Novasports.Premier.League.HD.gr"],
+
+novamadgreekz: ["Nova.MAD.GREEKZ.gr"],
+
+// ===== COSMOTE =====
+cosmotecinema1: ["COSMOTE.Cinema.1.HD.gr"],
+cosmotecinema2: ["COSMOTE.Cinema.2.HD.gr"],
+cosmotecinema3: ["COSMOTE.Cinema.3.HD.gr"],
+cosmotecinemaoscars: ["COSMOTE.Cinema.Oscars.HD.gr"],
+
+cosmotehistory: ["COSMOTE.History.HD.gr"],
+cosmoteseries: ["COSMOTE.Series.HD.gr"],
+cosmoteseriesmarathon: ["COSMOTE.Series.Marathon.gr"],
+
+cosmotesport1: ["COSMOTE.Sport.1.HD.gr", "CosmoteSport1.HD.gr"],
+cosmotesport2: ["COSMOTE.Sport.2.HD.gr", "COSMOTESport2.HD.gr"],
+cosmotesport3: ["COSMOTE.Sport.3.HD.gr", "COSMOTESport3.HD.gr"],
+cosmotesport4: ["COSMOTE.Sport.4.HD.gr", "COSMOTESport4.HD.gr"],
+cosmotesport4k: ["COSMOTE.Sport.4K.gr", "CosmoteSport4K.gr"],
+cosmotesport5: ["COSMOTE.Sport.5.HD.gr", "COSMOTESport5.HD.gr"],
+cosmotesport6: ["COSMOTE.Sport.6.HD.gr", "COSMOTESport6.HD.gr"],
+cosmotesport7: ["COSMOTE.Sport.7.HD.gr", "COSMOTESport7.HD.gr"],
+cosmotesport8: ["COSMOTE.Sport.8.HD.gr", "COSMOTESport8.HD.gr"],
+cosmotesport9: ["COSMOTE.Sport.9.HD.gr", "COSMOTESport9.HD.gr"],
+cosmotesporthighlights: ["COSMOTE.Sport.Highlights.HD.gr", "COSMOTESportHLHD.gr"],
+};
+
+function getAliasCandidates(inputId) {
+  const norm = epgNormalizeId(inputId);
+  return EPG_ALIAS[norm] || [];
 }
 
 // --------------------------
