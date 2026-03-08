@@ -1541,7 +1541,7 @@ function updateSidebarFromM3U(data) {
   sidebarList.innerHTML = '';
 
   const lines = data.split('\n');
-  const foundGroups = new Set();
+  const foundGroups = new Set(); // 🆕 Ομάδες για group-title
   const groupSelect = document.getElementById('group-select');
 
   for (let i = 0; i < lines.length; i++) {
@@ -1552,32 +1552,35 @@ function updateSidebarFromM3U(data) {
       const groupMatch = lines[i].match(/group-title="([^"]+)"/);
       const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
 
-      const channelId =
-        (idMatch && idMatch[1] ? idMatch[1].trim() : '') ||
-        (nameTagMatch && nameTagMatch[1] ? nameTagMatch[1].trim() : '') ||
-        (nameMatch && nameMatch[1] ? nameMatch[1].trim() : '') ||
-        null;
+// ✅ tvg-id -> tvg-name -> display name (για EPG matching)
+const channelId =
+  (idMatch && idMatch[1] ? idMatch[1].trim() : '') ||
+  (nameTagMatch && nameTagMatch[1] ? nameTagMatch[1].trim() : '') ||
+  (nameMatch && nameMatch[1] ? nameMatch[1].trim() : '') ||
+  null;
 
-      const name = nameTagMatch
-        ? nameTagMatch[1].trim()
-        : nameMatch
-        ? nameMatch[1].trim()
-        : 'Unbekannt';
+const name = nameTagMatch
+  ? nameTagMatch[1].trim()
+  : nameMatch
+  ? nameMatch[1].trim()
+  : 'Unbekannt';
 
-      const group = groupMatch ? groupMatch[1].trim() : '';
-      const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
+const group = groupMatch ? groupMatch[1].trim() : '';
+const imgURL = imgMatch ? imgMatch[1] : 'default_logo.png';
 
-      const streamLine = (lines[i + 1] || '').trim();
-      const cleanedStreamLine = cleanHashFromStreamUrl(streamLine);
 
-      const streamURL = cleanedStreamLine.startsWith('http')
-        ? cleanedStreamLine
-        : null;
+const streamLine = (lines[i + 1] || '').trim();
+const cleanedStreamLine = cleanHashFromStreamUrl(streamLine);
+
+const streamURL = cleanedStreamLine.startsWith('http')
+  ? cleanedStreamLine
+  : null;
 
       if (streamURL) {
         try {
           const programInfo = getCurrentProgram(channelId);
 
+          // 🧠 Εύρεση από cache
           const normalizedUrl = streamURL.replace(/^http:/, 'https:');
           const alternateUrl = streamURL.replace(/^https:/, 'http:');
           const perf =
@@ -1590,7 +1593,7 @@ function updateSidebarFromM3U(data) {
             ? `<span class="badge" style="font-size: 0.7em; color: gold; margin-left: 6px;">[${perf.player}]</span>`
             : '';
 
-          if (group) foundGroups.add(group);
+          if (group) foundGroups.add(group); // 🆕 Προσθήκη group
 
           const listItem = document.createElement('li');
 
@@ -1603,19 +1606,21 @@ function updateSidebarFromM3U(data) {
                 <img src="${imgURL}" alt="${name} Logo">
               </div>
               <span class="sender-name">
-                ${name}${playerBadge}
-                <span class="info-icon">ⓘ</span>
-              </span>
-              <span class="epg-channel">
-                <span>${programInfo.title}</span>
-                <div class="epg-timeline">
-                  <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
-                  <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
-                </div>
-              </span>
+  ${name}${playerBadge}
+  <span class="info-icon">ⓘ</span>
+</span>
+<span class="epg-channel">
+  <span>${programInfo.title}</span>
+  <div class="epg-timeline">
+    <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+    <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+  </div>
+</span>
+
             </div>
           `;
 
+          // 🔑 Χρησιμοποιούνται για αποθήκευση/restore σειράς
           listItem.dataset.channelId = channelId || '';
           listItem.dataset.stream = streamURL;
 
@@ -1630,6 +1635,7 @@ function updateSidebarFromM3U(data) {
     }
   }
 
+  // Γέμισμα dropdown group-select με ομάδες
   if (groupSelect) {
     if (foundGroups.size > 0) {
       groupSelect.disabled = false;
@@ -1647,6 +1653,7 @@ function updateSidebarFromM3U(data) {
     }
   }
 
+  // 📥 Εφαρμογή αποθηκευμένης σειράς + ενεργοποίηση drag & drop
   if (typeof applySavedSidebarOrder === 'function') {
     applySavedSidebarOrder();
   }
@@ -1657,6 +1664,7 @@ function updateSidebarFromM3U(data) {
     attachChannelHoverTooltips();
   }
 
+  // Έλεγχος online/marking
   checkStreamStatus();
 }
 
