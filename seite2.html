@@ -240,6 +240,30 @@
       margin-top:8px;
     }
 
+    .debug-box{
+      margin-top:18px;
+      background:#101722;
+      border:1px solid #273244;
+      border-radius:8px;
+      padding:12px;
+    }
+
+    .debug-box summary{
+      cursor:pointer;
+      font-weight:bold;
+      color:#dbe6f4;
+      margin-bottom:8px;
+    }
+
+    .debug-log{
+      white-space:pre-wrap;
+      font-size:12px;
+      color:#c8d2df;
+      max-height:260px;
+      overflow:auto;
+      margin-top:8px;
+    }
+
     @media (max-width: 980px){
       .main{
         flex-direction:column;
@@ -297,6 +321,11 @@
         <div id="channelTitle" class="channel-title">Select a channel</div>
         <div id="channelMeta" class="channel-meta">Choose a channel from the sidebar.</div>
         <div id="streamResults"></div>
+
+        <details class="debug-box" open>
+          <summary>🧠 Scan Debug</summary>
+          <div id="debugLog" class="debug-log">No scan yet.</div>
+        </details>
       </div>
 
       <div class="player-panel">
@@ -320,7 +349,7 @@
   let currentHls = null;
 
   const GITHUB_TOKEN = "";
-  const STREAM_FINDER_DISCOVERED_KEY = "stream_finder_discovered_v2";
+  const STREAM_FINDER_DISCOVERED_KEY = "stream_finder_discovered_v3";
 
   function destroyCurrentPlayer() {
     if (currentHls) {
@@ -336,6 +365,15 @@
 
   function setPlayerStatus(text) {
     document.getElementById("playerStatus").textContent = text;
+  }
+
+  function resetDebugLog() {
+    document.getElementById("debugLog").textContent = "";
+  }
+
+  function appendDebugLine(text) {
+    const box = document.getElementById("debugLog");
+    box.textContent += text + "\n";
   }
 
   function playTest(url) {
@@ -379,7 +417,20 @@
   }
 
   function normalizeSourceUrl(url) {
-    return String(url || "").split("#")[0].trim();
+    return String(url || "")
+      .split("#")[0]
+      .trim();
+  }
+
+  function normalizeComparableUrl(url) {
+    try {
+      const u = new URL(normalizeSourceUrl(url));
+      const host = u.hostname.replace(/^www\./, "").toLowerCase();
+      const path = u.pathname.replace(/\/+$/, "");
+      return `${host}${path}`.toLowerCase();
+    } catch {
+      return normalizeSourceUrl(url).toLowerCase();
+    }
   }
 
   function githubHeaders() {
@@ -406,17 +457,13 @@
 
     const terms = new Set();
 
-    (channel.tvgIds || []).forEach(v => {
-      if (v) terms.add(v);
-    });
-
-    (channel.aliases || []).forEach(v => {
-      if (v) terms.add(v);
-    });
+    (channel.tvgIds || []).forEach(v => v && terms.add(v));
+    (channel.aliases || []).forEach(v => v && terms.add(v));
+    (channel.keywords || []).forEach(v => v && terms.add(v));
 
     terms.add(channelKey);
 
-    return [...terms].filter(Boolean).slice(0, 8);
+    return [...terms].filter(Boolean).slice(0, 10);
   }
 
   function parseM3UEntries(text) {
@@ -459,7 +506,7 @@
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6000);
+      const timeout = setTimeout(() => controller.abort(), 7000);
 
       const response = await fetch(normalizedUrl, {
         method: "GET",
@@ -501,6 +548,10 @@
         contentType.includes("video/")
       ) {
         return { ok: true, status: "online", reason: "playable-content-type" };
+      }
+
+      if (/\.php(\?.*)?$/i.test(normalizedUrl) || /\.html?(\?.*)?$/i.test(normalizedUrl)) {
+        return { ok: true, status: "unknown", reason: "web-wrapper" };
       }
 
       return { ok: true, status: "unknown", reason: "reachable-but-unknown" };
@@ -695,6 +746,8 @@
     const q = `${terms.slice(0, 3).join(" OR ")} pushed:>=${sinceDate}`;
     const endpoint = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=12`;
 
+    appendDebugLine(`Repo search (${daysBack}d): ${q}`);
+
     const res = await fetch(endpoint, { headers: githubHeaders() });
     if (!res.ok) {
       throw new Error(`GitHub repo search failed: ${res.status}`);
@@ -707,13 +760,24 @@
   function isPlaylistLikeFile(name) {
     const n = String(name || "").toLowerCase();
 
-    return (
+    if (
       n.endsWith(".m3u") ||
       n.endsWith(".m3u8") ||
+      n.endsWith(".txt") ||
+      n.endsWith(".json")
+    ) return true;
+
+    if (
       n.includes("playlist") ||
       n.includes("channels") ||
-      n.includes("iptv")
-    );
+      n.includes("iptv") ||
+      n.includes("stream") ||
+      n.includes("live") ||
+      n.includes("tv") ||
+      n.includes("gr")
+    ) return true;
+
+    return false;
   }
 
   async function listRepoPlaylistFilesRecursive(owner, repo, path = "", depth = 0, maxDepth = 3) {
@@ -732,8 +796,12 @@
     for (const item of data) {
       if (!item || !item.type) continue;
 
-      if (item.type === "file" && isPlaylistLikeFile(item.name) && item.download_url) {
-        files.push(item);
+      if (item.type === "file") {
+        if (isPlaylistLikeFile(item.name) && item.download_url) {
+          files.push(item);
+        } else {
+          appendDebugLine(`Rejected file: ${owner}/${repo}/${item.path}`);
+        }
       }
 
       if (item.type === "dir") {
@@ -761,6 +829,9 @@
     const channel = channelIdentityMap[channelKey];
     if (!channel) return;
 
+    resetDebugLog();
+    appendDebugLine(`=== Scan started for ${channel.displayName || channelKey} (${channelKey}) ===`);
+
     setPlayerStatus("🔎 Searching GitHub sources for: " + channelKey);
 
     try {
@@ -768,19 +839,25 @@
       let usedWindow = 7;
 
       if (!repos.length) {
+        appendDebugLine("No repos in 7d window, falling back to 30d.");
         repos = await searchRecentGithubRepos(channelKey, 30);
         usedWindow = 30;
       }
 
       if (!repos.length) {
         setPlayerStatus("No recent GitHub repositories found for " + channelKey);
+        appendDebugLine("No repositories found.");
         return;
       }
 
       let checkedRepos = 0;
       let checkedFiles = 0;
-      let foundCount = 0;
+      let matchedCandidates = 0;
       let acceptedCount = 0;
+
+      const existingComparableUrls = new Set(
+        getStreamFinderSources(channelKey).map(s => normalizeComparableUrl(s.url))
+      );
 
       for (const repo of repos.slice(0, 8)) {
         const owner = repo.owner && repo.owner.login ? repo.owner.login : null;
@@ -789,15 +866,19 @@
         if (!owner || !repoName) continue;
 
         checkedRepos++;
+        appendDebugLine(`Repo: ${owner}/${repoName}`);
 
         const candidateFiles = await listRepoPlaylistFilesRecursive(owner, repoName, "", 0, 3);
+        appendDebugLine(`  Candidate files: ${candidateFiles.length}`);
 
         for (const file of candidateFiles.slice(0, 12)) {
           checkedFiles++;
+          appendDebugLine(`  Inspecting file: ${file.path}`);
 
           try {
             const text = await fetchRawText(file.download_url);
             const entries = parseM3UEntries(text);
+            appendDebugLine(`    Parsed entries: ${entries.length}`);
 
             for (const entry of entries) {
               const match = detectChannelIdentity({
@@ -812,34 +893,39 @@
                 continue;
               }
 
-              foundCount++;
+              matchedCandidates++;
+              appendDebugLine(`    Match: ${entry.displayName || entry.tvgName || entry.tvgId || entry.url}`);
 
-              const existingUrls = getStreamFinderSources(channelKey).map(s => normalizeSourceUrl(s.url));
               const normalizedCandidate = normalizeSourceUrl(entry.url);
+              const comparableCandidate = normalizeComparableUrl(normalizedCandidate);
 
-              if (existingUrls.includes(normalizedCandidate)) {
+              if (existingComparableUrls.has(comparableCandidate)) {
+                appendDebugLine(`      Duplicate skipped: ${normalizedCandidate}`);
                 continue;
               }
 
               const probe = await probeSource(normalizedCandidate);
+              appendDebugLine(`      Validation: ${probe.status} (${probe.reason})`);
 
               if (!probe.ok) {
                 continue;
               }
 
-              addPermanentFoundSource(channelKey, {
+              const sourceObj = {
                 url: normalizedCandidate,
                 status: probe.status,
                 sourceType: "found",
                 lastChecked: new Date().toISOString(),
                 lastFound: new Date().toISOString(),
                 notes: `Found in ${owner}/${repoName} → ${file.path} | ${probe.reason}`
-              });
+              };
 
+              addPermanentFoundSource(channelKey, sourceObj);
+              existingComparableUrls.add(comparableCandidate);
               acceptedCount++;
             }
           } catch (e) {
-            console.warn("Failed to inspect playlist file:", file.download_url, e);
+            appendDebugLine(`    Failed file: ${file.path} | ${e.message}`);
           }
         }
       }
@@ -850,17 +936,24 @@
       if (acceptedCount > 0) {
         setPlayerStatus(
           `✅ Found ${acceptedCount} valid new source(s) for ${channel.displayName || channelKey}\n` +
-          `Candidates matched: ${foundCount} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
+          `Candidates matched: ${matchedCandidates} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
         );
       } else {
         setPlayerStatus(
           `ℹ️ No valid new GitHub sources saved for ${channel.displayName || channelKey}\n` +
-          `Candidates matched: ${foundCount} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
+          `Candidates matched: ${matchedCandidates} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
         );
       }
+
+      appendDebugLine(`=== Scan finished ===`);
+      appendDebugLine(`Repos checked: ${checkedRepos}`);
+      appendDebugLine(`Files checked: ${checkedFiles}`);
+      appendDebugLine(`Candidates matched: ${matchedCandidates}`);
+      appendDebugLine(`Accepted new sources: ${acceptedCount}`);
     } catch (e) {
       console.error(e);
       setPlayerStatus("❌ GitHub scan failed: " + e.message);
+      appendDebugLine(`Scan error: ${e.message}`);
     }
   }
 
