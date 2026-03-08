@@ -200,6 +200,11 @@
       color:#ffd8d8;
     }
 
+    .badge-status-unknown{
+      background:#334155;
+      color:#dbe6f4;
+    }
+
     .player-title{
       font-size:20px;
       font-weight:bold;
@@ -314,10 +319,8 @@
   let currentChannelKey = null;
   let currentHls = null;
 
-  // Optional: add GitHub token later for higher rate limits
   const GITHUB_TOKEN = "";
-
-  const STREAM_FINDER_DISCOVERED_KEY = "stream_finder_discovered_v1";
+  const STREAM_FINDER_DISCOVERED_KEY = "stream_finder_discovered_v2";
 
   function destroyCurrentPlayer() {
     if (currentHls) {
@@ -373,29 +376,6 @@
     }).catch(() => {
       setPlayerStatus("Copy failed.");
     });
-  }
-
-  async function checkStreamStatus(url, badge) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-
-      await fetch(url, {
-        method: "HEAD",
-        mode: "no-cors",
-        signal: controller.signal
-      });
-
-      clearTimeout(timeout);
-
-      badge.textContent = "✅ online";
-      badge.classList.remove("badge-status-checking", "badge-status-dead");
-      badge.classList.add("badge-status-online");
-    } catch (e) {
-      badge.textContent = "❌ dead";
-      badge.classList.remove("badge-status-checking", "badge-status-online");
-      badge.classList.add("badge-status-dead");
-    }
   }
 
   function normalizeSourceUrl(url) {
@@ -468,6 +448,96 @@
     return entries;
   }
 
+  async function probeSource(url) {
+    const normalizedUrl = normalizeSourceUrl(url);
+
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      return { ok: false, status: "dead", reason: "invalid-url" };
+    }
+
+    const looksLikeHls = /\.m3u8(\?.*)?$/i.test(normalizedUrl);
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+
+      const response = await fetch(normalizedUrl, {
+        method: "GET",
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        return { ok: false, status: "dead", reason: `http-${response.status}` };
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+
+      if (looksLikeHls) {
+        const text = await response.text();
+        const isHls =
+          text.includes("#EXTM3U") &&
+          (
+            text.includes("#EXT-X-STREAM-INF") ||
+            text.includes("#EXTINF") ||
+            text.includes(".ts") ||
+            text.includes(".m4s") ||
+            text.includes("chunk")
+          );
+
+        if (isHls) {
+          return { ok: true, status: "online", reason: "valid-hls" };
+        }
+
+        return { ok: false, status: "dead", reason: "invalid-hls" };
+      }
+
+      if (
+        contentType.includes("application/vnd.apple.mpegurl") ||
+        contentType.includes("application/x-mpegurl") ||
+        contentType.includes("audio/mpegurl") ||
+        contentType.includes("video/mp2t") ||
+        contentType.includes("video/")
+      ) {
+        return { ok: true, status: "online", reason: "playable-content-type" };
+      }
+
+      return { ok: true, status: "unknown", reason: "reachable-but-unknown" };
+    } catch (e) {
+      return { ok: false, status: "dead", reason: "fetch-failed" };
+    }
+  }
+
+  async function checkStreamStatus(url, badge, sourceObj = null, channelKey = null) {
+    badge.textContent = "⏳ checking";
+    badge.classList.remove("badge-status-online", "badge-status-dead", "badge-status-unknown");
+    badge.classList.add("badge-status-checking");
+
+    const result = await probeSource(url);
+
+    if (result.status === "online") {
+      badge.textContent = "✅ online";
+      badge.classList.remove("badge-status-checking", "badge-status-dead", "badge-status-unknown");
+      badge.classList.add("badge-status-online");
+    } else if (result.status === "dead") {
+      badge.textContent = "❌ dead";
+      badge.classList.remove("badge-status-checking", "badge-status-online", "badge-status-unknown");
+      badge.classList.add("badge-status-dead");
+    } else {
+      badge.textContent = "⚪ unknown";
+      badge.classList.remove("badge-status-checking", "badge-status-online", "badge-status-dead");
+      badge.classList.add("badge-status-unknown");
+    }
+
+    if (sourceObj && channelKey) {
+      sourceObj.status = result.status;
+      sourceObj.lastChecked = new Date().toISOString();
+      sortStreamFinderSources(channelKey);
+      saveDiscoveredSourcesToStorage();
+    }
+  }
+
   function loadDiscoveredSourcesFromStorage() {
     try {
       const raw = localStorage.getItem(STREAM_FINDER_DISCOVERED_KEY);
@@ -511,16 +581,7 @@
     }
   }
 
-  function addPermanentFoundSource(channelKey, url, note) {
-    const sourceObj = {
-      url: normalizeSourceUrl(url),
-      status: "unknown",
-      sourceType: "found",
-      lastChecked: null,
-      lastFound: new Date().toISOString(),
-      notes: note || "Found via GitHub scan"
-    };
-
+  function addPermanentFoundSource(channelKey, sourceObj) {
     addStreamFinderSource(channelKey, sourceObj);
     sortStreamFinderSources(channelKey);
     saveDiscoveredSourcesToStorage();
@@ -599,7 +660,7 @@
           <span class="badge">${/\.m3u8(\?.*)?$/i.test(url) ? "HLS" : "Direct"}</span>
           <span class="badge">${source.sourceType || "saved"}</span>
           <span class="badge status-badge badge-status-checking" data-url="${url}">
-            ${source.status === "online" ? "✅ online" : source.status === "dead" ? "❌ dead" : "⏳ checking"}
+            ${source.status === "online" ? "✅ online" : source.status === "dead" ? "❌ dead" : source.status === "unknown" ? "⚪ unknown" : "⏳ checking"}
           </span>
         </div>
         <div class="stream-url">${url}</div>
@@ -621,7 +682,7 @@
       });
 
       const badge = item.querySelector(".status-badge");
-      checkStreamStatus(url, badge);
+      checkStreamStatus(url, badge, source, key);
 
       results.appendChild(item);
     });
@@ -719,6 +780,7 @@
       let checkedRepos = 0;
       let checkedFiles = 0;
       let foundCount = 0;
+      let acceptedCount = 0;
 
       for (const repo of repos.slice(0, 8)) {
         const owner = repo.owner && repo.owner.login ? repo.owner.login : null;
@@ -737,7 +799,7 @@
             const text = await fetchRawText(file.download_url);
             const entries = parseM3UEntries(text);
 
-            entries.forEach(entry => {
+            for (const entry of entries) {
               const match = detectChannelIdentity({
                 tvgId: entry.tvgId,
                 tvgName: entry.tvgName,
@@ -746,22 +808,36 @@
                 logo: entry.logo
               });
 
-              if (match.matched && match.canonicalKey === channelKey) {
-                const beforeCount = getStreamFinderSources(channelKey).length;
-
-                addPermanentFoundSource(
-                  channelKey,
-                  entry.url,
-                  `Found in ${owner}/${repoName} → ${file.path}`
-                );
-
-                const afterCount = getStreamFinderSources(channelKey).length;
-
-                if (afterCount > beforeCount) {
-                  foundCount++;
-                }
+              if (!(match.matched && match.canonicalKey === channelKey)) {
+                continue;
               }
-            });
+
+              foundCount++;
+
+              const existingUrls = getStreamFinderSources(channelKey).map(s => normalizeSourceUrl(s.url));
+              const normalizedCandidate = normalizeSourceUrl(entry.url);
+
+              if (existingUrls.includes(normalizedCandidate)) {
+                continue;
+              }
+
+              const probe = await probeSource(normalizedCandidate);
+
+              if (!probe.ok) {
+                continue;
+              }
+
+              addPermanentFoundSource(channelKey, {
+                url: normalizedCandidate,
+                status: probe.status,
+                sourceType: "found",
+                lastChecked: new Date().toISOString(),
+                lastFound: new Date().toISOString(),
+                notes: `Found in ${owner}/${repoName} → ${file.path} | ${probe.reason}`
+              });
+
+              acceptedCount++;
+            }
           } catch (e) {
             console.warn("Failed to inspect playlist file:", file.download_url, e);
           }
@@ -771,13 +847,15 @@
       sortStreamFinderSources(channelKey);
       renderChannelDetails(channelKey);
 
-      if (foundCount > 0) {
+      if (acceptedCount > 0) {
         setPlayerStatus(
-          `✅ Found ${foundCount} new source(s) for ${channel.displayName || channelKey} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
+          `✅ Found ${acceptedCount} valid new source(s) for ${channel.displayName || channelKey}\n` +
+          `Candidates matched: ${foundCount} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
         );
       } else {
         setPlayerStatus(
-          `ℹ️ No new GitHub sources found for ${channel.displayName || channelKey} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
+          `ℹ️ No valid new GitHub sources saved for ${channel.displayName || channelKey}\n` +
+          `Candidates matched: ${foundCount} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
         );
       }
     } catch (e) {
