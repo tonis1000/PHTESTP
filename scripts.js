@@ -664,27 +664,41 @@ const EPGEngine = (() => {
     });
   }
 
-  function resolveChannelId(inputId) {
-    if (!inputId) return null;
+function resolveChannelId(inputId) {
+  if (!inputId) return null;
 
-    // direct hit
-    if (byChannel[inputId]) return inputId;
+  if (byChannel[inputId]) return inputId;
 
-    const norm = epgNormalizeId(inputId);
-    if (!norm) return null;
+  const norm = epgNormalizeId(inputId);
+  if (!norm) return null;
 
-    // try resolverMap (xml channel id / display-name)
-    const mapped = resolverMap.get(norm);
-    if (mapped && byChannel[mapped]) return mapped;
+  const mapped = resolverMap.get(norm);
+  if (mapped && byChannel[mapped]) return mapped;
 
-    // try loose match: find a channel id that normalizes equal
-    const keys = Object.keys(byChannel);
-    for (const k of keys) {
-      if (epgNormalizeId(k) === norm) return k;
-    }
-
-    return null;
+  for (const k of Object.keys(byChannel)) {
+    if (epgNormalizeId(k) === norm) return k;
   }
+
+  const aliasCandidates = getAliasCandidates(inputId);
+  for (const alt of aliasCandidates) {
+    if (byChannel[alt]) return alt;
+
+    const altNorm = epgNormalizeId(alt);
+    const altMapped = resolverMap.get(altNorm);
+    if (altMapped && byChannel[altMapped]) return altMapped;
+
+    for (const k of Object.keys(byChannel)) {
+      if (epgNormalizeId(k) === altNorm) return k;
+    }
+  }
+
+  const loose = epgLooseKey(inputId);
+  for (const k of Object.keys(byChannel)) {
+    if (epgLooseKey(k) === loose) return k;
+  }
+
+  return null;
+}
 
   function parseXmlTv(xmlText) {
     const parser = new DOMParser();
