@@ -667,23 +667,28 @@ const EPGEngine = (() => {
 function resolveChannelId(inputId) {
   if (!inputId) return null;
 
+  // 1) direct hit
   if (byChannel[inputId]) return inputId;
 
   const norm = epgNormalizeId(inputId);
   if (!norm) return null;
 
+  // 2) direct resolverMap match
   const mapped = resolverMap.get(norm);
   if (mapped && byChannel[mapped]) return mapped;
 
+  // 3) normalized exact match against all byChannel keys
   for (const k of Object.keys(byChannel)) {
     if (epgNormalizeId(k) === norm) return k;
   }
 
+  // 4) alias candidates
   const aliasCandidates = getAliasCandidates(inputId);
   for (const alt of aliasCandidates) {
     if (byChannel[alt]) return alt;
 
     const altNorm = epgNormalizeId(alt);
+
     const altMapped = resolverMap.get(altNorm);
     if (altMapped && byChannel[altMapped]) return altMapped;
 
@@ -692,6 +697,7 @@ function resolveChannelId(inputId) {
     }
   }
 
+  // 5) loose match fallback
   const loose = epgLooseKey(inputId);
   for (const k of Object.keys(byChannel)) {
     if (epgLooseKey(k) === loose) return k;
@@ -699,7 +705,7 @@ function resolveChannelId(inputId) {
 
   return null;
 }
-
+   
   function parseXmlTv(xmlText) {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlText, "application/xml");
