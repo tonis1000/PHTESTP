@@ -218,6 +218,7 @@
       font-size:14px;
       color:#c5d0dc;
       word-break:break-word;
+      white-space:pre-line;
     }
 
     .empty-box{
@@ -313,8 +314,7 @@
   let currentChannelKey = null;
   let currentHls = null;
 
-  // Optional: insert your GitHub token later if you want higher limits.
-  // Example: const GITHUB_TOKEN = "ghp_xxxxxxxxx";
+  // Optional: add GitHub token later for higher rate limits
   const GITHUB_TOKEN = "";
 
   const STREAM_FINDER_DISCOVERED_KEY = "stream_finder_discovered_v1";
@@ -627,9 +627,9 @@
     });
   }
 
-  async function searchRecentGithubRepos(channelKey) {
+  async function searchRecentGithubRepos(channelKey, daysBack = 7) {
     const terms = getSearchTermsForChannel(channelKey);
-    const sinceDate = getDateDaysAgo(7);
+    const sinceDate = getDateDaysAgo(daysBack);
 
     const q = `${terms.slice(0, 3).join(" OR ")} pushed:>=${sinceDate}`;
     const endpoint = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=12`;
@@ -643,16 +643,6 @@
     return Array.isArray(data.items) ? data.items : [];
   }
 
-  async function listRepoRootContents(owner, repo) {
-    const endpoint = `https://api.github.com/repos/${owner}/${repo}/contents`;
-    const res = await fetch(endpoint, { headers: githubHeaders() });
-
-    if (!res.ok) return [];
-
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  }
-
   function isPlaylistLikeFile(name) {
     const n = String(name || "").toLowerCase();
 
@@ -663,6 +653,41 @@
       n.includes("channels") ||
       n.includes("iptv")
     );
+  }
+
+  async function listRepoPlaylistFilesRecursive(owner, repo, path = "", depth = 0, maxDepth = 3) {
+    if (depth > maxDepth) return [];
+
+    const endpoint = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+    const res = await fetch(endpoint, { headers: githubHeaders() });
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+
+    let files = [];
+
+    for (const item of data) {
+      if (!item || !item.type) continue;
+
+      if (item.type === "file" && isPlaylistLikeFile(item.name) && item.download_url) {
+        files.push(item);
+      }
+
+      if (item.type === "dir") {
+        const nested = await listRepoPlaylistFilesRecursive(
+          owner,
+          repo,
+          item.path,
+          depth + 1,
+          maxDepth
+        );
+        files = files.concat(nested);
+      }
+    }
+
+    return files;
   }
 
   async function fetchRawText(url) {
@@ -678,13 +703,21 @@
     setPlayerStatus("🔎 Searching GitHub sources for: " + channelKey);
 
     try {
-      const repos = await searchRecentGithubRepos(channelKey);
+      let repos = await searchRecentGithubRepos(channelKey, 7);
+      let usedWindow = 7;
+
+      if (!repos.length) {
+        repos = await searchRecentGithubRepos(channelKey, 30);
+        usedWindow = 30;
+      }
 
       if (!repos.length) {
         setPlayerStatus("No recent GitHub repositories found for " + channelKey);
         return;
       }
 
+      let checkedRepos = 0;
+      let checkedFiles = 0;
       let foundCount = 0;
 
       for (const repo of repos.slice(0, 8)) {
@@ -693,15 +726,13 @@
 
         if (!owner || !repoName) continue;
 
-        const contents = await listRepoRootContents(owner, repoName);
-        const candidateFiles = contents.filter(item =>
-          item &&
-          item.type === "file" &&
-          isPlaylistLikeFile(item.name) &&
-          item.download_url
-        );
+        checkedRepos++;
 
-        for (const file of candidateFiles.slice(0, 6)) {
+        const candidateFiles = await listRepoPlaylistFilesRecursive(owner, repoName, "", 0, 3);
+
+        for (const file of candidateFiles.slice(0, 12)) {
+          checkedFiles++;
+
           try {
             const text = await fetchRawText(file.download_url);
             const entries = parseM3UEntries(text);
@@ -716,12 +747,19 @@
               });
 
               if (match.matched && match.canonicalKey === channelKey) {
+                const beforeCount = getStreamFinderSources(channelKey).length;
+
                 addPermanentFoundSource(
                   channelKey,
                   entry.url,
-                  `Found in ${owner}/${repoName} → ${file.name}`
+                  `Found in ${owner}/${repoName} → ${file.path}`
                 );
-                foundCount++;
+
+                const afterCount = getStreamFinderSources(channelKey).length;
+
+                if (afterCount > beforeCount) {
+                  foundCount++;
+                }
               }
             });
           } catch (e) {
@@ -734,9 +772,13 @@
       renderChannelDetails(channelKey);
 
       if (foundCount > 0) {
-        setPlayerStatus(`✅ Found ${foundCount} new source matches for ${channel.displayName || channelKey}`);
+        setPlayerStatus(
+          `✅ Found ${foundCount} new source(s) for ${channel.displayName || channelKey} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
+        );
       } else {
-        setPlayerStatus(`ℹ️ No new GitHub sources found for ${channel.displayName || channelKey}`);
+        setPlayerStatus(
+          `ℹ️ No new GitHub sources found for ${channel.displayName || channelKey} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
+        );
       }
     } catch (e) {
       console.error(e);
