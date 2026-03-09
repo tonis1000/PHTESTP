@@ -2081,6 +2081,33 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
   }
 }
 
+function createHlsInstance() {
+  return new Hls({
+    // buffer settings
+    maxBufferLength: 30,
+    maxMaxBufferLength: 60,
+    backBufferLength: 10,
+
+    // live behavior
+    liveSyncDurationCount: 3,
+    liveMaxLatencyDurationCount: 6,
+    lowLatencyMode: false,
+
+    // loading timeouts
+    manifestLoadingTimeOut: 10000,
+    levelLoadingTimeOut: 10000,
+    fragLoadingTimeOut: 20000,
+
+    // retries
+    manifestLoadingMaxRetry: 4,
+    levelLoadingMaxRetry: 4,
+    fragLoadingMaxRetry: 6,
+
+    // smoother startup on live streams
+    startFragPrefetch: true
+  });
+}
+
 // Κύριο playStream + fallbacks
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
@@ -2089,14 +2116,24 @@ async function playStream(initialURL, subtitleURL = null) {
   const subtitleTrack = document.getElementById('subtitle-track');
 
   console.log('🔄 Reset players και sources');
-  if (clapprPlayer) clapprPlayer.destroy();
+
+  if (clapprPlayer) {
+    try {
+      clapprPlayer.destroy();
+    } catch (_) {}
+    clapprPlayer = null;
+  }
+
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
   videoPlayer.onerror = null;
+
   iframePlayer.src = '';
+
   subtitleTrack.src = '';
   subtitleTrack.track.mode = 'hidden';
+
   videoPlayer.style.display = 'none';
   iframePlayer.style.display = 'none';
   clapprDiv.style.display = 'none';
@@ -2153,11 +2190,17 @@ async function playStream(initialURL, subtitleURL = null) {
         showPlayerInfo('clappr', true);
         return;
       } else if (String(cached.player || '').startsWith('hls') && Hls.isSupported()) {
-        const hls = new Hls();
+        const hls = createHlsInstance();
         hls.loadSource(streamURL);
         hls.attachMedia(videoPlayer);
         bindHlsErrorLogging(hls, rawInitialUrl);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          videoPlayer.play().catch(err => {
+            console.warn('⚠️ autoplay blocked:', err);
+          });
+        });
+
         showVideoPlayer();
         showPlayerInfo('hls.js', true);
         return;
@@ -2173,6 +2216,7 @@ async function playStream(initialURL, subtitleURL = null) {
   if (isIframeStream(rawInitialUrl)) {
     console.log('🌐 Ύποπτο Iframe. Ψάχνω .m3u8...');
     const m3u8 = await findM3U8inIframe(rawInitialUrl);
+
     if (m3u8) {
       streamURL = shouldProxyThroughWorker(m3u8) ? toTvCacheUrl(m3u8) : m3u8;
       console.log('✅ Βρέθηκε .m3u8:', streamURL);
@@ -2190,22 +2234,32 @@ async function playStream(initialURL, subtitleURL = null) {
 
   console.log('🌍 Έλεγχος Direct/Proxy...');
   const workingUrl = await findWorkingUrl(streamURL);
+
   if (!workingUrl) {
     console.warn('🚫 Δεν βρέθηκε τίποτα ➜ Fallback...');
     logStreamFailure(rawInitialUrl);
     return tryFallbackPlayers(rawInitialUrl, streamURL);
   }
+
   streamURL = workingUrl;
 
   try {
     if (streamURL.endsWith('.m3u8') && Hls.isSupported()) {
       console.log('▶️ HLS.js αναπαραγωγή...');
-      const hls = new Hls();
+
+      const hls = createHlsInstance();
       hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
       bindHlsErrorLogging(hls, rawInitialUrl);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        videoPlayer.play().catch(err => {
+          console.warn('⚠️ autoplay blocked:', err);
+        });
+      });
+
       videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
+
       showVideoPlayer();
       logStreamUsage(rawInitialUrl, streamURL, 'hls.js');
       showPlayerInfo('HLS.js');
@@ -2214,7 +2268,12 @@ async function playStream(initialURL, subtitleURL = null) {
       console.log('▶️ Native HLS...');
       videoPlayer.src = streamURL;
       videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
-      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play(), { once: true });
+      videoPlayer.addEventListener('loadedmetadata', () => {
+        videoPlayer.play().catch(err => {
+          console.warn('⚠️ native autoplay blocked:', err);
+        });
+      }, { once: true });
+
       showVideoPlayer();
       logStreamUsage(rawInitialUrl, streamURL, 'native-hls');
       showPlayerInfo('Native HLS');
@@ -2223,7 +2282,9 @@ async function playStream(initialURL, subtitleURL = null) {
       console.log('▶️ DASH με dash.js...');
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
+
       videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
+
       showVideoPlayer();
       logStreamUsage(rawInitialUrl, streamURL, 'dash.js');
       showPlayerInfo('Dash.js');
@@ -2232,7 +2293,12 @@ async function playStream(initialURL, subtitleURL = null) {
       console.log('▶️ Αναπαραγωγή MP4/WebM...');
       videoPlayer.src = streamURL;
       videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
-      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play(), { once: true });
+      videoPlayer.addEventListener('loadedmetadata', () => {
+        videoPlayer.play().catch(err => {
+          console.warn('⚠️ mp4/webm autoplay blocked:', err);
+        });
+      }, { once: true });
+
       showVideoPlayer();
       logStreamUsage(rawInitialUrl, streamURL, 'native-mp4');
       showPlayerInfo('MP4/WebM');
@@ -2245,6 +2311,7 @@ async function playStream(initialURL, subtitleURL = null) {
 
   return tryFallbackPlayers(rawInitialUrl, streamURL);
 }
+
 
 function tryFallbackPlayers(initialURL, streamURL) {
   const iframePlayer = document.getElementById('iframe-player');
