@@ -265,6 +265,7 @@ playStream(rawUrl);
     const video = document.getElementById('video-player');
     video.onerror = () => {
       console.warn(`⚠️ Stream κόπηκε: ${rawUrl}, δοκιμή επόμενου...`);
+       logStreamFailure(rawUrl);
       tryNext();
     };
 
