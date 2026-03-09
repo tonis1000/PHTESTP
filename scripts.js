@@ -1218,46 +1218,6 @@ async function loadExternalPlaylist() {
     const streamMap = await jsonRes.json();
     const lines = m3uText.split('\n');
 
-    const normalizeKey = (s) =>
-      (s || '')
-        .toString()
-        .trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/\s+/g, '')
-        .replace(/[^\p{L}\p{N}._:-]/gu, '');
-
-    const streamMapKeys = Object.keys(streamMap);
-
-    function findBestStreamKey(tvgId, tvgName, displayName) {
-      const candidates = [tvgId, tvgName, displayName].filter(Boolean);
-      if (!candidates.length) return null;
-
-      // 1) exact hit
-      for (const c of candidates) {
-        if (streamMap[c]) return c;
-      }
-
-      // 2) normalized exact hit
-      for (const c of candidates) {
-        const norm = normalizeKey(c);
-        const found = streamMapKeys.find(k => normalizeKey(k) === norm);
-        if (found) return found;
-      }
-
-      // 3) loose contains match
-      for (const c of candidates) {
-        const norm = normalizeKey(c);
-        const found = streamMapKeys.find(k =>
-          normalizeKey(k).includes(norm) || norm.includes(normalizeKey(k))
-        );
-        if (found) return found;
-      }
-
-      return null;
-    }
-
     for (let i = 0; i < lines.length; i++) {
       if (!lines[i].startsWith('#EXTINF')) continue;
 
@@ -1276,18 +1236,22 @@ async function loadExternalPlaylist() {
       const group = groupMatch ? groupMatch[1].trim() : '';
       const logo = imgMatch ? imgMatch[1] : 'default_logo.png';
 
-      const streamKey = findBestStreamKey(tvgId, tvgName, displayName);
-      const rawStreams = streamKey ? (streamMap[streamKey] || []) : [];
+      const streamKey = resolveMapKeyByChannelNames(
+        streamMap,
+        tvgId,
+        tvgName,
+        displayName
+      );
 
-      if (!rawStreams.length) {
-        console.warn(`⚠️ Δεν βρέθηκαν streams για:`, { tvgId, tvgName, displayName });
+      if (!streamKey || !streamMap[streamKey]) {
+        console.warn(`⚠️ Δεν βρέθηκε stream key για:`, { tvgId, tvgName, displayName });
         continue;
       }
 
       let finalUrl = null;
       let usedIndex = -1;
 
-      const candidateUrls = sortUrlsByReliability(rawStreams);
+      const candidateUrls = sortUrlsByReliability(streamMap[streamKey] || []);
 
       for (let index = 0; index < candidateUrls.length; index++) {
         const rawUrl = cleanHashFromStreamUrl(candidateUrls[index]);
@@ -1313,7 +1277,7 @@ async function loadExternalPlaylist() {
         }
       }
 
-      // fallback: αν δεν βρεθεί validated, κράτα το πρώτο candidate
+      // fallback χωρίς validation
       if (!finalUrl && candidateUrls.length > 0) {
         finalUrl = cleanHashFromStreamUrl(candidateUrls[0]);
         usedIndex = 0;
