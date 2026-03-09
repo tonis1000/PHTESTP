@@ -272,6 +272,7 @@ playStream(rawUrl);
     if (clapprPlayer) {
       clapprPlayer.on('error', () => {
         console.warn(`⚠️ Clappr error: ${rawUrl}, δοκιμή επόμενου...`);
+         logStreamFailure(rawUrl);
         tryNext();
       });
     }
