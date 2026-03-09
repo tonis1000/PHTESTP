@@ -18,8 +18,16 @@ const SIDEBAR_ORDER_KEY = 'phtestp_sidebar_order_v1';
 const CACHE_BASE_URL = 'https://tv-cache.atonis.workers.dev';
 const CACHE_UPLOAD_URL = `${CACHE_BASE_URL}/upload-cache`;
 let lastSentCache = {};
+let cacheUploadTimer = null;
 
 const TV_CACHE_PROXY = `${CACHE_BASE_URL}/?url=`;
+
+function scheduleCacheUpload(delay = 4000) {
+  clearTimeout(cacheUploadTimer);
+  cacheUploadTimer = setTimeout(() => {
+    sendGlobalCacheIfUpdated();
+  }, delay);
+}
 
 function cleanHashFromStreamUrl(url) {
   return (url || '').split('#')[0].trim();
@@ -256,13 +264,13 @@ playStream(rawUrl);
 
     const video = document.getElementById('video-player');
     video.onerror = () => {
-      console.warn(`⚠️ Stream κόπηκε: ${url}, δοκιμή επόμενου...`);
+      console.warn(`⚠️ Stream κόπηκε: ${rawUrl}, δοκιμή επόμενου...`);
       tryNext();
     };
 
     if (clapprPlayer) {
       clapprPlayer.on('error', () => {
-        console.warn(`⚠️ Clappr error: ${url}, δοκιμή επόμενου...`);
+        console.warn(`⚠️ Clappr error: ${rawUrl}, δοκιμή επόμενου...`);
         tryNext();
       });
     }
@@ -326,7 +334,10 @@ async function findWorkingUrl(initialURL) {
   }
 
   for (const candidateURL of candidateUrls) {
+    const isWorkerCandidate = candidateURL.includes('.workers.dev');
+
     for (const proxy of proxyList) {
+      if (isWorkerCandidate && proxy) continue;
       const fullUrl = proxy
         ? (proxy.endsWith("=") ? proxy + encodeURIComponent(candidateURL) : proxy + candidateURL)
         : candidateURL;
@@ -1084,8 +1095,10 @@ if (!tvgId || !streamMap[tvgId]) continue;
 
         for (let index = 0; index < streamMap[tvgId].length; index++) {
           const url = cleanHashFromStreamUrl(streamMap[tvgId][index]);
+          const testUrl = shouldProxyThroughWorker(url) ? toTvCacheUrl(url) : url;
+
           try {
-            const res = await fetch(url);
+            const res = await fetch(testUrl);
             if (!res.ok) continue;
 
             const text = await res.text();
@@ -1899,6 +1912,8 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
     tvgId: tvgId || null
   };
 
+  scheduleCacheUpload();
+
   if (previous) {
     console.log(`♻️ Ενημερώθηκε stream στο cache: ${initialUrl}`);
   } else {
@@ -1933,22 +1948,34 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   };
 
-  let streamURL = cleanHashFromStreamUrl(initialURL);
+  const rawInitialUrl = cleanHashFromStreamUrl(initialURL);
+  let streamURL = rawInitialUrl;
 
-if (shouldProxyThroughWorker(streamURL)) {
-  streamURL = toTvCacheUrl(streamURL);
-}
-  const normalizedUrl = streamURL.replace(/^http:/, 'https:');
-  const alternateUrl = initialURL.replace(/^https:/, 'http:');
-  const cached = streamPerfMap[normalizedUrl] || streamPerfMap[initialURL] || streamPerfMap[alternateUrl];
-  console.log('🎯 Cache:', normalizedUrl, cached);
+  if (shouldProxyThroughWorker(streamURL)) {
+    streamURL = toTvCacheUrl(streamURL);
+  }
+
+  const normalizedRaw = rawInitialUrl.replace(/^http:/, 'https:');
+  const alternateRaw = rawInitialUrl.replace(/^https:/, 'http:');
+  const normalizedWorker = streamURL.replace(/^http:/, 'https:');
+  const alternateWorker = streamURL.replace(/^https:/, 'http:');
+
+  const cached =
+    streamPerfMap[rawInitialUrl] ||
+    streamPerfMap[normalizedRaw] ||
+    streamPerfMap[alternateRaw] ||
+    streamPerfMap[streamURL] ||
+    streamPerfMap[normalizedWorker] ||
+    streamPerfMap[alternateWorker];
+
+  console.log('🎯 Cache:', rawInitialUrl, streamURL, cached);
 
   if (cached) {
     console.log('⚡ Παίζει από Cache:', cached.player);
     try {
       if (cached.player === 'iframe') {
         iframePlayer.style.display = 'block';
-        iframePlayer.src = streamURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+        iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
         showPlayerInfo('iframe', true);
         return;
       } else if (cached.player === 'clappr') {
@@ -2147,7 +2174,7 @@ function hasNewEntries(current, previous) {
 
 async function sendGlobalCacheIfUpdated(force = false) {
   if (!force && !hasNewEntries(globalStreamCache, lastSentCache)) {
-    console.log('⏸️ Καμία αλλαγή, δεν στάλθηκε τίποτα στο Glitch.');
+    console.log('⏸️ Καμία αλλαγή, δεν στάλθηκε τίποτα στο tv-cache.');
     return 'no-change';
   }
 
@@ -2161,15 +2188,23 @@ async function sendGlobalCacheIfUpdated(force = false) {
     });
 
     if (response.ok) {
-      console.log('✅ Το globalStreamCache στάλθηκε επιτυχώς στο Glitch API');
+      console.log('✅ Το globalStreamCache στάλθηκε επιτυχώς στο tv-cache');
       lastSentCache = JSON.parse(JSON.stringify(globalStreamCache)); // βαθύ αντίγραφο
+
+      try {
+        const refreshed = await fetch(`${CACHE_BASE_URL}/proxy-map.json`).then(r => r.json());
+        streamPerfMap = refreshed;
+      } catch (e) {
+        console.warn('⚠️ Δεν έγινε refresh του proxy-map μετά το auto-upload:', e);
+      }
+
       return 'success';
     } else {
       console.warn('❌ Αποτυχία αποστολής στο API:', await response.text());
       return 'error';
     }
   } catch (err) {
-    console.error('🚫 Σφάλμα κατά την αποστολή στο Glitch API:', err);
+    console.error('🚫 Σφάλμα κατά την αποστολή στο tv-cache:', err);
     return 'error';
   }
 }
@@ -2184,7 +2219,7 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
   statusEl.textContent = '⏳ Γίνεται αποστολή cache...';
 
   try {
-    const response = await fetch(`${CACHE_BASE_URL}/upload-cache`, {
+    const response = await fetch(CACHE_UPLOAD_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(globalStreamCache)
@@ -2199,6 +2234,13 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
     if (result.status === 'Updated') {
       statusEl.style.color = 'lime';
       statusEl.textContent = `✅ Το cache στάλθηκε! Προστέθηκαν ${result.tvgCount || 0} κανάλια στο channel-streams.json.`;
+
+      try {
+        const refreshed = await fetch(`${CACHE_BASE_URL}/proxy-map.json`).then(r => r.json());
+        streamPerfMap = refreshed;
+      } catch (e) {
+        console.warn('⚠️ Δεν έγινε refresh του proxy-map μετά το upload:', e);
+      }
     } else if (result.status === 'No changes') {
       statusEl.style.color = 'orange';
       statusEl.textContent = 'ℹ️ Δεν υπήρχαν αλλαγές. Το channel-streams παρέμεινε ίδιο.';
