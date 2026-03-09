@@ -2232,7 +2232,10 @@ async function playStream(initialURL, subtitleURL = null) {
         const hls = createHlsInstance();
         hls.loadSource(streamURL);
         hls.attachMedia(videoPlayer);
-        bindHlsErrorLogging(hls, rawInitialUrl);
+        bindHlsErrorLogging(hls, rawInitialUrl, () => {
+        console.warn(`🚨 HLS unrecoverable -> fallback for ${rawInitialUrl}`);
+        tryFallbackPlayers(rawInitialUrl, streamURL);
+        });
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           videoPlayer.play().catch(err => {
