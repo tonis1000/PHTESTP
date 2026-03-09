@@ -1106,121 +1106,160 @@ async function loadExternalPlaylist() {
     const streamMap = await jsonRes.json();
     const lines = m3uText.split('\n');
 
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].startsWith('#EXTINF')) {
-        const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
-        const nameMatch = lines[i].match(/,(.*)$/);
-        const nameTagMatch = lines[i].match(/tvg-name="([^"]+)"/);
-        const groupMatch = lines[i].match(/group-title="([^"]+)"/);
-        const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
+    const normalizeKey = (s) =>
+      (s || '')
+        .toString()
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, '')
+        .replace(/[^\p{L}\p{N}._:-]/gu, '');
 
-// Για streamMap χρειάζεται tvg-id (όπως πριν)
-const tvgId = idMatch ? idMatch[1].trim() : null;
+    const streamMapKeys = Object.keys(streamMap);
 
-// Για EPG επιτρέπουμε tvg-name fallback
-const channelId =
-  (tvgId || '') ||
-  (nameTagMatch && nameTagMatch[1] ? nameTagMatch[1].trim() : '') ||
-  (nameMatch && nameMatch[1] ? nameMatch[1].trim() : '') ||
-  null;
+    function findBestStreamKey(tvgId, tvgName, displayName) {
+      const candidates = [tvgId, tvgName, displayName].filter(Boolean);
+      if (!candidates.length) return null;
 
-const name = nameTagMatch
-  ? nameTagMatch[1].trim()
-  : nameMatch
-  ? nameMatch[1].trim()
-  : 'Unbekannt';
-
-const group = groupMatch ? groupMatch[1].trim() : '';
-const logo = imgMatch ? imgMatch[1] : 'default_logo.png';
-
-// Streaming mapping: Θέλει tvgId
-if (!tvgId || !streamMap[tvgId]) continue;
-
-
-        let finalUrl = null;
-        let usedIndex = -1;
-
-        const candidateUrls = sortUrlsByReliability(streamMap[tvgId]);
-
-        for (let index = 0; index < candidateUrls.length; index++) {
-          const url = cleanHashFromStreamUrl(candidateUrls[index]);
-          try {
-            const res = await fetch(url);
-            if (!res.ok) continue;
-
-            const text = await res.text();
-            const isValidM3U =
-              text.includes('#EXTM3U') &&
-              /(\.ts|chunklist|media)/i.test(text) &&
-              !text.includes('404');
-
-            if (isValidM3U) {
-              finalUrl = url;
-              usedIndex = index;
-              break;
-            }
-          } catch (e) {
-            console.warn(`❌ Stream check failed για ${tvgId}:`, url);
-          }
-        }
-
-        if (!finalUrl) {
-          console.warn(`⚠️ Δεν βρέθηκε ενεργό URL για ${tvgId}`);
-          continue;
-        }
-
-        const fallbackBadge =
-          usedIndex > 0
-            ? `<span style="color: orange; font-size: 0.85em;"> 🔁</span>`
-            : '';
-
-        const programInfo = getCurrentProgram(channelId);
-
-        const listItem = document.createElement('li');
-        listItem.innerHTML = `
-          <div class="channel-info"
-               data-stream="${finalUrl}"
-               data-channel-id="${channelId}"
-               data-group="${group}"
-               data-source="external">
-            <div class="logo-container">
-              <img src="${logo}" alt="${name} Logo">
-            </div>
-            <span class="sender-name">
-  ${name}${fallbackBadge}
-  <span class="info-icon">ⓘ</span>
-</span>
-<span class="epg-channel">
-  <span>${programInfo.title}</span>
-  <div class="epg-timeline">
-    <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
-    <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
-  </div>
-</span>
-
-          </div>
-        `;
-
-        // 🔑 στοιχεία για αποθήκευση/restore σειράς
-        listItem.dataset.channelId = channelId || '';
-        listItem.dataset.stream = finalUrl;
-
-        sidebarList.appendChild(listItem);
+      // 1) exact hit
+      for (const c of candidates) {
+        if (streamMap[c]) return c;
       }
+
+      // 2) normalized exact hit
+      for (const c of candidates) {
+        const norm = normalizeKey(c);
+        const found = streamMapKeys.find(k => normalizeKey(k) === norm);
+        if (found) return found;
+      }
+
+      // 3) loose contains match
+      for (const c of candidates) {
+        const norm = normalizeKey(c);
+        const found = streamMapKeys.find(k =>
+          normalizeKey(k).includes(norm) || norm.includes(normalizeKey(k))
+        );
+        if (found) return found;
+      }
+
+      return null;
     }
 
-    // 📥 Εφαρμογή αποθηκευμένης σειράς + ενεργοποίηση drag & drop
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i].startsWith('#EXTINF')) continue;
+
+      const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
+      const nameMatch = lines[i].match(/,(.*)$/);
+      const nameTagMatch = lines[i].match(/tvg-name="([^"]+)"/);
+      const groupMatch = lines[i].match(/group-title="([^"]+)"/);
+      const imgMatch = lines[i].match(/tvg-logo="([^"]+)"/);
+
+      const tvgId = idMatch ? idMatch[1].trim() : '';
+      const tvgName = nameTagMatch ? nameTagMatch[1].trim() : '';
+      const displayName = nameMatch ? nameMatch[1].trim() : '';
+
+      const channelId = tvgId || tvgName || displayName || null;
+      const name = tvgName || displayName || 'Unbekannt';
+      const group = groupMatch ? groupMatch[1].trim() : '';
+      const logo = imgMatch ? imgMatch[1] : 'default_logo.png';
+
+      const streamKey = findBestStreamKey(tvgId, tvgName, displayName);
+      const rawStreams = streamKey ? (streamMap[streamKey] || []) : [];
+
+      if (!rawStreams.length) {
+        console.warn(`⚠️ Δεν βρέθηκαν streams για:`, { tvgId, tvgName, displayName });
+        continue;
+      }
+
+      let finalUrl = null;
+      let usedIndex = -1;
+
+      const candidateUrls = sortUrlsByReliability(rawStreams);
+
+      for (let index = 0; index < candidateUrls.length; index++) {
+        const rawUrl = cleanHashFromStreamUrl(candidateUrls[index]);
+        const testUrl = shouldProxyThroughWorker(rawUrl) ? toTvCacheUrl(rawUrl) : rawUrl;
+
+        try {
+          const res = await fetch(testUrl);
+          if (!res.ok) continue;
+
+          const text = await res.text();
+          const isValidM3U =
+            text.includes('#EXTM3U') &&
+            /(\.ts|\.m4s|chunklist|media)/i.test(text) &&
+            !text.includes('404');
+
+          if (isValidM3U) {
+            finalUrl = rawUrl;
+            usedIndex = index;
+            break;
+          }
+        } catch (e) {
+          console.warn(`❌ Stream check failed για ${streamKey}:`, rawUrl);
+        }
+      }
+
+      // fallback: αν δεν βρεθεί validated, κράτα το πρώτο candidate
+      if (!finalUrl && candidateUrls.length > 0) {
+        finalUrl = cleanHashFromStreamUrl(candidateUrls[0]);
+        usedIndex = 0;
+        console.warn(`ℹ️ Fallback χωρίς validation για ${streamKey}: ${finalUrl}`);
+      }
+
+      if (!finalUrl) {
+        console.warn(`⚠️ Δεν βρέθηκε ενεργό URL για ${streamKey}`);
+        continue;
+      }
+
+      const fallbackBadge =
+        usedIndex > 0
+          ? `<span style="color: orange; font-size: 0.85em;"> 🔁</span>`
+          : '';
+
+      const programInfo = getCurrentProgram(channelId);
+
+      const listItem = document.createElement('li');
+      listItem.innerHTML = `
+        <div class="channel-info"
+             data-stream="${finalUrl}"
+             data-channel-id="${channelId}"
+             data-group="${group}"
+             data-source="external">
+          <div class="logo-container">
+            <img src="${logo}" alt="${name} Logo">
+          </div>
+          <span class="sender-name">
+            ${name}${fallbackBadge}
+            <span class="info-icon">ⓘ</span>
+          </span>
+          <span class="epg-channel">
+            <span>${programInfo.title}</span>
+            <div class="epg-timeline">
+              <div class="epg-past" style="width: ${programInfo.pastPercentage}%"></div>
+              <div class="epg-future" style="width: ${programInfo.futurePercentage}%"></div>
+            </div>
+          </span>
+        </div>
+      `;
+
+      listItem.dataset.channelId = channelId || '';
+      listItem.dataset.stream = finalUrl;
+
+      sidebarList.appendChild(listItem);
+    }
+
     if (typeof applySavedSidebarOrder === 'function') {
       applySavedSidebarOrder();
     }
     if (typeof enableSidebarDragAndDrop === 'function') {
       enableSidebarDragAndDrop();
     }
-     if (typeof attachChannelHoverTooltips === 'function') {
-    attachChannelHoverTooltips();
-  }
+    if (typeof attachChannelHoverTooltips === 'function') {
+      attachChannelHoverTooltips();
+    }
 
-    // Έλεγχος κατάστασης streams
     checkStreamStatus();
   } catch (error) {
     console.error('❌ Σφάλμα φόρτωσης εξωτερικής playlist:', error);
