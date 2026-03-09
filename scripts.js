@@ -2122,6 +2122,22 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
   }
 }
 
+function destroyActivePlayers() {
+  if (currentHls) {
+    try {
+      currentHls.destroy();
+    } catch (_) {}
+    currentHls = null;
+  }
+
+  if (clapprPlayer) {
+    try {
+      clapprPlayer.destroy();
+    } catch (_) {}
+    clapprPlayer = null;
+  }
+}
+
 function createHlsInstance() {
   return new Hls({
     // buffer settings
