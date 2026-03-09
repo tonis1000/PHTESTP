@@ -77,15 +77,54 @@ function sortUrlsByReliability(urls = []) {
 function bindHlsErrorLogging(hls, rawUrl, onFatal) {
   if (!hls || !rawUrl) return;
 
+  let recoveredNetwork = 0;
+  let recoveredMedia = 0;
+
   hls.on(Hls.Events.ERROR, function(event, data) {
-    if (!data?.fatal) return;
+    if (!data) return;
 
-    console.warn(`⚠️ HLS fatal error: ${rawUrl}`, data?.type || '', data?.details || '');
+    // non-fatal μόνο log
+    if (!data.fatal) {
+      console.warn(`ℹ️ HLS non-fatal: ${rawUrl}`, data.type || '', data.details || '');
+      return;
+    }
 
+    console.warn(`⚠️ HLS fatal error: ${rawUrl}`, data.type || '', data.details || '');
+
+    // 1) Network error -> προσπάθησε restart load
+    if (data.type === Hls.ErrorTypes.NETWORK_ERROR && recoveredNetwork < 2) {
+      recoveredNetwork++;
+      console.warn(`🔁 HLS network recovery attempt ${recoveredNetwork} for: ${rawUrl}`);
+
+      try {
+        hls.startLoad();
+        return;
+      } catch (e) {
+        console.warn(`❌ HLS network recovery failed: ${rawUrl}`, e?.message || e);
+      }
+    }
+
+    // 2) Media error -> προσπάθησε recover media
+    if (data.type === Hls.ErrorTypes.MEDIA_ERROR && recoveredMedia < 2) {
+      recoveredMedia++;
+      console.warn(`🩺 HLS media recovery attempt ${recoveredMedia} for: ${rawUrl}`);
+
+      try {
+        hls.recoverMediaError();
+        return;
+      } catch (e) {
+        console.warn(`❌ HLS media recovery failed: ${rawUrl}`, e?.message || e);
+      }
+    }
+
+    // 3) Αν δεν σώθηκε, γράψε αποτυχία
     logStreamFailure(rawUrl);
 
+    // 4) Δώσε τον έλεγχο στο fallback αν υπάρχει callback
     if (typeof onFatal === 'function') {
-      try { onFatal(data); } catch (_) {}
+      try {
+        onFatal(data);
+      } catch (_) {}
     }
   });
 }
