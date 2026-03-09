@@ -2323,7 +2323,7 @@ async function playStream(initialURL, subtitleURL = null) {
 
   if (isIframeStream(rawInitialUrl)) {
     console.log('🌐 Ύποπτο Iframe. Ψάχνω .m3u8...');
-    const m3u8 = await findM3U8inIframe(rawInitialUrl);
+    const m3u8 = await findM3U8inIframe(rawInitialUrl, playToken);
 
     if (playToken !== activePlayToken) return;
 
