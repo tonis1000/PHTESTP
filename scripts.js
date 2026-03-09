@@ -513,52 +513,61 @@ function epgNormalizeId(s) {
     .trim()
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')   // remove accents/tonos
     .replace(/&amp;/g, '&')
-    .replace(/\s+/g, '')
+    .replace(/[΄'`´"]/g, '')           // remove apostrophes/quotes
+    .replace(/[–—-]/g, '')             // remove dash variations
+    .replace(/\s+/g, '')               // remove spaces
     .replace(/[|]/g, '')
+    .replace(/[&]/g, 'and')
     .replace(/[^\p{L}\p{N}._:-]/gu, '');
 }
 
 function epgLooseKey(s) {
   return epgNormalizeId(s)
     .replace(/hd/g, '')
+    .replace(/fhd/g, '')
+    .replace(/uhd/g, '')
+    .replace(/4k/g, '')
     .replace(/gr/g, '')
     .replace(/tv/g, '')
     .replace(/channel/g, '')
     .replace(/beyond/g, '')
-    .replace(/\.+/g, '');
+    .replace(/live/g, '')
+    .replace(/greece/g, '')
+    .replace(/\.+/g, '')
+    .replace(/:+/g, '');
 }
 
 const EPG_ALIAS = {
   // Δημόσια
-  ert1: ["ERT1.HD.gr", "ERT1.gr", "ERT1HD.gr", "EPT1.HD.gr", "EPT1.gr"],
-  ert2: ["ERT2.HD.gr", "ERT2.gr", "ERT2HD.gr", "EPT2.HD.gr", "EPT2.gr"],
-  ert3: ["ERT3.HD.gr", "ERT3.gr", "ERT3HD.gr", "EPT3.HD.gr", "EPT3.gr"],
-  ertnews: ["ERTNEWS.HD.gr", "ERTNEWS.gr", "ERT.NEWS.gr", "EPT.NEWS.gr"],
-  ertworld: ["ERT.WORLD.gr", "ERTWORLD.gr"],
-  ertsports1: ["ERT.SPORTS.1.LIVE.gr"],
+  ert1: ["ERT1.HD.gr", "ERT1.gr", "ERT1HD.gr", "EPT1.HD.gr", "EPT1.gr", "ερτ1"],
+  ert2: ["ERT2.HD.gr", "ERT2.gr", "ERT2HD.gr", "EPT2.HD.gr", "EPT2.gr", "ερτ2"],
+  ert3: ["ERT3.HD.gr", "ERT3.gr", "ERT3HD.gr", "EPT3.HD.gr", "EPT3.gr", "ερτ3"],
+  ertnews: ["ERTNEWS.HD.gr", "ERTNEWS.gr", "ERT.NEWS.gr", "EPT.NEWS.gr", "ερτnews", "ερτνεws", "ερτnewsgr"],
+  ertworld: ["ERT.WORLD.gr", "ERTWORLD.gr", "ερτworld", "ερτγουορλντ"],
+  ertsports1: ["ERT.SPORTS.1.LIVE.gr", "ερτσπορ1", "ερτσπορτσ1"],
 
   // Ιδιωτικά
-  ant1: ["ANT1.HD.gr", "ANT1.gr", "Antenna1.gr"],
-  alpha: ["ALPHA.HD.gr", "ALPHA.gr", "Alpha.HD.gr", "Alpha.gr"],
-  alphatv: ["ALPHA.HD.gr", "ALPHA.gr", "Alpha.HD.gr", "Alpha.gr"],
-  skai: ["SKAI.HD.gr", "SKAI.gr"],
-  skaitv: ["SKAI.HD.gr", "SKAI.gr"],
-  mega: ["MEGA.HD.gr", "MEGA.gr", "Mega.HD.gr", "Mega.gr", "MegaChannel.gr"],
-  megatv: ["MEGA.HD.gr", "MEGA.gr", "Mega.HD.gr", "Mega.gr", "MegaChannel.gr"],
-  meganews: ["MEGA.NEWS.HD.gr", "MEGA.NEWS.gr"],
-  open: ["OPEN.HD.gr", "OPEN.gr", "OPEN.BEYOND.HD.gr", "Open.HD.gr", "Open.gr"],
-  opentv: ["OPEN.HD.gr", "OPEN.gr", "OPEN.BEYOND.HD.gr", "Open.HD.gr", "Open.gr"],
-  star: ["STAR.HD.gr", "STAR.gr", "Star.HD.gr", "Star.gr"],
-  mak: ["MAKTV.HD.gr", "MAKTV.gr", "MAK.TV.gr", "MAK.HD.gr", "MAK.gr", "mtv"],
-  maktv: ["MAKTV.HD.gr", "MAKTV.gr", "MAK.TV.gr", "MAK.HD.gr", "MAK.gr", "mtv"],
-  action24: ["ACTION24.HD.gr", "ACTION24.gr", "Action24.HD.gr", "Action24.gr"],
-  kontra: ["KONTRA.HD.gr", "KONTRA.gr", "Kontra.HD.gr", "Kontra.gr"],
+  ant1: ["ANT1.HD.gr", "ANT1.gr", "Antenna1.gr", "αντ1", "ant1tv"],
+  alpha: ["ALPHA.HD.gr", "ALPHA.gr", "Alpha.HD.gr", "Alpha.gr", "alphatv", "αλφα", "αλφαtv"],
+  alphatv: ["ALPHA.HD.gr", "ALPHA.gr", "Alpha.HD.gr", "Alpha.gr", "alpha", "αλφα", "αλφαtv"],
+  skai: ["SKAI.HD.gr", "SKAI.gr", "skaitv", "σκαι", "σκαιtv"],
+  skaitv: ["SKAI.HD.gr", "SKAI.gr", "skai", "σκαι", "σκαιtv"],
+  mega: ["MEGA.HD.gr", "MEGA.gr", "Mega.HD.gr", "Mega.gr", "MegaChannel.gr", "megatv", "μεγκα", "μεγκαtv"],
+  megatv: ["MEGA.HD.gr", "MEGA.gr", "Mega.HD.gr", "Mega.gr", "MegaChannel.gr", "mega", "μεγκα", "μεγκαtv"],
+  meganews: ["MEGA.NEWS.HD.gr", "MEGA.NEWS.gr", "μεγκανews"],
+  open: ["OPEN.HD.gr", "OPEN.gr", "OPEN.BEYOND.HD.gr", "Open.HD.gr", "Open.gr", "opentv", "οπεν"],
+  opentv: ["OPEN.HD.gr", "OPEN.gr", "OPEN.BEYOND.HD.gr", "Open.HD.gr", "Open.gr", "open", "οπεν"],
+  star: ["STAR.HD.gr", "STAR.gr", "Star.HD.gr", "Star.gr", "startv", "σταρ", "σταρtv"],
+  mak: ["MAKTV.HD.gr", "MAKTV.gr", "MAK.TV.gr", "MAK.HD.gr", "MAK.gr", "mtv", "maktv"],
+  maktv: ["MAKTV.HD.gr", "MAKTV.gr", "MAK.TV.gr", "MAK.HD.gr", "MAK.gr", "mtv", "mak"],
+  action24: ["ACTION24.HD.gr", "ACTION24.gr", "Action24.HD.gr", "Action24.gr", "action24tv"],
+  kontra: ["KONTRA.HD.gr", "KONTRA.gr", "Kontra.HD.gr", "Kontra.gr", "kontratv"],
 
   // Ειδησεογραφικά / θεματικά
-  one: ["One.Channel.HD.gr", "One.Channel.gr", "ONE.HD.gr", "ONE.gr"],
-  naftemporikitv: ["Naftemporiki.TV.gr", "Naftemporiki.gr"],
+  one: ["One.Channel.HD.gr", "One.Channel.gr", "ONE.HD.gr", "ONE.gr", "onechannel"],
+  naftemporikitv: ["Naftemporiki.TV.gr", "Naftemporiki.gr", "naftemporiki"],
 
   // NOVA
   novacinema1: ["Novacinema1.gr", "NovaCinema1.gr"],
@@ -612,6 +621,109 @@ const EPG_ALIAS = {
 function getAliasCandidates(inputId) {
   const norm = epgNormalizeId(inputId);
   return EPG_ALIAS[norm] || [];
+}
+
+function getCanonicalKeysForInput(inputId) {
+  const norm = epgNormalizeId(inputId);
+  const out = new Set([norm]);
+
+  for (const [canonical, aliases] of Object.entries(EPG_ALIAS)) {
+    const canonicalNorm = epgNormalizeId(canonical);
+    if (canonicalNorm === norm) out.add(canonical);
+
+    for (const alias of aliases) {
+      if (epgNormalizeId(alias) === norm || epgLooseKey(alias) === epgLooseKey(inputId)) {
+        out.add(canonical);
+      }
+    }
+  }
+
+  return [...out];
+}
+
+function getAllMatchCandidates(...values) {
+  const out = new Set();
+
+  values.filter(Boolean).forEach(v => {
+    const raw = String(v).trim();
+    if (!raw) return;
+
+    out.add(raw);
+    out.add(epgNormalizeId(raw));
+    out.add(epgLooseKey(raw));
+
+    const aliases = getAliasCandidates(raw);
+    aliases.forEach(a => {
+      out.add(a);
+      out.add(epgNormalizeId(a));
+      out.add(epgLooseKey(a));
+    });
+
+    const canonicals = getCanonicalKeysForInput(raw);
+    canonicals.forEach(c => {
+      out.add(c);
+      out.add(epgNormalizeId(c));
+      out.add(epgLooseKey(c));
+
+      const canonicalAliases = EPG_ALIAS[epgNormalizeId(c)] || [];
+      canonicalAliases.forEach(a => {
+        out.add(a);
+        out.add(epgNormalizeId(a));
+        out.add(epgLooseKey(a));
+      });
+    });
+  });
+
+  return [...out].filter(Boolean);
+}
+
+function resolveMapKeyByChannelNames(mapObj, ...values) {
+  if (!mapObj || typeof mapObj !== 'object') return null;
+
+  const keys = Object.keys(mapObj);
+  if (!keys.length) return null;
+
+  const candidates = getAllMatchCandidates(...values);
+
+  // 1) direct exact
+  for (const c of candidates) {
+    if (mapObj[c]) return c;
+  }
+
+  // 2) normalized exact
+  for (const c of candidates) {
+    const cNorm = epgNormalizeId(c);
+    const found = keys.find(k => epgNormalizeId(k) === cNorm);
+    if (found) return found;
+  }
+
+  // 3) loose exact
+  for (const c of candidates) {
+    const cLoose = epgLooseKey(c);
+    const found = keys.find(k => epgLooseKey(k) === cLoose);
+    if (found) return found;
+  }
+
+  // 4) canonical exact fallback
+  for (const c of candidates) {
+    const canonicals = getCanonicalKeysForInput(c);
+    for (const canonical of canonicals) {
+      const found = keys.find(k => epgNormalizeId(k) === epgNormalizeId(canonical));
+      if (found) return found;
+    }
+  }
+
+  // 5) contains fallback
+  for (const c of candidates) {
+    const cLoose = epgLooseKey(c);
+    const found = keys.find(k => {
+      const kLoose = epgLooseKey(k);
+      return kLoose && cLoose && (kLoose.includes(cLoose) || cLoose.includes(kLoose));
+    });
+    if (found) return found;
+  }
+
+  return null;
 }
 
 // --------------------------
