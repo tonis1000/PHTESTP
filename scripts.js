@@ -371,23 +371,42 @@ async function playStreamByTvgId(tvgId) {
 }
 
 // iframe → εντοπισμός .m3u8
-async function findM3U8inIframe(url) {
-  const foundUrl = await findWorkingUrl(url);
-  if (!foundUrl) return null;
-
+async function findM3U8inIframe(url, playToken = null) {
   try {
-    const res = await fetch(foundUrl);
-    if (res.ok) {
+    const foundUrl = await findWorkingUrl(url);
+
+    if (playToken !== null && playToken !== activePlayToken) return null;
+    if (!foundUrl) return null;
+
+    const fetchUrl = shouldProxyThroughWorker(foundUrl) ? toTvCacheUrl(foundUrl) : foundUrl;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const res = await fetch(fetchUrl, {
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+
+      if (playToken !== null && playToken !== activePlayToken) return null;
+      if (!res.ok) return null;
+
       const html = await res.text();
+
+      if (playToken !== null && playToken !== activePlayToken) return null;
+
       const match = html.match(/(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
       if (match) {
         const cleaned = cleanHashFromStreamUrl(match[1]);
         console.log('🔎 Βρέθηκε .m3u8 μέσα σε iframe:', cleaned);
         return cleaned;
       }
+    } finally {
+      clearTimeout(timeoutId);
     }
   } catch (e) {
-    console.warn('❌ Σφάλμα ανάλυσης iframe:', e.message);
+    console.warn('❌ Σφάλμα ανάλυσης iframe:', e?.message || e);
   }
 
   console.warn('❌ Δεν βρέθηκε απευθείας .m3u8 στο iframe');
@@ -395,15 +414,27 @@ async function findM3U8inIframe(url) {
 }
 
 // Tiny GET probe για live HLS segments (όχι HEAD)
-async function probeTsRange(tsUrl) {
+async function probeTsRange(tsUrl, playToken = null) {
+  const probeUrl = shouldProxyThroughWorker(tsUrl) ? toTvCacheUrl(tsUrl) : tsUrl;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+
   try {
-    const r = await fetch(tsUrl, {
+    const r = await fetch(probeUrl, {
       method: "GET",
-      headers: { Range: "bytes=0-1023" }
+      headers: { Range: "bytes=0-1023" },
+      signal: controller.signal,
+      cache: 'no-store'
     });
+
+    if (playToken !== null && playToken !== activePlayToken) return false;
+
     return r.status === 206 || r.status === 200;
   } catch {
     return false;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
