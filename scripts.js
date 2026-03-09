@@ -11,6 +11,8 @@ let clapprPlayer = null;
 // Tooltip για EPG όταν μένει το ποντίκι πάνω από κανάλι
 let channelHoverTimer = null;
 let epgTooltipEl = null;
+let currentHls = null;
+let activePlayToken = 0;
 
 // Αποθήκευση σειράς sidebar στο localStorage
 const SIDEBAR_ORDER_KEY = 'phtestp_sidebar_order_v1';
