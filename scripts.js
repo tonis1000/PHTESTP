@@ -1923,6 +1923,22 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
 
   scheduleCacheUpload();
 }
+
+// Καταγραφή αποτυχίας stream
+function logStreamFailure(url) {
+
+  const entry = globalStreamCache[url];
+
+  if (entry) {
+    entry.fail = (entry.fail || 0) + 1;
+
+    console.warn(`⚠️ Stream failure recorded: ${url} (fail=${entry.fail})`);
+
+    scheduleCacheUpload();
+  }
+
+}
+
 // Κύριο playStream + fallbacks
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
