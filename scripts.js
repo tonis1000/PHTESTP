@@ -2166,20 +2166,18 @@ function createHlsInstance() {
 }
 
 // Κύριο playStream + fallbacks
+// Κύριο playStream + fallbacks
 async function playStream(initialURL, subtitleURL = null) {
+  const playToken = ++activePlayToken;
+
   const videoPlayer = document.getElementById('video-player');
   const iframePlayer = document.getElementById('iframe-player');
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  console.log('🔄 Reset players και sources');
+  console.log('🔄 Reset players και sources', playToken);
 
-  if (clapprPlayer) {
-    try {
-      clapprPlayer.destroy();
-    } catch (_) {}
-    clapprPlayer = null;
-  }
+  destroyActivePlayers();
 
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
@@ -2196,6 +2194,8 @@ async function playStream(initialURL, subtitleURL = null) {
   clapprDiv.style.display = 'none';
 
   const showVideoPlayer = () => {
+    if (playToken !== activePlayToken) return;
+
     videoPlayer.style.display = 'block';
     if (subtitleURL) {
       subtitleTrack.src = subtitleURL;
@@ -2229,13 +2229,18 @@ async function playStream(initialURL, subtitleURL = null) {
     console.log('⚡ Παίζει από Cache:', cached.player);
     try {
       if (cached.player === 'iframe' || cached.player === 'iframe-fallback') {
+        if (playToken !== activePlayToken) return;
+
         iframePlayer.style.display = 'block';
         iframePlayer.src = rawInitialUrl.includes('autoplay')
           ? rawInitialUrl
           : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+
         showPlayerInfo('iframe', true);
         return;
       } else if (cached.player === 'clappr' || cached.player === 'clappr-fallback') {
+        if (playToken !== activePlayToken) return;
+
         clapprDiv.style.display = 'block';
         clapprPlayer = new Clappr.Player({
           source: streamURL,
@@ -2244,18 +2249,30 @@ async function playStream(initialURL, subtitleURL = null) {
           width: '100%',
           height: '100%'
         });
+
         showPlayerInfo('clappr', true);
         return;
       } else if (String(cached.player || '').startsWith('hls') && Hls.isSupported()) {
+        if (playToken !== activePlayToken) return;
+
         const hls = createHlsInstance();
+        currentHls = hls;
+
         hls.loadSource(streamURL);
         hls.attachMedia(videoPlayer);
+
         bindHlsErrorLogging(hls, rawInitialUrl, () => {
-  console.warn(`🚨 Cached HLS unrecoverable -> fallback for ${rawInitialUrl}`);
-  tryFallbackPlayers(rawInitialUrl, streamURL);
-});
+          if (playToken !== activePlayToken) return;
+          if (currentHls !== hls) return;
+
+          console.warn(`🚨 Cached HLS unrecoverable -> fallback for ${rawInitialUrl}`);
+          tryFallbackPlayers(rawInitialUrl, streamURL);
+        });
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          if (playToken !== activePlayToken) return;
+          if (currentHls !== hls) return;
+
           videoPlayer.play().catch(err => {
             console.warn('⚠️ autoplay blocked:', err);
           });
@@ -2277,15 +2294,21 @@ async function playStream(initialURL, subtitleURL = null) {
     console.log('🌐 Ύποπτο Iframe. Ψάχνω .m3u8...');
     const m3u8 = await findM3U8inIframe(rawInitialUrl);
 
+    if (playToken !== activePlayToken) return;
+
     if (m3u8) {
       streamURL = shouldProxyThroughWorker(m3u8) ? toTvCacheUrl(m3u8) : m3u8;
       console.log('✅ Βρέθηκε .m3u8:', streamURL);
     } else {
       console.warn('▶️ Δεν βρέθηκε .m3u8 ➜ Παίζει το iframe');
+
+      if (playToken !== activePlayToken) return;
+
       iframePlayer.style.display = 'block';
       iframePlayer.src = rawInitialUrl.includes('autoplay')
         ? rawInitialUrl
         : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+
       logStreamUsage(rawInitialUrl, rawInitialUrl, 'iframe');
       showPlayerInfo('iframe');
       return;
@@ -2295,9 +2318,13 @@ async function playStream(initialURL, subtitleURL = null) {
   console.log('🌍 Έλεγχος Direct/Proxy...');
   const workingUrl = await findWorkingUrl(streamURL);
 
+  if (playToken !== activePlayToken) return;
+
   if (!workingUrl) {
     console.warn('🚫 Δεν βρέθηκε τίποτα ➜ Fallback...');
     logStreamFailure(rawInitialUrl);
+
+    if (playToken !== activePlayToken) return;
     return tryFallbackPlayers(rawInitialUrl, streamURL);
   }
 
@@ -2308,19 +2335,32 @@ async function playStream(initialURL, subtitleURL = null) {
       console.log('▶️ HLS.js αναπαραγωγή...');
 
       const hls = createHlsInstance();
+      currentHls = hls;
+
       hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
+
       bindHlsErrorLogging(hls, rawInitialUrl, () => {
-  console.warn(`🚨 HLS unrecoverable -> fallback for ${rawInitialUrl}`);
-  tryFallbackPlayers(rawInitialUrl, streamURL);
-});
+        if (playToken !== activePlayToken) return;
+        if (currentHls !== hls) return;
+
+        console.warn(`🚨 HLS unrecoverable -> fallback for ${rawInitialUrl}`);
+        tryFallbackPlayers(rawInitialUrl, streamURL);
+      });
+
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (playToken !== activePlayToken) return;
+        if (currentHls !== hls) return;
+
         videoPlayer.play().catch(err => {
           console.warn('⚠️ autoplay blocked:', err);
         });
       });
 
-      videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
+      videoPlayer.onerror = () => {
+        if (playToken !== activePlayToken) return;
+        logStreamFailure(rawInitialUrl);
+      };
 
       showVideoPlayer();
       logStreamUsage(rawInitialUrl, streamURL, 'hls.js');
@@ -2328,9 +2368,18 @@ async function playStream(initialURL, subtitleURL = null) {
       return;
     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
       console.log('▶️ Native HLS...');
+
+      if (playToken !== activePlayToken) return;
+
       videoPlayer.src = streamURL;
-      videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
+      videoPlayer.onerror = () => {
+        if (playToken !== activePlayToken) return;
+        logStreamFailure(rawInitialUrl);
+      };
+
       videoPlayer.addEventListener('loadedmetadata', () => {
+        if (playToken !== activePlayToken) return;
+
         videoPlayer.play().catch(err => {
           console.warn('⚠️ native autoplay blocked:', err);
         });
@@ -2342,10 +2391,16 @@ async function playStream(initialURL, subtitleURL = null) {
       return;
     } else if (streamURL.endsWith('.mpd')) {
       console.log('▶️ DASH με dash.js...');
+
+      if (playToken !== activePlayToken) return;
+
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
 
-      videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
+      videoPlayer.onerror = () => {
+        if (playToken !== activePlayToken) return;
+        logStreamFailure(rawInitialUrl);
+      };
 
       showVideoPlayer();
       logStreamUsage(rawInitialUrl, streamURL, 'dash.js');
@@ -2353,9 +2408,18 @@ async function playStream(initialURL, subtitleURL = null) {
       return;
     } else if (streamURL.endsWith('.mp4') || streamURL.endsWith('.webm')) {
       console.log('▶️ Αναπαραγωγή MP4/WebM...');
+
+      if (playToken !== activePlayToken) return;
+
       videoPlayer.src = streamURL;
-      videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
+      videoPlayer.onerror = () => {
+        if (playToken !== activePlayToken) return;
+        logStreamFailure(rawInitialUrl);
+      };
+
       videoPlayer.addEventListener('loadedmetadata', () => {
+        if (playToken !== activePlayToken) return;
+
         videoPlayer.play().catch(err => {
           console.warn('⚠️ mp4/webm autoplay blocked:', err);
         });
@@ -2371,9 +2435,9 @@ async function playStream(initialURL, subtitleURL = null) {
     logStreamFailure(rawInitialUrl);
   }
 
+  if (playToken !== activePlayToken) return;
   return tryFallbackPlayers(rawInitialUrl, streamURL);
 }
-
 
 function tryFallbackPlayers(initialURL, streamURL) {
   const iframePlayer = document.getElementById('iframe-player');
