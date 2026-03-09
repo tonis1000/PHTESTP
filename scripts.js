@@ -1880,7 +1880,8 @@ function checkStreamStatus() {
 
 // Καταγραφή χρήσης stream (με tvgId, proxy κλπ)
 function logStreamUsage(initialUrl, finalUrl, playerUsed) {
-  const now = new Date().toISOString();
+
+  const now = Date.now();
   const proxyUsed = (initialUrl !== finalUrl) ? finalUrl.replace(initialUrl, '') : '';
   const type = detectStreamType(initialUrl);
 
@@ -1893,34 +1894,35 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
     tvgId = el.dataset.channelId;
   }
 
-  if (
-    previous &&
-    previous.proxy === proxyUsed &&
-    previous.player === playerUsed &&
-    previous.type === type &&
-    previous.tvgId === tvgId
-  ) {
-    console.log(`ℹ️ Stream ήδη καταγεγραμμένο χωρίς αλλαγές: ${initialUrl}`);
-    return;
-  }
-
-  globalStreamCache[initialUrl] = {
-    timestamp: now,
-    proxy: proxyUsed,
-    player: playerUsed,
-    type: type,
-    tvgId: tvgId || null
-  };
-
-  scheduleCacheUpload();
-
+  // Αν υπάρχει ήδη entry
   if (previous) {
-    console.log(`♻️ Ενημερώθηκε stream στο cache: ${initialUrl}`);
+
+    previous.success = (previous.success || 0) + 1;
+    previous.lastSuccess = now;
+    previous.player = playerUsed;
+    previous.proxy = proxyUsed;
+    previous.type = type;
+    previous.tvgId = tvgId || previous.tvgId || null;
+
+    console.log(`♻️ Stream success update: ${initialUrl} (${previous.success} success)`);
+
   } else {
+
+    globalStreamCache[initialUrl] = {
+      success: 1,
+      fail: 0,
+      lastSuccess: now,
+      proxy: proxyUsed,
+      player: playerUsed,
+      type: type,
+      tvgId: tvgId || null
+    };
+
     console.log(`➕ Νέα καταγραφή stream: ${initialUrl}`);
   }
-}
 
+  scheduleCacheUpload();
+}
 // Κύριο playStream + fallbacks
 async function playStream(initialURL, subtitleURL = null) {
   const videoPlayer = document.getElementById('video-player');
