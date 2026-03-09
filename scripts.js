@@ -2292,8 +2292,10 @@ async function playStream(initialURL, subtitleURL = null) {
       const hls = createHlsInstance();
       hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
-      bindHlsErrorLogging(hls, rawInitialUrl);
-
+      bindHlsErrorLogging(hls, rawInitialUrl, () => {
+      console.warn(`🚨 Cached HLS unrecoverable -> fallback for ${rawInitialUrl}`);
+      tryFallbackPlayers(rawInitialUrl, streamURL);
+       });
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         videoPlayer.play().catch(err => {
           console.warn('⚠️ autoplay blocked:', err);
