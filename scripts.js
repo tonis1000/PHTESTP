@@ -18,16 +18,8 @@ const SIDEBAR_ORDER_KEY = 'phtestp_sidebar_order_v1';
 const CACHE_BASE_URL = 'https://tv-cache.atonis.workers.dev';
 const CACHE_UPLOAD_URL = `${CACHE_BASE_URL}/upload-cache`;
 let lastSentCache = {};
-let cacheUploadTimer = null;
 
 const TV_CACHE_PROXY = `${CACHE_BASE_URL}/?url=`;
-
-function scheduleCacheUpload(delay = 4000) {
-  clearTimeout(cacheUploadTimer);
-  cacheUploadTimer = setTimeout(() => {
-    sendGlobalCacheIfUpdated();
-  }, delay);
-}
 
 function cleanHashFromStreamUrl(url) {
   return (url || '').split('#')[0].trim();
@@ -44,6 +36,60 @@ function shouldProxyThroughWorker(url) {
   const cleaned = cleanHashFromStreamUrl(url);
   return /\.m3u8(\?.*)?$/i.test(cleaned);
 }
+
+
+function reliabilityScore(entry) {
+  const success = Number(entry?.success || 0);
+  const fail = Number(entry?.fail || 0);
+  const total = success + fail;
+  if (total <= 0) return 0;
+  return success / total;
+}
+
+function getPerfEntryForUrl(url) {
+  const cleaned = cleanHashFromStreamUrl(url);
+  if (!cleaned) return null;
+
+  const workerUrl = shouldProxyThroughWorker(cleaned) ? toTvCacheUrl(cleaned) : cleaned;
+  const candidates = [
+    cleaned,
+    cleaned.replace(/^http:/, 'https:'),
+    cleaned.replace(/^https:/, 'http:'),
+    workerUrl,
+    workerUrl.replace(/^http:/, 'https:'),
+    workerUrl.replace(/^https:/, 'http:')
+  ];
+
+  for (const key of candidates) {
+    if (streamPerfMap[key]) return streamPerfMap[key];
+  }
+  return null;
+}
+
+function sortUrlsByReliability(urls = []) {
+  return [...urls].sort((a, b) => {
+    const aScore = reliabilityScore(getPerfEntryForUrl(a) || {});
+    const bScore = reliabilityScore(getPerfEntryForUrl(b) || {});
+    return bScore - aScore;
+  });
+}
+
+function bindHlsErrorLogging(hls, rawUrl, onFatal) {
+  if (!hls || !rawUrl) return;
+
+  hls.on(Hls.Events.ERROR, function(event, data) {
+    if (!data?.fatal) return;
+
+    console.warn(`⚠️ HLS fatal error: ${rawUrl}`, data?.type || '', data?.details || '');
+
+    logStreamFailure(rawUrl);
+
+    if (typeof onFatal === 'function') {
+      try { onFatal(data); } catch (_) {}
+    }
+  });
+}
+
 
 // Debug flag & light logger (μείωση θορύβου χωρίς αλλαγή ροής)
 const DEBUG = false;
@@ -230,13 +276,14 @@ async function playStreamByTvgId(tvgId) {
 
   const res = await fetch(`${CACHE_BASE_URL}/channel-streams.json`);
   const streamData = await res.json();
-  const urls = streamData[tvgId];
+  const rawUrls = streamData[tvgId];
 
-  if (!urls || urls.length === 0) {
+  if (!rawUrls || rawUrls.length === 0) {
     console.warn(`❌ Δεν βρέθηκαν URLs για tvgId: ${tvgId}`);
     return;
   }
 
+  const urls = sortUrlsByReliability(rawUrls);
   let currentIndex = 0;
 
   async function tryNext() {
@@ -246,33 +293,34 @@ async function playStreamByTvgId(tvgId) {
       return;
     }
 
-const rawUrl = cleanHashFromStreamUrl(urls[currentIndex]);
-currentIndex++;
+    const rawUrl = cleanHashFromStreamUrl(urls[currentIndex]);
+    currentIndex++;
 
-const testUrl = shouldProxyThroughWorker(rawUrl) ? toTvCacheUrl(rawUrl) : rawUrl;
+    const testUrl = shouldProxyThroughWorker(rawUrl) ? toTvCacheUrl(rawUrl) : rawUrl;
 
-try {
-  const head = await fetch(testUrl, { method: 'HEAD' });
-  if (!head.ok) throw new Error('Not OK');
-} catch (e) {
-  console.warn(`❌ Stream νεκρό: ${rawUrl}`);
-  return tryNext(); // ➤ επόμενο
-}
+    try {
+      const head = await fetch(testUrl, { method: 'HEAD' });
+      if (!head.ok) throw new Error('Not OK');
+    } catch (e) {
+      console.warn(`❌ Stream νεκρό: ${rawUrl}`);
+      logStreamFailure(rawUrl);
+      return tryNext();
+    }
 
-console.log(`🎯 Παίζει stream για ${tvgId}:`, rawUrl);
-playStream(rawUrl);
+    console.log(`🎯 Παίζει stream για ${tvgId}:`, rawUrl);
+    playStream(rawUrl);
 
     const video = document.getElementById('video-player');
     video.onerror = () => {
       console.warn(`⚠️ Stream κόπηκε: ${rawUrl}, δοκιμή επόμενου...`);
-       logStreamFailure(rawUrl);
+      logStreamFailure(rawUrl);
       tryNext();
     };
 
     if (clapprPlayer) {
       clapprPlayer.on('error', () => {
         console.warn(`⚠️ Clappr error: ${rawUrl}, δοκιμή επόμενου...`);
-         logStreamFailure(rawUrl);
+        logStreamFailure(rawUrl);
         tryNext();
       });
     }
@@ -336,10 +384,7 @@ async function findWorkingUrl(initialURL) {
   }
 
   for (const candidateURL of candidateUrls) {
-    const isWorkerCandidate = candidateURL.includes('.workers.dev');
-
     for (const proxy of proxyList) {
-      if (isWorkerCandidate && proxy) continue;
       const fullUrl = proxy
         ? (proxy.endsWith("=") ? proxy + encodeURIComponent(candidateURL) : proxy + candidateURL)
         : candidateURL;
@@ -1095,12 +1140,12 @@ if (!tvgId || !streamMap[tvgId]) continue;
         let finalUrl = null;
         let usedIndex = -1;
 
-        for (let index = 0; index < streamMap[tvgId].length; index++) {
-          const url = cleanHashFromStreamUrl(streamMap[tvgId][index]);
-          const testUrl = shouldProxyThroughWorker(url) ? toTvCacheUrl(url) : url;
+        const candidateUrls = sortUrlsByReliability(streamMap[tvgId]);
 
+        for (let index = 0; index < candidateUrls.length; index++) {
+          const url = cleanHashFromStreamUrl(candidateUrls[index]);
           try {
-            const res = await fetch(testUrl);
+            const res = await fetch(url);
             if (!res.ok) continue;
 
             const text = await res.text();
@@ -1882,8 +1927,7 @@ function checkStreamStatus() {
 
 // Καταγραφή χρήσης stream (με tvgId, proxy κλπ)
 function logStreamUsage(initialUrl, finalUrl, playerUsed) {
-
-  const now = Date.now();
+  const now = new Date().toISOString();
   const proxyUsed = (initialUrl !== finalUrl) ? finalUrl.replace(initialUrl, '') : '';
   const type = detectStreamType(initialUrl);
 
@@ -1896,49 +1940,30 @@ function logStreamUsage(initialUrl, finalUrl, playerUsed) {
     tvgId = el.dataset.channelId;
   }
 
-  // Αν υπάρχει ήδη entry
+  if (
+    previous &&
+    previous.proxy === proxyUsed &&
+    previous.player === playerUsed &&
+    previous.type === type &&
+    previous.tvgId === tvgId
+  ) {
+    console.log(`ℹ️ Stream ήδη καταγεγραμμένο χωρίς αλλαγές: ${initialUrl}`);
+    return;
+  }
+
+  globalStreamCache[initialUrl] = {
+    timestamp: now,
+    proxy: proxyUsed,
+    player: playerUsed,
+    type: type,
+    tvgId: tvgId || null
+  };
+
   if (previous) {
-
-    previous.success = (previous.success || 0) + 1;
-    previous.lastSuccess = now;
-    previous.player = playerUsed;
-    previous.proxy = proxyUsed;
-    previous.type = type;
-    previous.tvgId = tvgId || previous.tvgId || null;
-
-    console.log(`♻️ Stream success update: ${initialUrl} (${previous.success} success)`);
-
+    console.log(`♻️ Ενημερώθηκε stream στο cache: ${initialUrl}`);
   } else {
-
-    globalStreamCache[initialUrl] = {
-      success: 1,
-      fail: 0,
-      lastSuccess: now,
-      proxy: proxyUsed,
-      player: playerUsed,
-      type: type,
-      tvgId: tvgId || null
-    };
-
     console.log(`➕ Νέα καταγραφή stream: ${initialUrl}`);
   }
-
-  scheduleCacheUpload();
-}
-
-// Καταγραφή αποτυχίας stream
-function logStreamFailure(url) {
-
-  const entry = globalStreamCache[url];
-
-  if (entry) {
-    entry.fail = (entry.fail || 0) + 1;
-
-    console.warn(`⚠️ Stream failure recorded: ${url} (fail=${entry.fail})`);
-
-    scheduleCacheUpload();
-  }
-
 }
 
 // Κύριο playStream + fallbacks
@@ -1953,6 +1978,7 @@ async function playStream(initialURL, subtitleURL = null) {
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
+  videoPlayer.onerror = null;
   iframePlayer.src = '';
   subtitleTrack.src = '';
   subtitleTrack.track.mode = 'hidden';
@@ -1993,20 +2019,29 @@ async function playStream(initialURL, subtitleURL = null) {
   if (cached) {
     console.log('⚡ Παίζει από Cache:', cached.player);
     try {
-      if (cached.player === 'iframe') {
+      if (cached.player === 'iframe' || cached.player === 'iframe-fallback') {
         iframePlayer.style.display = 'block';
-        iframePlayer.src = initialURL.includes('autoplay') ? initialURL : initialURL + (initialURL.includes('?') ? '&' : '?') + 'autoplay=1';
+        iframePlayer.src = rawInitialUrl.includes('autoplay')
+          ? rawInitialUrl
+          : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
         showPlayerInfo('iframe', true);
         return;
-      } else if (cached.player === 'clappr') {
+      } else if (cached.player === 'clappr' || cached.player === 'clappr-fallback') {
         clapprDiv.style.display = 'block';
-        clapprPlayer = new Clappr.Player({ source: streamURL, parentId: '#clappr-player', autoPlay: true, width: '100%', height: '100%' });
+        clapprPlayer = new Clappr.Player({
+          source: streamURL,
+          parentId: '#clappr-player',
+          autoPlay: true,
+          width: '100%',
+          height: '100%'
+        });
         showPlayerInfo('clappr', true);
         return;
-      } else if (cached.player.startsWith('hls') && Hls.isSupported()) {
+      } else if (String(cached.player || '').startsWith('hls') && Hls.isSupported()) {
         const hls = new Hls();
         hls.loadSource(streamURL);
         hls.attachMedia(videoPlayer);
+        bindHlsErrorLogging(hls, rawInitialUrl);
         hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
         showVideoPlayer();
         showPlayerInfo('hls.js', true);
@@ -2017,20 +2052,22 @@ async function playStream(initialURL, subtitleURL = null) {
     }
   }
 
-  const type = detectStreamType(streamURL);
+  const type = detectStreamType(rawInitialUrl);
   console.log('📦 Τύπος Stream:', type);
 
-  if (isIframeStream(streamURL)) {
+  if (isIframeStream(rawInitialUrl)) {
     console.log('🌐 Ύποπτο Iframe. Ψάχνω .m3u8...');
-    const m3u8 = await findM3U8inIframe(streamURL);
+    const m3u8 = await findM3U8inIframe(rawInitialUrl);
     if (m3u8) {
-      streamURL = m3u8;
+      streamURL = shouldProxyThroughWorker(m3u8) ? toTvCacheUrl(m3u8) : m3u8;
       console.log('✅ Βρέθηκε .m3u8:', streamURL);
     } else {
       console.warn('▶️ Δεν βρέθηκε .m3u8 ➜ Παίζει το iframe');
       iframePlayer.style.display = 'block';
-      iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-      logStreamUsage(initialURL, streamURL, 'iframe');
+      iframePlayer.src = rawInitialUrl.includes('autoplay')
+        ? rawInitialUrl
+        : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+      logStreamUsage(rawInitialUrl, rawInitialUrl, 'iframe');
       showPlayerInfo('iframe');
       return;
     }
@@ -2040,7 +2077,8 @@ async function playStream(initialURL, subtitleURL = null) {
   const workingUrl = await findWorkingUrl(streamURL);
   if (!workingUrl) {
     console.warn('🚫 Δεν βρέθηκε τίποτα ➜ Fallback...');
-    return tryFallbackPlayers(initialURL, streamURL);
+    logStreamFailure(rawInitialUrl);
+    return tryFallbackPlayers(rawInitialUrl, streamURL);
   }
   streamURL = workingUrl;
 
@@ -2050,41 +2088,47 @@ async function playStream(initialURL, subtitleURL = null) {
       const hls = new Hls();
       hls.loadSource(streamURL);
       hls.attachMedia(videoPlayer);
+      bindHlsErrorLogging(hls, rawInitialUrl);
       hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play());
+      videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
       showVideoPlayer();
-      logStreamUsage(initialURL, streamURL, 'hls.js');
+      logStreamUsage(rawInitialUrl, streamURL, 'hls.js');
       showPlayerInfo('HLS.js');
       return;
     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
       console.log('▶️ Native HLS...');
       videoPlayer.src = streamURL;
-      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
+      videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
+      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play(), { once: true });
       showVideoPlayer();
-      logStreamUsage(initialURL, streamURL, 'native-hls');
+      logStreamUsage(rawInitialUrl, streamURL, 'native-hls');
       showPlayerInfo('Native HLS');
       return;
     } else if (streamURL.endsWith('.mpd')) {
       console.log('▶️ DASH με dash.js...');
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
+      videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
       showVideoPlayer();
-      logStreamUsage(initialURL, streamURL, 'dash.js');
+      logStreamUsage(rawInitialUrl, streamURL, 'dash.js');
       showPlayerInfo('Dash.js');
       return;
     } else if (streamURL.endsWith('.mp4') || streamURL.endsWith('.webm')) {
       console.log('▶️ Αναπαραγωγή MP4/WebM...');
       videoPlayer.src = streamURL;
-      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
+      videoPlayer.onerror = () => logStreamFailure(rawInitialUrl);
+      videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play(), { once: true });
       showVideoPlayer();
-      logStreamUsage(initialURL, streamURL, 'native-mp4');
+      logStreamUsage(rawInitialUrl, streamURL, 'native-mp4');
       showPlayerInfo('MP4/WebM');
       return;
     }
   } catch (err) {
     console.warn('⚠️ Σφάλμα κατά την αναπαραγωγή:', err);
+    logStreamFailure(rawInitialUrl);
   }
 
-  return tryFallbackPlayers(initialURL, streamURL);
+  return tryFallbackPlayers(rawInitialUrl, streamURL);
 }
 
 function tryFallbackPlayers(initialURL, streamURL) {
@@ -2114,6 +2158,7 @@ function tryFallbackPlayers(initialURL, streamURL) {
     });
 
     clapprPlayer.on('ERROR', () => {
+      logStreamFailure(initialURL);
       if (!started) {
         console.warn('⚠️ Clappr ERROR ➜ iframe fallback');
         fallbackToIframe();
@@ -2124,6 +2169,7 @@ function tryFallbackPlayers(initialURL, streamURL) {
       const html = clapprDiv?.innerHTML.trim();
       if (!started || !html || html.length < 100) {
         console.warn('⏱️ Clappr δεν ξεκίνησε ➜ iframe fallback');
+        logStreamFailure(initialURL);
         fallbackToIframe();
       }
     }, 5000);
@@ -2185,10 +2231,17 @@ function hasNewEntries(current, previous) {
   if (currentKeys.length !== previousKeys.length) return true;
 
   return currentKeys.some(key => {
+    const a = current[key] || {};
+    const b = previous[key] || {};
+
     return !previous[key] ||
-           previous[key].timestamp !== current[key].timestamp ||
-           previous[key].proxy !== current[key].proxy ||
-           previous[key].player !== current[key].player;
+           Number(a.success || 0) !== Number(b.success || 0) ||
+           Number(a.fail || 0) !== Number(b.fail || 0) ||
+           Number(a.lastSuccess || 0) !== Number(b.lastSuccess || 0) ||
+           (a.proxy || '') !== (b.proxy || '') ||
+           (a.player || '') !== (b.player || '') ||
+           (a.type || '') !== (b.type || '') ||
+           (a.tvgId || '') !== (b.tvgId || '');
   });
 }
 
@@ -2208,23 +2261,15 @@ async function sendGlobalCacheIfUpdated(force = false) {
     });
 
     if (response.ok) {
-      console.log('✅ Το globalStreamCache στάλθηκε επιτυχώς στο tv-cache');
+      console.log('✅ Το globalStreamCache στάλθηκε επιτυχώς στο tv-cache API');
       lastSentCache = JSON.parse(JSON.stringify(globalStreamCache)); // βαθύ αντίγραφο
-
-      try {
-        const refreshed = await fetch(`${CACHE_BASE_URL}/proxy-map.json`).then(r => r.json());
-        streamPerfMap = refreshed;
-      } catch (e) {
-        console.warn('⚠️ Δεν έγινε refresh του proxy-map μετά το auto-upload:', e);
-      }
-
       return 'success';
     } else {
       console.warn('❌ Αποτυχία αποστολής στο API:', await response.text());
       return 'error';
     }
   } catch (err) {
-    console.error('🚫 Σφάλμα κατά την αποστολή στο tv-cache:', err);
+    console.error('🚫 Σφάλμα κατά την αποστολή στο tv-cache API:', err);
     return 'error';
   }
 }
@@ -2239,7 +2284,7 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
   statusEl.textContent = '⏳ Γίνεται αποστολή cache...';
 
   try {
-    const response = await fetch(CACHE_UPLOAD_URL, {
+    const response = await fetch(`${CACHE_BASE_URL}/upload-cache`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(globalStreamCache)
@@ -2254,13 +2299,6 @@ document.getElementById('send-cache-button')?.addEventListener('click', async ()
     if (result.status === 'Updated') {
       statusEl.style.color = 'lime';
       statusEl.textContent = `✅ Το cache στάλθηκε! Προστέθηκαν ${result.tvgCount || 0} κανάλια στο channel-streams.json.`;
-
-      try {
-        const refreshed = await fetch(`${CACHE_BASE_URL}/proxy-map.json`).then(r => r.json());
-        streamPerfMap = refreshed;
-      } catch (e) {
-        console.warn('⚠️ Δεν έγινε refresh του proxy-map μετά το upload:', e);
-      }
     } else if (result.status === 'No changes') {
       statusEl.style.color = 'orange';
       statusEl.textContent = 'ℹ️ Δεν υπήρχαν αλλαγές. Το channel-streams παρέμεινε ίδιο.';
