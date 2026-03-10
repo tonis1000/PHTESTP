@@ -1,1035 +1,129 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="el">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🔎 Stream Finder</title>
-
+  <title>Stream Finder</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
   <style>
-    body{
-      margin:0;
-      background:#0b0f17;
-      color:#fff;
-      font-family:Arial, Helvetica, sans-serif;
+    body {
+      background: #222;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
     }
 
-    .main{
-      display:flex;
-      height:100vh;
+    .finder-wrap {
+      max-width: 1100px;
+      margin: 0 auto;
     }
 
-    .sidebar{
-      width:280px;
-      min-width:280px;
-      background:#111827;
-      border-right:1px solid #2a2f3a;
-      display:flex;
-      flex-direction:column;
+    .finder-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
     }
 
-    .sidebar-header{
-      padding:16px;
-      font-size:20px;
-      font-weight:bold;
-      border-bottom:1px solid #2a2f3a;
+    .finder-bar input,
+    .finder-bar select,
+    .finder-bar button {
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #666;
+      font-size: 15px;
     }
 
-    .sidebar-search{
-      padding:12px;
-      border-bottom:1px solid #2a2f3a;
+    .finder-bar input {
+      flex: 1;
+      background: #333;
+      color: #fff;
     }
 
-    .sidebar-search input{
-      width:100%;
-      box-sizing:border-box;
-      padding:10px;
-      border-radius:6px;
-      border:1px solid #444;
-      background:#1f2937;
-      color:#fff;
-      font-size:14px;
+    .finder-bar button {
+      background: #0d6efd;
+      color: #fff;
+      cursor: pointer;
     }
 
-    .channel-list{
-      list-style:none;
-      margin:0;
-      padding:0;
-      overflow-y:auto;
-      flex:1;
+    .finder-bar button:hover {
+      background: #0b5ed7;
     }
 
-    .channel-list li{
-      padding:12px 16px;
-      border-bottom:1px solid #1f2937;
-      cursor:pointer;
-      transition:background .15s ease;
+    .results {
+      display: grid;
+      gap: 12px;
     }
 
-    .channel-list li:hover{
-      background:#1f2937;
+    .result-card {
+      background: #333;
+      border: 1px solid #555;
+      border-radius: 8px;
+      padding: 12px;
     }
 
-    .channel-list li.active{
-      background:#243041;
-      border-left:4px solid #00d4ff;
-      padding-left:12px;
+    .result-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
     }
 
-    .content{
-      flex:1;
-      display:flex;
-      flex-direction:column;
-      overflow:hidden;
+    .result-url {
+      word-break: break-all;
+      color: #9ad0ff;
+      font-size: 14px;
     }
 
-    .topbar{
-      padding:16px 20px;
-      border-bottom:1px solid #2a2f3a;
-      display:flex;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
+    .result-meta {
+      font-size: 13px;
+      color: #ddd;
+      margin-top: 6px;
     }
 
-    .topbar button{
-      background:#1f2937;
-      color:#fff;
-      border:1px solid #3b4554;
-      border-radius:6px;
-      padding:10px 14px;
-      cursor:pointer;
+    .result-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
-    .topbar button:hover{
-      background:#2a3648;
+    .status-ok { color: #7CFC00; }
+    .status-bad { color: #ff6b6b; }
+
+    .top-links {
+      margin-bottom: 18px;
     }
 
-    .content-inner{
-      display:flex;
-      flex:1;
-      min-height:0;
-    }
-
-    .results-panel{
-      flex:1;
-      padding:20px;
-      overflow:auto;
-      border-right:1px solid #2a2f3a;
-    }
-
-    .player-panel{
-      width:42%;
-      min-width:380px;
-      padding:20px;
-      overflow:auto;
-    }
-
-    .channel-title{
-      font-size:24px;
-      font-weight:bold;
-      margin-bottom:10px;
-    }
-
-    .channel-meta{
-      color:#b9c0cc;
-      margin-bottom:20px;
-      font-size:14px;
-    }
-
-    .stream-item{
-      background:#16202d;
-      border:1px solid #273244;
-      border-radius:8px;
-      padding:12px;
-      margin-bottom:12px;
-    }
-
-    .stream-url{
-      word-break:break-all;
-      font-size:13px;
-      color:#d6dde8;
-      margin-bottom:10px;
-    }
-
-    .stream-actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
-
-    .stream-actions button{
-      background:#243041;
-      color:#fff;
-      border:1px solid #3b4554;
-      border-radius:6px;
-      padding:8px 10px;
-      cursor:pointer;
-      font-size:13px;
-    }
-
-    .stream-actions button:hover{
-      background:#314158;
-    }
-
-    .badge{
-      display:inline-block;
-      padding:4px 8px;
-      border-radius:999px;
-      font-size:12px;
-      margin-right:6px;
-      background:#253244;
-      color:#dbe6f4;
-    }
-
-    .badge-status-checking{
-      background:#5a4a18;
-      color:#ffe8a3;
-    }
-
-    .badge-status-online{
-      background:#1f5131;
-      color:#d8ffe3;
-    }
-
-    .badge-status-dead{
-      background:#5a1e1e;
-      color:#ffd8d8;
-    }
-
-    .badge-status-unknown{
-      background:#334155;
-      color:#dbe6f4;
-    }
-
-    .player-title{
-      font-size:20px;
-      font-weight:bold;
-      margin-bottom:12px;
-    }
-
-    video{
-      width:100%;
-      max-height:420px;
-      background:#000;
-      border-radius:8px;
-    }
-
-    .player-status{
-      margin-top:12px;
-      font-size:14px;
-      color:#c5d0dc;
-      word-break:break-word;
-      white-space:pre-line;
-    }
-
-    .empty-box{
-      background:#16202d;
-      border:1px dashed #314158;
-      border-radius:8px;
-      padding:16px;
-      color:#aeb9c7;
-    }
-
-    .note{
-      font-size:12px;
-      color:#9fb0c7;
-      margin-top:8px;
-    }
-
-    .debug-box{
-      margin-top:18px;
-      background:#101722;
-      border:1px solid #273244;
-      border-radius:8px;
-      padding:12px;
-    }
-
-    .debug-box summary{
-      cursor:pointer;
-      font-weight:bold;
-      color:#dbe6f4;
-      margin-bottom:8px;
-    }
-
-    .debug-log{
-      white-space:pre-wrap;
-      font-size:12px;
-      color:#c8d2df;
-      max-height:260px;
-      overflow:auto;
-      margin-top:8px;
-    }
-
-    @media (max-width: 980px){
-      .main{
-        flex-direction:column;
-        height:auto;
-      }
-
-      .sidebar{
-        width:100%;
-        min-width:0;
-        max-height:280px;
-      }
-
-      .content-inner{
-        flex-direction:column;
-      }
-
-      .player-panel{
-        width:auto;
-        min-width:0;
-        border-top:1px solid #2a2f3a;
-      }
-
-      .results-panel{
-        border-right:none;
-      }
+    .top-links a {
+      color: #9ad0ff;
+      text-decoration: none;
+      margin-right: 15px;
     }
   </style>
 </head>
 <body>
-
-<div class="main">
-
-  <div class="sidebar">
-    <div class="sidebar-header">🔎 Stream Finder</div>
-
-    <div class="sidebar-search">
-      <input type="text" id="channelFilter" placeholder="Kanal filtern...">
+  <div class="finder-wrap">
+    <div class="top-links">
+      <a href="index.html">⬅ Zurück zum Player</a>
     </div>
 
-    <ul class="channel-list" id="channelList"></ul>
+    <h1>🔎 Stream Finder</h1>
+
+    <div class="finder-bar">
+      <input id="finder-query" type="text" placeholder="π.χ. ant1, mega, ert1, mak tv">
+      <select id="finder-mode">
+        <option value="channel">Kanal</option>
+        <option value="raw">Raw Suche</option>
+      </select>
+      <button id="finder-search-btn">Find</button>
+    </div>
+
+    <div id="finder-status"></div>
+    <div id="finder-results" class="results"></div>
   </div>
 
-  <div class="content">
-    <div class="topbar">
-      <a href="index.html">
-        <button>⬅ WebTV</button>
-      </a>
-
-      <button id="reloadChannelsBtn">↻ Reload Channels</button>
-      <button id="scanGithubBtn">🔎 Find New Sources</button>
-    </div>
-
-    <div class="content-inner">
-      <div class="results-panel">
-        <div id="channelTitle" class="channel-title">Select a channel</div>
-        <div id="channelMeta" class="channel-meta">Choose a channel from the sidebar.</div>
-        <div id="streamResults"></div>
-
-        <details class="debug-box" open>
-          <summary>🧠 Scan Debug</summary>
-          <div id="debugLog" class="debug-log">No scan yet.</div>
-        </details>
-      </div>
-
-      <div class="player-panel">
-        <div class="player-title">▶ Stream Test Player</div>
-        <video id="testPlayer" controls></video>
-        <div id="playerStatus" class="player-status">No stream loaded.</div>
-        <div class="note">
-          Optional later: add GitHub token for higher limits.
-        </div>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<script src="channel-identity.js"></script>
-<script src="stream-finder-sources.js"></script>
-
-<script>
-  let currentChannelKey = null;
-  let currentHls = null;
-
-  const GITHUB_TOKEN = "";
-  const STREAM_FINDER_DISCOVERED_KEY = "stream_finder_discovered_v4";
-
-  function destroyCurrentPlayer() {
-    if (currentHls) {
-      currentHls.destroy();
-      currentHls = null;
-    }
-
-    const video = document.getElementById("testPlayer");
-    video.pause();
-    video.removeAttribute("src");
-    video.load();
-  }
-
-  function setPlayerStatus(text) {
-    document.getElementById("playerStatus").textContent = text;
-  }
-
-  function resetDebugLog() {
-    document.getElementById("debugLog").textContent = "";
-  }
-
-  function appendDebugLine(text) {
-    const box = document.getElementById("debugLog");
-    box.textContent += text + "\n";
-  }
-
-  function playTest(url) {
-    const video = document.getElementById("testPlayer");
-    destroyCurrentPlayer();
-
-    setPlayerStatus("Loading: " + url);
-
-    if (/\.m3u8(\?.*)?$/i.test(url)) {
-      if (window.Hls && Hls.isSupported()) {
-        currentHls = new Hls();
-        currentHls.loadSource(url);
-        currentHls.attachMedia(video);
-
-        currentHls.on(Hls.Events.MANIFEST_PARSED, function () {
-          video.play().catch(() => {});
-          setPlayerStatus("Playing with Hls.js: " + url);
-        });
-
-        currentHls.on(Hls.Events.ERROR, function (event, data) {
-          setPlayerStatus("HLS error: " + (data && data.details ? data.details : "unknown"));
-        });
-      } else {
-        video.src = url;
-        video.play().catch(() => {});
-        setPlayerStatus("Playing natively: " + url);
-      }
-    } else {
-      video.src = url;
-      video.play().catch(() => {});
-      setPlayerStatus("Trying direct playback: " + url);
-    }
-  }
-
-  function copyUrl(url) {
-    navigator.clipboard.writeText(url).then(() => {
-      setPlayerStatus("Copied URL: " + url);
-    }).catch(() => {
-      setPlayerStatus("Copy failed.");
-    });
-  }
-
-  function normalizeSourceUrl(url) {
-    return String(url || "").split("#")[0].trim();
-  }
-
-  function normalizeComparableUrl(url) {
-    try {
-      const u = new URL(normalizeSourceUrl(url));
-      const host = u.hostname.replace(/^www\./, "").toLowerCase();
-      const path = u.pathname.replace(/\/+$/, "");
-      return `${host}${path}`.toLowerCase();
-    } catch {
-      return normalizeSourceUrl(url).toLowerCase();
-    }
-  }
-
-  function githubHeaders() {
-    const headers = {
-      "Accept": "application/vnd.github+json"
-    };
-
-    if (GITHUB_TOKEN) {
-      headers["Authorization"] = `Bearer ${GITHUB_TOKEN}`;
-    }
-
-    return headers;
-  }
-
-  function getDateDaysAgo(days) {
-    const d = new Date();
-    d.setDate(d.getDate() - days);
-    return d.toISOString().slice(0, 10);
-  }
-
-  function buildGithubQueries(channelKey, daysBack = 7) {
-    const profile = getGithubSearchProfile(channelKey);
-    const sinceDate = getDateDaysAgo(daysBack);
-
-    const searchTerms = (profile.searchTerms || []).slice(0, 6);
-    const avoidTerms = (profile.avoidTerms || []).slice(0, 6);
-
-    if (!searchTerms.length) {
-      return [];
-    }
-
-    const avoidPart = avoidTerms.map(term => `-${term}`).join(" ");
-    const fileHints = [
-      "playlist",
-      "m3u",
-      "m3u8",
-      "iptv",
-      "channels",
-      "stream"
-    ];
-
-    const queries = [];
-
-    searchTerms.forEach(term => {
-      fileHints.forEach(hint => {
-        queries.push(`${term} ${hint} pushed:>=${sinceDate} ${avoidPart}`.trim());
-      });
-    });
-
-    return [...new Set(queries)].slice(0, 18);
-  }
-
-  function parseM3UEntries(text) {
-    const lines = text.split(/\r?\n/);
-    const entries = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-
-      if (!line.startsWith("#EXTINF")) continue;
-
-      const idMatch = line.match(/tvg-id="([^"]+)"/i);
-      const nameTagMatch = line.match(/tvg-name="([^"]+)"/i);
-      const logoMatch = line.match(/tvg-logo="([^"]+)"/i);
-      const displayNameMatch = line.match(/,(.*)$/);
-
-      const nextLine = (lines[i + 1] || "").trim();
-      if (!nextLine.startsWith("http")) continue;
-
-      entries.push({
-        tvgId: idMatch ? idMatch[1].trim() : "",
-        tvgName: nameTagMatch ? nameTagMatch[1].trim() : "",
-        displayName: displayNameMatch ? displayNameMatch[1].trim() : "",
-        logo: logoMatch ? logoMatch[1].trim() : "",
-        url: normalizeSourceUrl(nextLine)
-      });
-    }
-
-    return entries;
-  }
-
-  async function probeSource(url) {
-    const normalizedUrl = normalizeSourceUrl(url);
-
-    if (!/^https?:\/\//i.test(normalizedUrl)) {
-      return { ok: false, status: "dead", reason: "invalid-url" };
-    }
-
-    const looksLikeHls = /\.m3u8(\?.*)?$/i.test(normalizedUrl);
-
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 7000);
-
-      const response = await fetch(normalizedUrl, {
-        method: "GET",
-        signal: controller.signal
-      });
-
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        return { ok: false, status: "dead", reason: `http-${response.status}` };
-      }
-
-      const contentType = response.headers.get("content-type") || "";
-
-      if (looksLikeHls) {
-        const text = await response.text();
-        const isHls =
-          text.includes("#EXTM3U") &&
-          (
-            text.includes("#EXT-X-STREAM-INF") ||
-            text.includes("#EXTINF") ||
-            text.includes(".ts") ||
-            text.includes(".m4s") ||
-            text.includes("chunk")
-          );
-
-        if (isHls) {
-          return { ok: true, status: "online", reason: "valid-hls" };
-        }
-
-        return { ok: false, status: "dead", reason: "invalid-hls" };
-      }
-
-      if (
-        contentType.includes("application/vnd.apple.mpegurl") ||
-        contentType.includes("application/x-mpegurl") ||
-        contentType.includes("audio/mpegurl") ||
-        contentType.includes("video/mp2t") ||
-        contentType.includes("video/")
-      ) {
-        return { ok: true, status: "online", reason: "playable-content-type" };
-      }
-
-      if (/\.php(\?.*)?$/i.test(normalizedUrl) || /\.html?(\?.*)?$/i.test(normalizedUrl)) {
-        return { ok: true, status: "unknown", reason: "web-wrapper" };
-      }
-
-      return { ok: true, status: "unknown", reason: "reachable-but-unknown" };
-    } catch (e) {
-      return { ok: false, status: "dead", reason: "fetch-failed" };
-    }
-  }
-
-  async function checkStreamStatus(url, badge, sourceObj = null, channelKey = null) {
-    badge.textContent = "⏳ checking";
-    badge.classList.remove("badge-status-online", "badge-status-dead", "badge-status-unknown");
-    badge.classList.add("badge-status-checking");
-
-    const result = await probeSource(url);
-
-    if (result.status === "online") {
-      badge.textContent = "✅ online";
-      badge.classList.remove("badge-status-checking", "badge-status-dead", "badge-status-unknown");
-      badge.classList.add("badge-status-online");
-    } else if (result.status === "dead") {
-      badge.textContent = "❌ dead";
-      badge.classList.remove("badge-status-checking", "badge-status-online", "badge-status-unknown");
-      badge.classList.add("badge-status-dead");
-    } else {
-      badge.textContent = "⚪ unknown";
-      badge.classList.remove("badge-status-checking", "badge-status-online", "badge-status-dead");
-      badge.classList.add("badge-status-unknown");
-    }
-
-    if (sourceObj && channelKey) {
-      sourceObj.status = result.status;
-      sourceObj.lastChecked = new Date().toISOString();
-      sortStreamFinderSources(channelKey);
-      saveDiscoveredSourcesToStorage();
-    }
-  }
-
-  function loadDiscoveredSourcesFromStorage() {
-    try {
-      const raw = localStorage.getItem(STREAM_FINDER_DISCOVERED_KEY);
-      if (!raw) return;
-
-      const persisted = JSON.parse(raw);
-      if (!persisted || typeof persisted !== "object") return;
-
-      Object.keys(persisted).forEach(channelKey => {
-        const arr = persisted[channelKey];
-        if (!Array.isArray(arr)) return;
-
-        arr.forEach(sourceObj => {
-          addStreamFinderSource(channelKey, sourceObj);
-        });
-
-        sortStreamFinderSources(channelKey);
-      });
-    } catch (e) {
-      console.warn("Could not load persisted discovered sources:", e);
-    }
-  }
-
-  function saveDiscoveredSourcesToStorage() {
-    try {
-      const output = {};
-
-      Object.keys(streamFinderSources).forEach(channelKey => {
-        const foundOnly = (streamFinderSources[channelKey] || []).filter(
-          s => s.sourceType === "found"
-        );
-
-        if (foundOnly.length) {
-          output[channelKey] = foundOnly;
-        }
-      });
-
-      localStorage.setItem(STREAM_FINDER_DISCOVERED_KEY, JSON.stringify(output));
-    } catch (e) {
-      console.warn("Could not persist discovered sources:", e);
-    }
-  }
-
-  function addPermanentFoundSource(channelKey, sourceObj) {
-    addStreamFinderSource(channelKey, sourceObj);
-    sortStreamFinderSources(channelKey);
-    saveDiscoveredSourcesToStorage();
-  }
-
-  function renderChannelList(filterText = "") {
-    const list = document.getElementById("channelList");
-    list.innerHTML = "";
-
-    const keys = Object.keys(channelIdentityMap).sort();
-
-    keys.forEach(key => {
-      const channel = channelIdentityMap[key];
-      const haystack = [
-        key,
-        channel.displayName || "",
-        ...(channel.aliases || [])
-      ].join(" ").toLowerCase();
-
-      if (filterText && !haystack.includes(filterText.toLowerCase())) {
-        return;
-      }
-
-      const li = document.createElement("li");
-      li.textContent = channel.displayName || key;
-      li.dataset.key = key;
-
-      if (currentChannelKey === key) {
-        li.classList.add("active");
-      }
-
-      li.addEventListener("click", () => {
-        currentChannelKey = key;
-        renderChannelList(document.getElementById("channelFilter").value.trim());
-        renderChannelDetails(key);
-      });
-
-      list.appendChild(li);
-    });
-  }
-
-  function renderChannelDetails(key) {
-    const channel = channelIdentityMap[key];
-    const results = document.getElementById("streamResults");
-
-    document.getElementById("channelTitle").textContent =
-      `${channel.displayName || key} (${key})`;
-
-    document.getElementById("channelMeta").textContent =
-      `Aliases: ${(channel.aliases || []).join(", ")} | TVG IDs: ${(channel.tvgIds || []).join(", ")}`;
-
-    results.innerHTML = "";
-
-    sortStreamFinderSources(key);
-    const sources = getStreamFinderSources(key);
-
-    if (!sources.length) {
-      results.innerHTML = `
-        <div class="empty-box">
-          No stream sources added yet for this channel.<br>
-          This is where GitHub discovery / validation results will appear next.
-        </div>
-      `;
-      return;
-    }
-
-    sources.forEach((source, index) => {
-      const url = source.url;
-
-      const item = document.createElement("div");
-      item.className = "stream-item";
-
-      item.innerHTML = `
-        <div style="margin-bottom:8px;">
-          <span class="badge">Source ${index + 1}</span>
-          <span class="badge">${/\.m3u8(\?.*)?$/i.test(url) ? "HLS" : "Direct"}</span>
-          <span class="badge">${source.sourceType || "saved"}</span>
-          <span class="badge status-badge badge-status-checking" data-url="${url}">
-            ${source.status === "online" ? "✅ online" : source.status === "dead" ? "❌ dead" : source.status === "unknown" ? "⚪ unknown" : "⏳ checking"}
-          </span>
-        </div>
-        <div class="stream-url">${url}</div>
-        <div style="font-size:12px; color:#aeb9c7; margin-bottom:8px;">
-          ${source.notes || ""}
-        </div>
-        <div class="stream-actions">
-          <button data-action="test">▶ Test Stream</button>
-          <button data-action="copy">⧉ Copy URL</button>
-        </div>
-      `;
-
-      item.querySelector('[data-action="test"]').addEventListener("click", () => {
-        playTest(url);
-      });
-
-      item.querySelector('[data-action="copy"]').addEventListener("click", () => {
-        copyUrl(url);
-      });
-
-      const badge = item.querySelector(".status-badge");
-      checkStreamStatus(url, badge, source, key);
-
-      results.appendChild(item);
-    });
-  }
-
-  async function searchGithubReposByQuery(query) {
-    const endpoint = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=10`;
-
-    appendDebugLine(`Repo search query: ${query}`);
-
-    const res = await fetch(endpoint, { headers: githubHeaders() });
-    if (!res.ok) {
-      throw new Error(`GitHub repo search failed: ${res.status}`);
-    }
-
-    const data = await res.json();
-    return Array.isArray(data.items) ? data.items : [];
-  }
-
-  function isPlaylistLikeFile(name) {
-    const n = String(name || "").toLowerCase();
-
-    if (
-      n.endsWith(".m3u") ||
-      n.endsWith(".m3u8") ||
-      n.endsWith(".txt") ||
-      n.endsWith(".json")
-    ) return true;
-
-    if (
-      n.includes("playlist") ||
-      n.includes("channels") ||
-      n.includes("iptv") ||
-      n.includes("stream") ||
-      n.includes("live") ||
-      n.includes("tv") ||
-      n.includes("gr")
-    ) return true;
-
-    return false;
-  }
-
-  async function listRepoPlaylistFilesRecursive(owner, repo, path = "", depth = 0, maxDepth = 3) {
-    if (depth > maxDepth) return [];
-
-    const endpoint = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-    const res = await fetch(endpoint, { headers: githubHeaders() });
-
-    if (!res.ok) return [];
-
-    const data = await res.json();
-    if (!Array.isArray(data)) return [];
-
-    let files = [];
-
-    for (const item of data) {
-      if (!item || !item.type) continue;
-
-      if (item.type === "file") {
-        if (isPlaylistLikeFile(item.name) && item.download_url) {
-          files.push(item);
-        } else {
-          appendDebugLine(`Rejected file: ${owner}/${repo}/${item.path}`);
-        }
-      }
-
-      if (item.type === "dir") {
-        const nested = await listRepoPlaylistFilesRecursive(
-          owner,
-          repo,
-          item.path,
-          depth + 1,
-          maxDepth
-        );
-        files = files.concat(nested);
-      }
-    }
-
-    return files;
-  }
-
-  async function fetchRawText(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Raw fetch failed: ${res.status}`);
-    return await res.text();
-  }
-
-  async function collectRecentGithubRepos(channelKey) {
-    const queries7 = buildGithubQueries(channelKey, 7);
-    let queriesUsed = queries7;
-    let windowUsed = 7;
-
-    let repoMap = new Map();
-
-    for (const query of queries7) {
-      const repos = await searchGithubReposByQuery(query);
-      repos.forEach(repo => {
-        const fullName = repo.full_name;
-        if (fullName && !repoMap.has(fullName)) {
-          repoMap.set(fullName, repo);
-        }
-      });
-    }
-
-    if (repoMap.size === 0) {
-      appendDebugLine("No repos in 7d window, falling back to 30d.");
-
-      const queries30 = buildGithubQueries(channelKey, 30);
-      queriesUsed = queries30;
-      windowUsed = 30;
-
-      for (const query of queries30) {
-        const repos = await searchGithubReposByQuery(query);
-        repos.forEach(repo => {
-          const fullName = repo.full_name;
-          if (fullName && !repoMap.has(fullName)) {
-            repoMap.set(fullName, repo);
-          }
-        });
-      }
-    }
-
-    return {
-      repos: [...repoMap.values()],
-      windowUsed,
-      queriesUsed
-    };
-  }
-
-  async function scanGithubForChannel(channelKey) {
-    const channel = channelIdentityMap[channelKey];
-    if (!channel) return;
-
-    resetDebugLog();
-    appendDebugLine(`=== Scan started for ${channel.displayName || channelKey} (${channelKey}) ===`);
-
-    const profile = getGithubSearchProfile(channelKey);
-    appendDebugLine(`Search terms: ${(profile.searchTerms || []).join(", ")}`);
-    appendDebugLine(`Avoid terms: ${(profile.avoidTerms || []).join(", ")}`);
-
-    setPlayerStatus("🔎 Searching GitHub sources for: " + channelKey);
-
-    try {
-      const collected = await collectRecentGithubRepos(channelKey);
-      const repos = collected.repos;
-      const usedWindow = collected.windowUsed;
-
-      if (!repos.length) {
-        setPlayerStatus("No recent GitHub repositories found for " + channelKey);
-        appendDebugLine("No repositories found.");
-        return;
-      }
-
-      let checkedRepos = 0;
-      let checkedFiles = 0;
-      let matchedCandidates = 0;
-      let acceptedCount = 0;
-
-      const existingComparableUrls = new Set(
-        getStreamFinderSources(channelKey).map(s => normalizeComparableUrl(s.url))
-      );
-
-      for (const repo of repos.slice(0, 40)) {
-        const owner = repo.owner && repo.owner.login ? repo.owner.login : null;
-        const repoName = repo.name;
-
-        if (!owner || !repoName) continue;
-
-        checkedRepos++;
-        appendDebugLine(`Repo: ${owner}/${repoName}`);
-
-        const candidateFiles = await listRepoPlaylistFilesRecursive(owner, repoName, "", 0, 3);
-        appendDebugLine(`  Candidate files: ${candidateFiles.length}`);
-
-        for (const file of candidateFiles.slice(0, 20)) {
-          checkedFiles++;
-          appendDebugLine(`  Inspecting file: ${file.path}`);
-
-          try {
-            const text = await fetchRawText(file.download_url);
-            const entries = parseM3UEntries(text);
-            appendDebugLine(`    Parsed entries: ${entries.length}`);
-
-            for (const entry of entries) {
-              const match = detectChannelIdentity({
-                tvgId: entry.tvgId,
-                tvgName: entry.tvgName,
-                displayName: entry.displayName,
-                url: entry.url,
-                logo: entry.logo
-              });
-
-              if (!(match.matched && match.canonicalKey === channelKey)) {
-                continue;
-              }
-
-              matchedCandidates++;
-              appendDebugLine(`    Match: ${entry.displayName || entry.tvgName || entry.tvgId || entry.url}`);
-
-              const normalizedCandidate = normalizeSourceUrl(entry.url);
-              const comparableCandidate = normalizeComparableUrl(normalizedCandidate);
-
-              if (existingComparableUrls.has(comparableCandidate)) {
-                appendDebugLine(`      Duplicate skipped: ${normalizedCandidate}`);
-                continue;
-              }
-
-              const probe = await probeSource(normalizedCandidate);
-              appendDebugLine(`      Validation: ${probe.status} (${probe.reason})`);
-
-              if (!probe.ok) {
-                continue;
-              }
-
-              const sourceObj = {
-                url: normalizedCandidate,
-                status: probe.status,
-                sourceType: "found",
-                lastChecked: new Date().toISOString(),
-                lastFound: new Date().toISOString(),
-                notes: `Found in ${owner}/${repoName} → ${file.path} | ${probe.reason}`
-              };
-
-              addPermanentFoundSource(channelKey, sourceObj);
-              existingComparableUrls.add(comparableCandidate);
-              acceptedCount++;
-            }
-          } catch (e) {
-            appendDebugLine(`    Failed file: ${file.path} | ${e.message}`);
-          }
-        }
-      }
-
-      sortStreamFinderSources(channelKey);
-      renderChannelDetails(channelKey);
-
-      if (acceptedCount > 0) {
-        setPlayerStatus(
-          `✅ Found ${acceptedCount} valid new source(s) for ${channel.displayName || channelKey}\n` +
-          `Candidates matched: ${matchedCandidates} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
-        );
-      } else {
-        setPlayerStatus(
-          `ℹ️ No valid new GitHub sources saved for ${channel.displayName || channelKey}\n` +
-          `Candidates matched: ${matchedCandidates} | repos: ${checkedRepos} | files: ${checkedFiles} | window: ${usedWindow}d`
-        );
-      }
-
-      appendDebugLine(`=== Scan finished ===`);
-      appendDebugLine(`Repos checked: ${checkedRepos}`);
-      appendDebugLine(`Files checked: ${checkedFiles}`);
-      appendDebugLine(`Candidates matched: ${matchedCandidates}`);
-      appendDebugLine(`Accepted new sources: ${acceptedCount}`);
-    } catch (e) {
-      console.error(e);
-      setPlayerStatus("❌ GitHub scan failed: " + e.message);
-      appendDebugLine(`Scan error: ${e.message}`);
-    }
-  }
-
-  document.getElementById("channelFilter").addEventListener("input", function () {
-    renderChannelList(this.value.trim());
-  });
-
-  document.getElementById("reloadChannelsBtn").addEventListener("click", function () {
-    renderChannelList(document.getElementById("channelFilter").value.trim());
-    setPlayerStatus("Channel list reloaded.");
-  });
-
-  document.getElementById("scanGithubBtn").addEventListener("click", function () {
-    if (!currentChannelKey) {
-      alert("Select a channel first.");
-      return;
-    }
-
-    scanGithubForChannel(currentChannelKey);
-  });
-
-  loadDiscoveredSourcesFromStorage();
-  renderChannelList();
-</script>
-
+  <script src="stream-finder-sources.js"></script>
+  <script src="stream-finder.js"></script>
 </body>
 </html>
