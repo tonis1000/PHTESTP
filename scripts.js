@@ -2197,7 +2197,25 @@ function createHlsInstance() {
   });
 }
 
-// Κύριο playStream + fallbacks
+function scrollToPlayerWebOffset(url) {
+  if (!url || !isIframeStream(url)) return;
+
+  const player = document.querySelector('.player-container');
+  if (!player) return;
+
+  const rect = player.getBoundingClientRect();
+  const absoluteTop = window.scrollY + rect.top;
+
+  // πόσο πιο κάτω θέλεις να πάει
+  const extraOffset = 260;
+
+  window.scrollTo({
+    top: absoluteTop + extraOffset,
+    behavior: 'smooth'
+  });
+}
+
+
 // Κύριο playStream + fallbacks
 async function playStream(initialURL, subtitleURL = null) {
   const playToken = ++activePlayToken;
