@@ -2197,25 +2197,7 @@ function createHlsInstance() {
   });
 }
 
-function scrollToPlayerWebOffset(url) {
-  if (!url || !isIframeStream(url)) return;
-
-  const player = document.querySelector('.player-container');
-  if (!player) return;
-
-  const rect = player.getBoundingClientRect();
-  const absoluteTop = window.scrollY + rect.top;
-
-  // πόσο πιο κάτω θέλεις να πάει
-  const extraOffset = 260;
-
-  window.scrollTo({
-    top: absoluteTop + extraOffset,
-    behavior: 'smooth'
-  });
-}
-
-
+// Κύριο playStream + fallbacks
 // Κύριο playStream + fallbacks
 async function playStream(initialURL, subtitleURL = null) {
   const playToken = ++activePlayToken;
@@ -2281,15 +2263,13 @@ async function playStream(initialURL, subtitleURL = null) {
       if (cached.player === 'iframe' || cached.player === 'iframe-fallback') {
         if (playToken !== activePlayToken) return;
 
-iframePlayer.style.display = 'block';
-iframePlayer.src = rawInitialUrl.includes('autoplay')
-  ? rawInitialUrl
-  : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+        iframePlayer.style.display = 'block';
+        iframePlayer.src = rawInitialUrl.includes('autoplay')
+          ? rawInitialUrl
+          : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
 
-scrollToPlayerWebOffset(rawInitialUrl);
-
-showPlayerInfo('iframe', true);
-return;
+        showPlayerInfo('iframe', true);
+        return;
       } else if (cached.player === 'clappr' || cached.player === 'clappr-fallback') {
         if (playToken !== activePlayToken) return;
 
@@ -2356,16 +2336,14 @@ return;
 
       if (playToken !== activePlayToken) return;
 
-iframePlayer.style.display = 'block';
-iframePlayer.src = rawInitialUrl.includes('autoplay')
-  ? rawInitialUrl
-  : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+      iframePlayer.style.display = 'block';
+      iframePlayer.src = rawInitialUrl.includes('autoplay')
+        ? rawInitialUrl
+        : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
 
-scrollToPlayerWebOffset(rawInitialUrl);
-
-logStreamUsage(rawInitialUrl, rawInitialUrl, 'iframe');
-showPlayerInfo('iframe');
-return;
+      logStreamUsage(rawInitialUrl, rawInitialUrl, 'iframe');
+      showPlayerInfo('iframe');
+      return;
     }
   }
 
@@ -2543,12 +2521,9 @@ function tryFallbackPlayers(initialURL, streamURL) {
     if (clapprPlayer) clapprPlayer.destroy();
     clapprDiv.style.display = 'none';
     iframePlayer.style.display = 'block';
-iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-
-scrollToPlayerWebOffset(streamURL);
-
-logStreamUsage(initialURL, streamURL, 'iframe-fallback');
-showPlayerInfo('Iframe fallback');
+    iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+    logStreamUsage(initialURL, streamURL, 'iframe-fallback');
+    showPlayerInfo('Iframe fallback');
   }
 }
 
