@@ -2939,16 +2939,18 @@ document.addEventListener('DOMContentLoaded', function () {
   const streamUrlInput = document.getElementById('stream-url');
   const subtitleFileInput = document.getElementById('subtitle-file');
 
-  const playStreamFromInput = () => {
-    const streamUrl = streamUrlInput.value;
-    const subtitleFile = subtitleFileInput?.files?.[0];
-    if (streamUrl) {
-      if (subtitleFile) {
-        handleSubtitleFile(subtitleFile);
-      }
-      playStream(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
+const playStreamFromInput = () => {
+  const streamUrl = streamUrlInput.value;
+  const subtitleFile = subtitleFileInput?.files?.[0];
+  if (streamUrl) {
+    if (subtitleFile) {
+      handleSubtitleFile(subtitleFile);
     }
-  };
+
+    scrollToPlayerForIframeOnly(streamUrl);
+    playStream(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
+  }
+};
 
   playButton.addEventListener('click', playStreamFromInput);
   streamUrlInput.addEventListener('keydown', (event) => {
