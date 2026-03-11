@@ -2281,13 +2281,15 @@ async function playStream(initialURL, subtitleURL = null) {
       if (cached.player === 'iframe' || cached.player === 'iframe-fallback') {
         if (playToken !== activePlayToken) return;
 
-        iframePlayer.style.display = 'block';
-        iframePlayer.src = rawInitialUrl.includes('autoplay')
-          ? rawInitialUrl
-          : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+iframePlayer.style.display = 'block';
+iframePlayer.src = rawInitialUrl.includes('autoplay')
+  ? rawInitialUrl
+  : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
 
-        showPlayerInfo('iframe', true);
-        return;
+scrollToPlayerWebOffset(rawInitialUrl);
+
+showPlayerInfo('iframe', true);
+return;
       } else if (cached.player === 'clappr' || cached.player === 'clappr-fallback') {
         if (playToken !== activePlayToken) return;
 
@@ -2354,14 +2356,16 @@ async function playStream(initialURL, subtitleURL = null) {
 
       if (playToken !== activePlayToken) return;
 
-      iframePlayer.style.display = 'block';
-      iframePlayer.src = rawInitialUrl.includes('autoplay')
-        ? rawInitialUrl
-        : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+iframePlayer.style.display = 'block';
+iframePlayer.src = rawInitialUrl.includes('autoplay')
+  ? rawInitialUrl
+  : rawInitialUrl + (rawInitialUrl.includes('?') ? '&' : '?') + 'autoplay=1';
 
-      logStreamUsage(rawInitialUrl, rawInitialUrl, 'iframe');
-      showPlayerInfo('iframe');
-      return;
+scrollToPlayerWebOffset(rawInitialUrl);
+
+logStreamUsage(rawInitialUrl, rawInitialUrl, 'iframe');
+showPlayerInfo('iframe');
+return;
     }
   }
 
@@ -2539,9 +2543,12 @@ function tryFallbackPlayers(initialURL, streamURL) {
     if (clapprPlayer) clapprPlayer.destroy();
     clapprDiv.style.display = 'none';
     iframePlayer.style.display = 'block';
-    iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
-    logStreamUsage(initialURL, streamURL, 'iframe-fallback');
-    showPlayerInfo('Iframe fallback');
+iframePlayer.src = streamURL.includes('autoplay') ? streamURL : streamURL + (streamURL.includes('?') ? '&' : '?') + 'autoplay=1';
+
+scrollToPlayerWebOffset(streamURL);
+
+logStreamUsage(initialURL, streamURL, 'iframe-fallback');
+showPlayerInfo('Iframe fallback');
   }
 }
 
