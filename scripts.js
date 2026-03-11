@@ -2896,6 +2896,8 @@ document.addEventListener('DOMContentLoaded', function () {
       const source = channelInfo.dataset.source || 'default';
       const programInfo = getCurrentProgram(channelId);
 
+      scrollToPlayerForIframeOnly(streamURL); 
+       
       // 🔹 ΠΑΙΡΝΟΥΜΕ ΜΟΝΟ ΤΟ ΚΑΘΑΡΟ ΟΝΟΜΑ, ΧΩΡΙΣ ⓘ
       const senderNameEl = channelInfo.querySelector('.sender-name');
       let channelNameText = '';
