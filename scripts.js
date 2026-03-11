@@ -926,9 +926,10 @@ function resolveChannelId(inputId) {
     if (epgNormalizeId(k) === norm) return k;
   }
 
-  // 4) alias candidates
-  const aliasCandidates = getAliasCandidates(inputId);
-  for (const alt of aliasCandidates) {
+  // 4) full candidate expansion (raw + aliases + canonicals + loose)
+  const candidates = getAllMatchCandidates(inputId);
+
+  for (const alt of candidates) {
     if (byChannel[alt]) return alt;
 
     const altNorm = epgNormalizeId(alt);
@@ -941,7 +942,7 @@ function resolveChannelId(inputId) {
     }
   }
 
-  // 4.5) ειδικό fallback για ERT <-> EPT
+  // 5) ειδικό fallback για ERT <-> EPT
   if (norm.startsWith('ert')) {
     const eptNorm = norm.replace(/^ert/, 'ept');
 
@@ -964,7 +965,7 @@ function resolveChannelId(inputId) {
     }
   }
 
-  // 5) loose match fallback
+  // 6) loose match fallback
   const loose = epgLooseKey(inputId);
   for (const k of Object.keys(byChannel)) {
     if (epgLooseKey(k) === loose) return k;
