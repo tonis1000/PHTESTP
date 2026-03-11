@@ -287,6 +287,33 @@ function detectStreamType(url) {
   return 'unknown';
 }
 
+function scrollToPlayerForIframeOnly(url) {
+  if (!url) return;
+
+  // ΜΟΝΟ για php/html/embed iframe streams
+  if (isIframeStream(url)) {
+    const player = document.querySelector('.player-container');
+    if (player) {
+      player.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+
+    // δεύτερο μικρό scroll λίγο μετά, γιατί κάποια iframe pages
+    // φορτώνουν αργότερα και αλλάζουν το layout
+    setTimeout(() => {
+      if (player) {
+        player.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    }, 450);
+  }
+}
+
+
 // STRM → URL
 async function resolveSTRM(url) {
   try {
