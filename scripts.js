@@ -287,33 +287,6 @@ function detectStreamType(url) {
   return 'unknown';
 }
 
-function scrollToPlayerForIframeOnly(url) {
-  if (!url) return;
-
-  // ΜΟΝΟ για php/html/embed iframe streams
-  if (isIframeStream(url)) {
-    const player = document.querySelector('.player-container');
-    if (player) {
-      player.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
-    }
-
-    // δεύτερο μικρό scroll λίγο μετά, γιατί κάποια iframe pages
-    // φορτώνουν αργότερα και αλλάζουν το layout
-    setTimeout(() => {
-      if (player) {
-        player.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }
-    }, 450);
-  }
-}
-
-
 // STRM → URL
 async function resolveSTRM(url) {
   try {
@@ -2896,8 +2869,6 @@ document.addEventListener('DOMContentLoaded', function () {
       const source = channelInfo.dataset.source || 'default';
       const programInfo = getCurrentProgram(channelId);
 
-      scrollToPlayerForIframeOnly(streamURL); 
-       
       // 🔹 ΠΑΙΡΝΟΥΜΕ ΜΟΝΟ ΤΟ ΚΑΘΑΡΟ ΟΝΟΜΑ, ΧΩΡΙΣ ⓘ
       const senderNameEl = channelInfo.querySelector('.sender-name');
       let channelNameText = '';
@@ -2939,18 +2910,16 @@ document.addEventListener('DOMContentLoaded', function () {
   const streamUrlInput = document.getElementById('stream-url');
   const subtitleFileInput = document.getElementById('subtitle-file');
 
-const playStreamFromInput = () => {
-  const streamUrl = streamUrlInput.value;
-  const subtitleFile = subtitleFileInput?.files?.[0];
-  if (streamUrl) {
-    if (subtitleFile) {
-      handleSubtitleFile(subtitleFile);
+  const playStreamFromInput = () => {
+    const streamUrl = streamUrlInput.value;
+    const subtitleFile = subtitleFileInput?.files?.[0];
+    if (streamUrl) {
+      if (subtitleFile) {
+        handleSubtitleFile(subtitleFile);
+      }
+      playStream(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
     }
-
-    scrollToPlayerForIframeOnly(streamUrl);
-    playStream(streamUrl, subtitleFile ? document.getElementById('subtitle-track').src : null);
-  }
-};
+  };
 
   playButton.addEventListener('click', playStreamFromInput);
   streamUrlInput.addEventListener('keydown', (event) => {
