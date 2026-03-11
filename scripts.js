@@ -613,9 +613,9 @@ function epgLooseKey(s) {
 
 const EPG_ALIAS = {
   // Δημόσια
-  ert1: ["ERT1.HD.gr", "ERT1.gr", "ERT1HD.gr", "EPT1.HD.gr", "EPT1.gr", "ερτ1"],
-  ert2: ["ERT2.HD.gr", "ERT2.gr", "ERT2HD.gr", "EPT2.HD.gr", "EPT2.gr", "ερτ2"],
-  ert3: ["ERT3.HD.gr", "ERT3.gr", "ERT3HD.gr", "EPT3.HD.gr", "EPT3.gr", "ερτ3"],
+  ert1: ["ERT1.HD.gr", "ERT1.gr", "ERT1HD.gr", "EPT1.HD.gr", "EPT1.gr", "ερτ1", "ert1", "ERT1"],
+  ert2: ["ERT2.HD.gr", "ERT2.gr", "ERT2HD.gr", "EPT2.HD.gr", "EPT2.gr", "ερτ2", "ert2", "ERT2"],
+  ert3: ["ERT3.HD.gr", "ERT3.gr", "ERT3HD.gr", "EPT3.HD.gr", "EPT3.gr", "ερτ3", "ert3", "ERT3"],
   ertnews: ["ERTNEWS.HD.gr", "ERTNEWS.gr", "ERT.NEWS.gr", "EPT.NEWS.gr", "ερτnews", "ερτνεws", "ερτnewsgr"],
   ertworld: ["ERT.WORLD.gr", "ERTWORLD.gr", "ερτworld", "ερτγουορλντ"],
   ertsports1: ["ERT.SPORTS.1.LIVE.gr", "ερτσπορ1", "ερτσπορτσ1"],
