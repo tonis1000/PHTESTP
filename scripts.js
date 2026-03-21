@@ -2197,7 +2197,39 @@ function createHlsInstance() {
   });
 }
 
-// Κύριο playStream + fallbacks
+function softResetPlayers({ clearIframe = true, clearVideoSrc = false } = {}) {
+  const videoPlayer = document.getElementById('video-player');
+  const iframePlayer = document.getElementById('iframe-player');
+  const clapprDiv = document.getElementById('clappr-player');
+  const subtitleTrack = document.getElementById('subtitle-track');
+
+  destroyActivePlayers();
+
+  videoPlayer.pause();
+  videoPlayer.onerror = null;
+
+  if (clearVideoSrc) {
+    videoPlayer.removeAttribute('src');
+  }
+
+  if (clearIframe) {
+    iframePlayer.src = '';
+  }
+
+  subtitleTrack.src = '';
+  subtitleTrack.track.mode = 'hidden';
+
+  videoPlayer.style.display = 'none';
+  iframePlayer.style.display = 'none';
+  clapprDiv.style.display = 'none';
+}
+
+function hardResetPlayers() {
+  const videoPlayer = document.getElementById('video-player');
+  softResetPlayers({ clearIframe: true, clearVideoSrc: true });
+  videoPlayer.load();
+}
+
 // Κύριο playStream + fallbacks
 async function playStream(initialURL, subtitleURL = null) {
   const playToken = ++activePlayToken;
@@ -2207,23 +2239,8 @@ async function playStream(initialURL, subtitleURL = null) {
   const clapprDiv = document.getElementById('clappr-player');
   const subtitleTrack = document.getElementById('subtitle-track');
 
-  console.log('🔄 Reset players και sources', playToken);
-
-  destroyActivePlayers();
-
-  videoPlayer.pause();
-  videoPlayer.removeAttribute('src');
-  videoPlayer.load();
-  videoPlayer.onerror = null;
-
-  iframePlayer.src = '';
-
-  subtitleTrack.src = '';
-  subtitleTrack.track.mode = 'hidden';
-
-  videoPlayer.style.display = 'none';
-  iframePlayer.style.display = 'none';
-  clapprDiv.style.display = 'none';
+  console.log('🧹 Soft reset players', playToken);
+  softResetPlayers({ clearIframe: true, clearVideoSrc: false });
 
   const showVideoPlayer = () => {
     if (playToken !== activePlayToken) return;
@@ -2403,6 +2420,7 @@ async function playStream(initialURL, subtitleURL = null) {
 
       if (playToken !== activePlayToken) return;
 
+      hardResetPlayers();
       videoPlayer.src = streamURL;
       videoPlayer.onerror = () => {
         if (playToken !== activePlayToken) return;
@@ -2426,6 +2444,7 @@ async function playStream(initialURL, subtitleURL = null) {
 
       if (playToken !== activePlayToken) return;
 
+      hardResetPlayers();
       const dashPlayer = dashjs.MediaPlayer().create();
       dashPlayer.initialize(videoPlayer, streamURL, true);
 
@@ -2443,6 +2462,7 @@ async function playStream(initialURL, subtitleURL = null) {
 
       if (playToken !== activePlayToken) return;
 
+      hardResetPlayers();
       videoPlayer.src = streamURL;
       videoPlayer.onerror = () => {
         if (playToken !== activePlayToken) return;
