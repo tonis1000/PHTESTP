@@ -2828,7 +2828,6 @@ document.getElementById('group-select').addEventListener('change', function () {
   });
 });
 
-
 // Κύριο DOMContentLoaded: φόρτωση χαρτών, EPG, handlers, search/filters
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -2968,9 +2967,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Φίλτρα Ομάδας & Online
   const groupSelect = document.getElementById('group-select');
-  // ... συνεχίζει ο υπόλοιπος κώδικάς σου κανονικά ...
-});
-
 
   function applyGroupAndStatusFilter(filterOnlineOnly = false) {
     const selectedGroup = groupSelect?.value || '__all__';
