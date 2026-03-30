@@ -2755,53 +2755,59 @@ document.getElementById('playlist-button').addEventListener('click', function() 
   }
 });
 
-// Fetch resource (με/χωρίς CORS proxy)
+// Fetch resource — χρησιμοποιεί Worker + proxyList, χωρίς cors-anywhere
 async function fetchResource(url) {
-  let finalUrl = url;
+  const candidates = [
+    url,
+    url.replace('http:', 'https:')
+  ];
 
-  try {
-    // 1. Versuch: CORS-Proxy
-    log('Trying with CORS proxy...');
-    let response = await fetch('https://cors-anywhere.herokuapp.com/' + finalUrl);
-
-    if (!response.ok) {
-      log('CORS proxy request failed, trying HTTPS...');
-      finalUrl = finalUrl.replace('http:', 'https:');
-      response = await fetch('https://cors-anywhere.herokuapp.com/' + finalUrl);
+  for (const finalUrl of candidates) {
+    // 1. Πρώτα δοκιμή μέσω Worker (αν είναι m3u8)
+    if (shouldProxyThroughWorker(finalUrl)) {
+      try {
+        const workerUrl = toTvCacheUrl(finalUrl);
+        const response = await fetch(workerUrl);
+        if (response.ok) {
+          const data = await response.text();
+          updateSidebarFromM3U(data);
+          return;
+        }
+      } catch (e) {
+        console.warn('⚠️ Worker fetch απέτυχε:', e?.message || e);
+      }
     }
 
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
+    // 2. Direct
+    try {
+      const response = await fetch(finalUrl);
+      if (response.ok) {
+        const data = await response.text();
+        updateSidebarFromM3U(data);
+        return;
+      }
+    } catch (e) {
+      console.warn('⚠️ Direct fetch απέτυχε:', e?.message || e);
     }
 
-    const data = await response.text();
-    updateSidebarFromM3U(data);
-    // επιτυχία με proxy -> δεν συνεχίζουμε σε direct
-    return;
-  } catch (error) {
-    console.error('Fehler beim Laden der Playlist mit CORS-Proxy:', error);
+    // 3. proxyList fallback
+    for (const proxy of proxyList) {
+      if (!proxy) continue;
+      try {
+        const proxiedUrl = proxy.endsWith('=') ? proxy + encodeURIComponent(finalUrl) : proxy + finalUrl;
+        const response = await fetch(proxiedUrl);
+        if (response.ok) {
+          const data = await response.text();
+          updateSidebarFromM3U(data);
+          return;
+        }
+      } catch (e) {
+        console.warn(`⚠️ Proxy ${proxy} απέτυχε:`, e?.message || e);
+      }
+    }
   }
 
-  try {
-    // 2. Versuch: Direkt
-    log('Trying without CORS proxy...');
-    let response = await fetch(finalUrl);
-
-    if (!response.ok) {
-      log('Direct request failed, trying HTTPS...');
-      finalUrl = finalUrl.replace('http:', 'https:');
-      response = await fetch(finalUrl);
-    }
-
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
-    }
-
-    const data = await response.text();
-    updateSidebarFromM3U(data);
-  } catch (error) {
-    console.error('Fehler beim Laden der Playlist ohne CORS-Proxy:', error);
-  }
+  console.error('❌ fetchResource: όλες οι προσπάθειες απέτυχαν για:', url);
 }
 
 // Leeren Button
