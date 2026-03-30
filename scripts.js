@@ -2817,9 +2817,8 @@ document.getElementById('clear-button').addEventListener('click', function() {
 
 // Kopieren Button
 document.getElementById('copy-button').addEventListener('click', function() {
-  var streamUrlInput = document.getElementById('stream-url');
-  streamUrlInput.select();
-  document.execCommand('copy');
+  const value = document.getElementById('stream-url').value;
+  navigator.clipboard.writeText(value);
 });
 
 // Group filter (standalone handler)
