@@ -48,6 +48,93 @@ function reliabilityScore(entry) {
   return success / total;
 }
 
+function isWorkerUrl(url) {
+  return /\.workers\.dev\/\?url=/i.test(url || '');
+}
+
+function extractOriginalUrlFromWorkerUrl(url) {
+  try {
+    const u = new URL(url);
+    const raw = u.searchParams.get('url');
+    return raw ? cleanHashFromStreamUrl(decodeURIComponent(raw)) : cleanHashFromStreamUrl(url);
+  } catch {
+    return cleanHashFromStreamUrl(url);
+  }
+}
+
+function getCacheKeysForUrl(url) {
+  const cleaned = cleanHashFromStreamUrl(url);
+  if (!cleaned) return [];
+
+  const keys = new Set();
+  keys.add(cleaned);
+  keys.add(cleaned.replace(/^http:/, 'https:'));
+  keys.add(cleaned.replace(/^https:/, 'http:'));
+
+  if (shouldProxyThroughWorker(cleaned) && !isWorkerUrl(cleaned)) {
+    const worker = toTvCacheUrl(cleaned);
+    keys.add(worker);
+    keys.add(worker.replace(/^http:/, 'https:'));
+    keys.add(worker.replace(/^https:/, 'http:'));
+  }
+
+  if (isWorkerUrl(cleaned)) {
+    const original = extractOriginalUrlFromWorkerUrl(cleaned);
+    if (original) {
+      keys.add(original);
+      keys.add(original.replace(/^http:/, 'https:'));
+      keys.add(original.replace(/^https:/, 'http:'));
+    }
+  }
+
+  return [...keys].filter(Boolean);
+}
+
+function getBestStreamCacheEntry(url) {
+  const keys = getCacheKeysForUrl(url);
+  const entries = [];
+
+  for (const key of keys) {
+    if (globalStreamCache[key]) {
+      entries.push({ key, entry: globalStreamCache[key] });
+    }
+    if (streamPerfMap[key]) {
+      entries.push({ key, entry: streamPerfMap[key] });
+    }
+  }
+
+  if (!entries.length) return null;
+
+  entries.sort((a, b) => {
+    const aSuccess = Number(a.entry?.success || 0);
+    const bSuccess = Number(b.entry?.success || 0);
+    const aFail = Number(a.entry?.fail || 0);
+    const bFail = Number(b.entry?.fail || 0);
+    const aLast = Number(a.entry?.lastSuccess || 0);
+    const bLast = Number(b.entry?.lastSuccess || 0);
+
+    const aScore = (aSuccess * 3) - (aFail * 5) + (aLast ? 10 : 0);
+    const bScore = (bSuccess * 3) - (bFail * 5) + (bLast ? 10 : 0);
+
+    return bScore - aScore || bLast - aLast;
+  });
+
+  return entries[0].entry || null;
+}
+
+function getPreferredPlaybackUrl(initialUrl, cachedEntry = null) {
+  const cleanedInitial = cleanHashFromStreamUrl(initialUrl);
+  const cachedFinal = cleanHashFromStreamUrl(cachedEntry?.finalUrl || '');
+
+  if (cachedFinal) return cachedFinal;
+
+  if (shouldProxyThroughWorker(cleanedInitial)) {
+    return toTvCacheUrl(cleanedInitial);
+  }
+
+  return cleanedInitial;
+}
+
 function getPerfEntryForUrl(url) {
   const cleaned = cleanHashFromStreamUrl(url);
   if (!cleaned) return null;
@@ -441,95 +528,121 @@ async function probeTsRange(tsUrl, playToken = null) {
 // Proxy cycling / validation — τώρα χρησιμοποιεί το global proxyList
 async function findWorkingUrl(initialURL) {
   const cleanedInitialURL = cleanHashFromStreamUrl(initialURL);
+  if (!cleanedInitialURL) return null;
 
-  const originalSourceUrl = cleanedInitialURL.includes(`${CACHE_BASE_URL}/?url=`)
-    ? cleanHashFromStreamUrl(decodeURIComponent(new URL(cleanedInitialURL).searchParams.get('url') || ''))
+  const originalSourceUrl = isWorkerUrl(cleanedInitialURL)
+    ? extractOriginalUrlFromWorkerUrl(cleanedInitialURL)
     : cleanedInitialURL;
 
-  const workerCandidate =
-    shouldProxyThroughWorker(originalSourceUrl) ? toTvCacheUrl(originalSourceUrl) : originalSourceUrl;
+  const candidates = [];
 
-  const candidateUrls = [workerCandidate];
-
-  if (workerCandidate !== originalSourceUrl) {
-    candidateUrls.push(originalSourceUrl);
+  // 1) direct first for real direct sources
+  if (originalSourceUrl) {
+    candidates.push(originalSourceUrl);
   }
 
-  for (const candidateURL of candidateUrls) {
-    for (const proxy of proxyList) {
+  // 2) worker second for m3u8
+  if (originalSourceUrl && shouldProxyThroughWorker(originalSourceUrl)) {
+    candidates.push(toTvCacheUrl(originalSourceUrl));
+  }
+
+  // dedupe
+  const uniqueCandidates = [...new Set(candidates.filter(Boolean))];
+
+  for (const candidateURL of uniqueCandidates) {
+    const candidateIsWorker = isWorkerUrl(candidateURL);
+
+    // worker URLs: direct only, ποτέ public proxies
+    const proxyCandidates = candidateIsWorker ? [''] : [''];
+
+    // public proxies only if NOT worker and only as last resort
+    if (!candidateIsWorker) {
+      proxyCandidates.push(
+        'https://api.codetabs.com/v1/proxy/?quest=',
+        'https://api.allorigins.win/raw?url=',
+        'https://thingproxy.freeboard.io/fetch/',
+        'https://corsproxy.io/?'
+      );
+    }
+
+    for (const proxy of proxyCandidates) {
       const fullUrl = proxy
-        ? (proxy.endsWith("=") ? proxy + encodeURIComponent(candidateURL) : proxy + candidateURL)
+        ? (proxy.endsWith('=') || proxy.endsWith('?')
+            ? proxy + encodeURIComponent(candidateURL)
+            : proxy + candidateURL)
         : candidateURL;
 
-      log(`🔍 Δοκιμή proxy: ${proxy || "direct"} ➔ ${fullUrl}`);
+      log(`🔍 Probe: ${proxy || 'direct'} -> ${fullUrl}`);
 
       try {
-        const res = await fetch(fullUrl, { method: "GET", mode: "cors" });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        let res;
+        try {
+          res = await fetch(fullUrl, {
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-store',
+            signal: controller.signal
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
         if (!res.ok) {
-          console.warn(`❌ Αποτυχία fetch stream: ${res.status}`);
+          console.warn(`❌ Probe failed ${res.status}: ${fullUrl}`);
           continue;
         }
 
         const text = await res.text();
 
-        const nestedMatch = text.match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i);
-        if (nestedMatch) {
-          const nestedURL = cleanHashFromStreamUrl(nestedMatch[0]);
-          log('🔎 Βρέθηκε nested m3u8 ➔', nestedURL);
+        // valid HLS/media response
+        if (text.includes('#EXTM3U') || text.includes('.ts') || text.includes('.m4s')) {
+          const nestedMatch = text.match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i);
 
-          const nestedFetchUrl = shouldProxyThroughWorker(nestedURL) ? toTvCacheUrl(nestedURL) : nestedURL;
-          const nestedRes = await fetch(proxy ? proxy + encodeURIComponent(nestedFetchUrl) : nestedFetchUrl);
+          if (nestedMatch) {
+            const nestedURL = cleanHashFromStreamUrl(nestedMatch[0]);
+            const nestedFetchUrl = shouldProxyThroughWorker(nestedURL) ? toTvCacheUrl(nestedURL) : nestedURL;
 
-          if (nestedRes.ok) {
-            const nestedText = await nestedRes.text();
-            if (nestedText.includes(".ts") || nestedText.includes(".m4s")) {
-              log("✅ Βρέθηκε media μέσα στο nested .m3u8");
-              return fullUrl;
-            } else {
-              console.warn("⚠️ Δεν βρέθηκε media στο nested m3u8");
+            // never wrap worker nested URL with public proxy
+            const nestedFinalUrl = isWorkerUrl(nestedFetchUrl) ? nestedFetchUrl : nestedFetchUrl;
+
+            try {
+              const nestedController = new AbortController();
+              const nestedTimeout = setTimeout(() => nestedController.abort(), 4000);
+
+              let nestedRes;
+              try {
+                nestedRes = await fetch(nestedFinalUrl, {
+                  method: 'GET',
+                  cache: 'no-store',
+                  signal: nestedController.signal
+                });
+              } finally {
+                clearTimeout(nestedTimeout);
+              }
+
+              if (nestedRes.ok) {
+                const nestedText = await nestedRes.text();
+                if (nestedText.includes('.ts') || nestedText.includes('.m4s') || nestedText.includes('#EXTINF')) {
+                  return candidateURL;
+                }
+              }
+            } catch (e) {
+              console.warn('⚠️ Nested probe failed:', e?.message || e);
             }
           }
-          continue;
-        }
 
-        const tsLines = [...text.matchAll(/(^|[\r\n])\s*([^#\r\n]+\.(ts|m4s)[^\r\n]*)/gi)]
-          .map(m => m[2].trim())
-          .filter(Boolean);
-
-        if (tsLines.length) {
-          const lastMedia = tsLines[tsLines.length - 1];
-          const baseUrl = originalSourceUrl.substring(0, originalSourceUrl.lastIndexOf("/") + 1);
-          const mediaUrl = lastMedia.startsWith("http")
-            ? cleanHashFromStreamUrl(lastMedia)
-            : cleanHashFromStreamUrl(baseUrl + lastMedia);
-
-          log("⏳ Range probe στο πιο φρέσκο media:", mediaUrl);
-
-          const probeUrl = shouldProxyThroughWorker(mediaUrl) ? toTvCacheUrl(mediaUrl) : mediaUrl;
-          const ok = await probeTsRange(probeUrl);
-
-          if (ok) {
-            log("✅ Media probe OK");
-            return fullUrl;
-          }
-
-          log("⚠️ Media probe απέτυχε. Fallback: αποδέχομαι το playlist.");
-          return fullUrl;
-        }
-
-        if (text.includes("#EXTM3U") || text.includes(".ts") || text.includes(".m4s")) {
-          log("✅ Playlist/media περιεχόμενο OK");
-          return fullUrl;
-        } else {
-          console.warn("⚠️ Δεν είναι έγκυρο playlist/media response");
+          return candidateURL;
         }
       } catch (err) {
-        console.error("❌ Σφάλμα fetch proxy:", err.message);
+        console.warn('❌ Probe error:', err?.message || err);
       }
     }
   }
 
-  console.warn("🚨 Τέλος: Κανένα proxy δεν δούλεψε για", initialURL);
+  console.warn('🚨 No working URL found for', initialURL);
   return null;
 }
 
@@ -2115,44 +2228,67 @@ function checkStreamStatus() {
 
 // Καταγραφή χρήσης stream (με tvgId, proxy κλπ)
 function logStreamUsage(initialUrl, finalUrl, playerUsed) {
-  const now = new Date().toISOString();
-  const proxyUsed = (initialUrl !== finalUrl) ? finalUrl.replace(initialUrl, '') : '';
-  const type = detectStreamType(initialUrl);
+  const cleanedInitial = cleanHashFromStreamUrl(initialUrl);
+  const cleanedFinal = cleanHashFromStreamUrl(finalUrl || initialUrl);
+  const nowIso = new Date().toISOString();
+  const nowTs = Date.now();
 
-  const previous = globalStreamCache[initialUrl];
+  if (!cleanedInitial) return;
 
-  // ➕ Απόπειρα ανάγνωσης tvg-id από DOM
-  let tvgId = null;
-  const el = document.querySelector(`.channel-info[data-stream="${initialUrl}"]`);
+  const previous = globalStreamCache[cleanedInitial] || {};
+  const type = detectStreamType(cleanedFinal || cleanedInitial);
+
+  let tvgId = previous.tvgId || null;
+  const el = document.querySelector(`.channel-info[data-stream="${cleanedInitial}"]`);
   if (el && el.dataset.channelId) {
     tvgId = el.dataset.channelId;
   }
 
-  if (
-    previous &&
-    previous.proxy === proxyUsed &&
-    previous.player === playerUsed &&
-    previous.type === type &&
-    previous.tvgId === tvgId
-  ) {
-    console.log(`ℹ️ Stream ήδη καταγεγραμμένο χωρίς αλλαγές: ${initialUrl}`);
-    return;
-  }
+  const mode = isWorkerUrl(cleanedFinal) ? 'worker' : 'direct';
+  const proxyUsed = cleanedInitial !== cleanedFinal ? cleanedFinal : '';
 
-  globalStreamCache[initialUrl] = {
-    timestamp: now,
+  globalStreamCache[cleanedInitial] = {
+    timestamp: nowIso,
     proxy: proxyUsed,
     player: playerUsed,
-    type: type,
-    tvgId: tvgId || null
+    type,
+    tvgId: tvgId || null,
+
+    finalUrl: cleanedFinal,
+    mode,
+
+    success: Number(previous.success || 0) + 1,
+    fail: Number(previous.fail || 0),
+    lastSuccess: nowTs
   };
 
-  if (previous) {
-    console.log(`♻️ Ενημερώθηκε stream στο cache: ${initialUrl}`);
-  } else {
-    console.log(`➕ Νέα καταγραφή stream: ${initialUrl}`);
-  }
+  console.log(`✅ Cache success update: ${cleanedInitial} -> ${cleanedFinal} (${playerUsed})`);
 }
+
+function logStreamFailure(initialUrl) {
+  const cleanedInitial = cleanHashFromStreamUrl(initialUrl);
+  if (!cleanedInitial) return;
+
+  const previous = globalStreamCache[cleanedInitial] || {};
+
+  globalStreamCache[cleanedInitial] = {
+    timestamp: new Date().toISOString(),
+    proxy: previous.proxy || '',
+    player: previous.player || '',
+    type: previous.type || detectStreamType(cleanedInitial),
+    tvgId: previous.tvgId || null,
+
+    finalUrl: previous.finalUrl || '',
+    mode: previous.mode || '',
+
+    success: Number(previous.success || 0),
+    fail: Number(previous.fail || 0) + 1,
+    lastSuccess: Number(previous.lastSuccess || 0) || null
+  };
+
+  console.warn(`❌ Cache failure update: ${cleanedInitial}`);
+}
+
 
 function destroyActivePlayers() {
   if (currentHls) {
@@ -2601,7 +2737,9 @@ function hasNewEntries(current, previous) {
            (a.proxy || '') !== (b.proxy || '') ||
            (a.player || '') !== (b.player || '') ||
            (a.type || '') !== (b.type || '') ||
-           (a.tvgId || '') !== (b.tvgId || '');
+           (a.tvgId || '') !== (b.tvgId || '') ||
+           (a.finalUrl || '') !== (b.finalUrl || '') ||
+           (a.mode || '') !== (b.mode || '');
   });
 }
 
