@@ -2828,8 +2828,11 @@ document.getElementById('group-select').addEventListener('change', function () {
   });
 });
 
-// Δημιουργία overlay αν δεν υπάρχει
-document.addEventListener('DOMContentLoaded', () => {
+
+// Κύριο DOMContentLoaded: φόρτωση χαρτών, EPG, handlers, search/filters
+document.addEventListener('DOMContentLoaded', function () {
+
+  // Δημιουργία overlay αν δεν υπάρχει
   if (!document.getElementById('player-status')) {
     const overlay = document.createElement('div');
     overlay.id = 'player-status';
@@ -2845,10 +2848,7 @@ document.addEventListener('DOMContentLoaded', () => {
     overlay.style.display = 'none';
     document.body.appendChild(overlay);
   }
-});
 
-// Κύριο DOMContentLoaded: φόρτωση χαρτών, EPG, handlers, search/filters
-document.addEventListener('DOMContentLoaded', function () {
   // Φόρτωση proxy-map.json
   fetch(`${CACHE_BASE_URL}/proxy-map.json`)
     .then(res => res.json())
@@ -2864,7 +2864,7 @@ document.addEventListener('DOMContentLoaded', function () {
   updateClock();
   setInterval(updateClock, 1000);
 
-     // Δώσε λίγο χρόνο να φορτώσει το epgData και ξεκίνα περιοδικό refresh
+  // Δώσε λίγο χρόνο να φορτώσει το epgData και ξεκίνα περιοδικό refresh
   setTimeout(refreshEpgTimelines, 1500);
   setInterval(refreshEpgTimelines, 30000); // κάθε 30"
 
@@ -2876,12 +2876,10 @@ document.addEventListener('DOMContentLoaded', function () {
   sidebarList.addEventListener('click', function (event) {
     const channelInfo = event.target.closest('.channel-info');
     if (channelInfo) {
-      // Αφαίρεση "selected" από όλα
       document.querySelectorAll('.channel-info.selected').forEach(el => {
         el.classList.remove('selected');
       });
 
-      // Προσθήκη "selected"
       channelInfo.classList.add('selected');
 
       const streamURL = channelInfo.dataset.stream;
@@ -2896,10 +2894,8 @@ document.addEventListener('DOMContentLoaded', function () {
       if (senderNameEl) {
         const firstNode = senderNameEl.firstChild;
         if (firstNode && firstNode.nodeType === Node.TEXT_NODE) {
-          // Μόνο το κείμενο πριν από το info-icon
           channelNameText = firstNode.textContent.trim();
         } else {
-          // Fallback: βγάζουμε τυχόν ⓘ από το textContent
           channelNameText = senderNameEl.textContent.replace('ⓘ', '').trim();
         }
       }
@@ -2919,10 +2915,9 @@ document.addEventListener('DOMContentLoaded', function () {
       const logoImg = channelInfo.querySelector('.logo-container img').src;
       logoContainer.src = logoImg;
 
-      refreshEpgTimelines(); // ✅ άμεση ενημέρωση των timeline bars
+      refreshEpgTimelines();
     }
   });
-
 
   setInterval(checkStreamStatus, 60000);
 
@@ -2973,6 +2968,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Φίλτρα Ομάδας & Online
   const groupSelect = document.getElementById('group-select');
+  // ... συνεχίζει ο υπόλοιπος κώδικάς σου κανονικά ...
+});
+
 
   function applyGroupAndStatusFilter(filterOnlineOnly = false) {
     const selectedGroup = groupSelect?.value || '__all__';
