@@ -8,8 +8,15 @@ export const CONFIG = Object.freeze({
   startupTimeoutMs: 12000,
   epgRefreshMs: 30 * 60 * 1000,
   healthMaxAgeMs: 30 * 24 * 60 * 60 * 1000,
+  failureCooldownThreshold: 2,
+  failureCooldownBaseMs: 15 * 60 * 1000,
+  failureCooldownMaxMs: 6 * 60 * 60 * 1000,
   workerForHls: true,
   maxNextPrograms: 3,
+});
+
+export const OFFICIAL_LIVE = Object.freeze({
+  ant1: 'https://www.antenna.gr/live',
 });
 
 export const CHANNEL_ALIASES = Object.freeze({
