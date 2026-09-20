@@ -4,7 +4,6 @@
 #EXTINF:-1 tvg-id="ert3" tvg-name="ERT3" tvg-logo="https://i.imgur.com/f2l9bDR.png" group-title="Greece",ERT3
 https://ert-live.ascdn.broadpeak.io/bpk-tv/ERT3/default/index.m3u8
 #EXTINF:-1 tvg-id="ertnews" tvg-name="ERT News" tvg-logo="https://i.imgur.com/XwLTzaF.jpg" group-title="Greece",ERT News
-https://ert-live.siliconweb.com/media/ert_news/ert_news.m3u8
 #EXTINF:-1 tvg-id="ant1" tvg-name="ANT1" tvg-logo="https://i.imgur.com/V1w22Or.png" group-title="Greece",ANT1
 #EXTINF:-1 tvg-id="alpha" tvg-name="Alpha TV" tvg-logo="https://i.imgur.com/6twzd38.png" group-title="Greece",Alpha TV
 #EXTINF:-1 tvg-id="skai" tvg-name="SKAI" tvg-logo="https://i.imgur.com/mrKRFnf.png" group-title="Greece",SKAI
