@@ -1,7 +1,18 @@
 #EXTM3U
 #EXTINF:-1 tvg-id="ert1" tvg-name="ERT1" tvg-logo="https://i.imgur.com/slE8U5m.png" group-title="Greece",ERT1
+https://spark3.smart-tv-data.com/ert1HD/ert1HD/playlist.m3u8
+#EXTINF:-1 tvg-id="ert1" tvg-name="ERT1" tvg-logo="https://i.imgur.com/slE8U5m.png" group-title="Greece",ERT1
+https://cdn4.smart-tv-data.com/vid/ert1/playlist.m3u8
+#EXTINF:-1 tvg-id="ert1" tvg-name="ERT1" tvg-logo="https://i.imgur.com/slE8U5m.png" group-title="Greece",ERT1
+http://195.226.218.163/vid/ert1/playlist.m3u8
 #EXTINF:-1 tvg-id="ert2" tvg-name="ERT2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png" group-title="Greece",ERT2
+https://spark3.smart-tv-data.com/vid/ert2hd/playlist.m3u8
+#EXTINF:-1 tvg-id="ert2" tvg-name="ERT2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png" group-title="Greece",ERT2
+https://wow.anixa.tv/live/ert2/playlist.m3u8
 #EXTINF:-1 tvg-id="ert3" tvg-name="ERT3" tvg-logo="https://i.imgur.com/f2l9bDR.png" group-title="Greece",ERT3
+https://spark3.smart-tv-data.com/vid/ert3hd/playlist.m3u8
+#EXTINF:-1 tvg-id="ert3" tvg-name="ERT3" tvg-logo="https://i.imgur.com/f2l9bDR.png" group-title="Greece",ERT3
+https://ertflix.akamaized.net/ertlive/ert3/clrdef24828n/playlist.m3u8
 #EXTINF:-1 tvg-id="ertnews" tvg-name="ERT News" tvg-logo="https://i.imgur.com/XwLTzaF.jpg" group-title="Greece",ERT News
 https://ertflix.s.llnwi.net/ertlive/ertnews/default/index.m3u8
 #EXTINF:-1 tvg-id="ertnews" tvg-name="ERT News" tvg-logo="https://i.imgur.com/XwLTzaF.jpg" group-title="Greece",ERT News
