@@ -1,5 +1,9 @@
 import { CONFIG, CHANNEL_ALIASES } from '../config.js';
-import { normalizeId, cleanUrl, workerUrl, isHls } from './utils.js';
+import { normalizeId, cleanUrl, workerUrl, isHls, isDash, isVideoFile } from './utils.js';
+
+function isPlayableMedia(url = '') {
+  return isHls(url) || isDash(url) || isVideoFile(url);
+}
 
 export class SourceRegistry {
   constructor(healthStore) {
@@ -38,7 +42,10 @@ export class SourceRegistry {
     return [];
   }
   getSources(channel) {
-    const raw = [...(channel.directUrls || []), ...this.#remoteUrls(channel)].map(cleanUrl).filter(Boolean);
+    const raw = [...(channel.directUrls || []), ...this.#remoteUrls(channel)]
+      .map(cleanUrl)
+      .filter(Boolean)
+      .filter(isPlayableMedia);
     const sorted = this.health.sort(raw);
     const routes = [];
     for (const source of sorted) {
