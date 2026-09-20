@@ -10,6 +10,7 @@ function isSecureUrl(url = '') {
 }
 
 const BLOCKED = new Set((SOURCE_BLOCKLIST || []).map(cleanUrl).filter(Boolean));
+const SAVED_KEY = 'webtv_v2_saved_sources';
 
 export class SourceRegistry {
   constructor(healthStore) {
@@ -47,20 +48,33 @@ export class SourceRegistry {
     }
     return [];
   }
+  #savedUrls(channel) {
+    try {
+      const store = JSON.parse(localStorage.getItem(SAVED_KEY) || '{}');
+      for (const candidate of this.#candidateKeys(channel)) {
+        const key = normalizeId(candidate);
+        const entries = store[key];
+        if (Array.isArray(entries)) return entries.map(item => cleanUrl(item?.url || item)).filter(Boolean);
+      }
+    } catch {}
+    return [];
+  }
   #allRoutes(channel) {
-    const sources = [...new Set([...(channel.directUrls || []), ...this.#remoteUrls(channel)]
+    const saved = this.#savedUrls(channel);
+    const savedSet = new Set(saved);
+    const sources = [...new Set([...saved, ...(channel.directUrls || []), ...this.#remoteUrls(channel)]
       .map(cleanUrl)
       .filter(Boolean)
       .filter(isPlayableMedia)
-      .filter(source => !BLOCKED.has(source)))];
+      .filter(source => savedSet.has(source) || !BLOCKED.has(source)))];
 
     const routes = [];
     for (const source of sources) {
       if (isSecureUrl(source)) {
-        routes.push({ originalUrl: source, playbackUrl: source, route: 'direct' });
+        routes.push({ originalUrl: source, playbackUrl: source, route: 'direct', saved: savedSet.has(source) });
       }
       if (isHls(source) && CONFIG.workerForHls) {
-        routes.push({ originalUrl: source, playbackUrl: workerUrl(source), route: 'worker' });
+        routes.push({ originalUrl: source, playbackUrl: workerUrl(source), route: 'worker', saved: savedSet.has(source) });
       }
     }
     return routes.filter((item, index, arr) => arr.findIndex(other => other.playbackUrl === item.playbackUrl) === index);
@@ -68,7 +82,10 @@ export class SourceRegistry {
   getSources(channel) {
     return this.#allRoutes(channel)
       .filter(route => !this.health.isCoolingDown(route.playbackUrl))
-      .sort((a, b) => this.health.score(b.playbackUrl) - this.health.score(a.playbackUrl));
+      .sort((a, b) => {
+        if (a.saved !== b.saved) return a.saved ? -1 : 1;
+        return this.health.score(b.playbackUrl) - this.health.score(a.playbackUrl);
+      });
   }
   getStats(channel) {
     const all = this.#allRoutes(channel);
