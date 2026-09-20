@@ -41,23 +41,23 @@ export class SourceRegistry {
     }
     return [];
   }
-  getSources(channel) {
-    const raw = [...(channel.directUrls || []), ...this.#remoteUrls(channel)]
-      .map(cleanUrl)
-      .filter(Boolean)
-      .filter(isPlayableMedia);
-    const sorted = this.health.sort(raw);
+  #allRoutes(channel) {
+    const sources = [...new Set([...(channel.directUrls || []), ...this.#remoteUrls(channel)].map(cleanUrl).filter(Boolean).filter(isPlayableMedia))];
     const routes = [];
-    for (const source of sorted) {
-      const learned = this.health.get(source);
-      if (learned?.route === 'worker' && isHls(source) && CONFIG.workerForHls) {
-        routes.push({ originalUrl: source, playbackUrl: workerUrl(source), route: 'worker' });
-        routes.push({ originalUrl: source, playbackUrl: source, route: 'direct' });
-      } else {
-        routes.push({ originalUrl: source, playbackUrl: source, route: 'direct' });
-        if (isHls(source) && CONFIG.workerForHls) routes.push({ originalUrl: source, playbackUrl: workerUrl(source), route: 'worker' });
-      }
+    for (const source of sources) {
+      routes.push({ originalUrl: source, playbackUrl: source, route: 'direct' });
+      if (isHls(source) && CONFIG.workerForHls) routes.push({ originalUrl: source, playbackUrl: workerUrl(source), route: 'worker' });
     }
     return routes.filter((item, index, arr) => arr.findIndex(other => other.playbackUrl === item.playbackUrl) === index);
+  }
+  getSources(channel) {
+    return this.#allRoutes(channel)
+      .filter(route => !this.health.isCoolingDown(route.playbackUrl))
+      .sort((a, b) => this.health.score(b.playbackUrl) - this.health.score(a.playbackUrl));
+  }
+  getStats(channel) {
+    const all = this.#allRoutes(channel);
+    const cooling = all.filter(route => this.health.isCoolingDown(route.playbackUrl)).length;
+    return { total: all.length, active: all.length - cooling, cooling };
   }
 }
