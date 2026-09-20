@@ -1,10 +1,10 @@
-import { CONFIG, OFFICIAL_LIVE } from './config.js?v=20260920-1015';
-import { parseM3U, dedupeChannels } from './core/channel-catalog.js?v=20260920-1015';
-import { HealthStore } from './core/health-store.js?v=20260920-1015';
-import { SourceRegistry } from './core/source-registry.js?v=20260920-1015';
-import { EpgService } from './core/epg.js?v=20260920-1015';
-import { PlayerController } from './core/player.js?v=20260920-1015';
-import { fetchWithTimeout, formatTime, normalizeId } from './core/utils.js?v=20260920-1015';
+import { CONFIG, OFFICIAL_LIVE } from './config.js?v=20260920-1021';
+import { parseM3U, dedupeChannels } from './core/channel-catalog.js?v=20260920-1021';
+import { HealthStore } from './core/health-store.js?v=20260920-1021';
+import { SourceRegistry } from './core/source-registry.js?v=20260920-1021';
+import { EpgService } from './core/epg.js?v=20260920-1021';
+import { PlayerController } from './core/player.js?v=20260920-1021';
+import { fetchWithTimeout, formatTime, normalizeId, cleanUrl, isHls, workerUrl } from './core/utils.js?v=20260920-1021';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -15,7 +15,8 @@ const els = {
   progressBar: $('epg-progress').querySelector('span'), next: $('next-programs'), diagnostics: $('diagnostics'),
   diagToggle: $('diagnostics-toggle'), diagSource: $('diag-source'), diagRoute: $('diag-route'), diagPlayer: $('diag-player'),
   diagStartup: $('diag-startup'), diagLog: $('diagnostic-log'), clearHealth: $('clear-health'), playlistUrl: $('playlist-url'),
-  loadPlaylist: $('load-playlist'),
+  loadPlaylist: $('load-playlist'), sourceHuntToggle: $('source-hunt-toggle'), sourceHunt: $('source-hunt'), huntChannel: $('hunt-channel'),
+  huntLinks: $('hunt-links'), candidateUrl: $('candidate-url'), testCandidate: $('test-candidate'),
 };
 
 const health = new HealthStore();
@@ -45,6 +46,54 @@ function sourceLabel(value = '') {
     return `${url.hostname}${path}`;
   } catch {
     return value || '-';
+  }
+}
+
+function isoDateDaysAgo(days) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+function searchUrl(engine, query, type = '') {
+  if (engine === 'github') return `https://github.com/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type || 'code')}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
+function renderSourceHunt(channel) {
+  if (!channel) {
+    els.sourceHuntToggle.hidden = true;
+    els.sourceHunt.hidden = true;
+    return;
+  }
+
+  els.sourceHuntToggle.hidden = false;
+  els.huntChannel.textContent = channel.name;
+  const since = isoDateDaysAgo(14);
+  const name = channel.name;
+  const base = `"${name}" Greece Greek TV`;
+  const hunts = [
+    { title: 'Fresh Web', desc: 'Τελευταίες 14 μέρες · HLS / M3U8', url: searchUrl('google', `${base} (m3u8 OR HLS OR "playlist.m3u8") after:${since}`) },
+    { title: 'Active Playlists', desc: 'Πρόσφατα GitHub playlists / EXTINF', url: searchUrl('google', `site:github.com ${base} ("#EXTINF" OR m3u8 OR "playlist.m3u8") after:${since}`) },
+    { title: 'GitHub Code', desc: 'Code search για stream URLs', url: searchUrl('github', `"${name}" m3u8`, 'code') },
+    { title: 'GitHub Issues', desc: `Issues ενημερωμένα από ${since}`, url: searchUrl('github', `"${name}" m3u8 updated:>=${since}`, 'issues') },
+    { title: 'GitHub Commits', desc: 'Πρόσφατες αλλαγές σε stream lists', url: searchUrl('github', `"${name}" m3u8 committer-date:>=${since}`, 'commits') },
+    { title: 'Forums / Threads', desc: 'Forums, IPTV threads, community reports', url: searchUrl('google', `${base} (m3u8 OR HLS) (forum OR thread OR IPTV) after:${since}`) },
+  ];
+
+  els.huntLinks.innerHTML = '';
+  for (const hunt of hunts) {
+    const link = document.createElement('a');
+    link.className = 'hunt-link';
+    link.href = hunt.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    const title = document.createElement('strong');
+    title.textContent = hunt.title;
+    const desc = document.createElement('span');
+    desc.textContent = hunt.desc;
+    link.append(title, desc);
+    els.huntLinks.appendChild(link);
   }
 }
 
@@ -137,6 +186,7 @@ function renderChannels() {
 async function selectChannel(channel) {
   selected = channel;
   renderChannels();
+  renderSourceHunt(channel);
   els.channelName.textContent = channel.name;
   els.channelGroup.textContent = channel.group || 'WEBTV';
   if (channel.logo) { els.logo.src = channel.logo; els.logo.hidden = false; } else { els.logo.hidden = true; }
@@ -154,6 +204,31 @@ async function selectChannel(channel) {
     if (officialUrl) setPlaybackState('error', 'Official fallback');
   } finally {
     renderChannels();
+  }
+}
+
+async function testCandidateUrl() {
+  if (!selected) return;
+  const url = cleanUrl(els.candidateUrl.value.trim());
+  if (!/^https?:\/\//i.test(url)) {
+    log('Candidate rejected: valid http/https URL required');
+    return;
+  }
+
+  const routes = [];
+  if (/^https:\/\//i.test(url)) routes.push({ originalUrl: url, playbackUrl: url, route: 'candidate-direct' });
+  if (isHls(url) && CONFIG.workerForHls) routes.push({ originalUrl: url, playbackUrl: workerUrl(url), route: 'candidate-worker' });
+  if (!routes.length) {
+    log(`Candidate rejected: unsupported or insecure non-HLS URL · ${sourceLabel(url)}`);
+    return;
+  }
+
+  clearDiagnostics();
+  log(`Candidate test for ${selected.name} · ${sourceLabel(url)} · ${routes.length} route(s)`);
+  try {
+    await player.play({ ...selected, name: `${selected.name} candidate` }, routes);
+  } catch (error) {
+    log(`Candidate failed · ${sourceLabel(url)} · ${error.message}`);
   }
 }
 
@@ -214,6 +289,8 @@ async function boot() {
   setPlaybackState('idle', 'Idle');
   clearDiagnostics();
   els.officialLive.hidden = true;
+  els.sourceHuntToggle.hidden = true;
+  els.sourceHunt.hidden = true;
 
   const catalogResponse = await fetch(CONFIG.channelCatalogUrl, { cache: 'no-store' });
   if (!catalogResponse.ok) throw new Error(`Catalog HTTP ${catalogResponse.status}`);
@@ -233,9 +310,12 @@ async function boot() {
 els.search.addEventListener('input', renderChannels);
 els.group.addEventListener('change', renderChannels);
 els.diagToggle.addEventListener('click', () => { els.diagnostics.hidden = !els.diagnostics.hidden; });
+els.sourceHuntToggle.addEventListener('click', () => { if (selected) { renderSourceHunt(selected); els.sourceHunt.hidden = !els.sourceHunt.hidden; } });
 els.clearHealth.addEventListener('click', () => { health.clear(); log('Health data cleared'); renderChannels(); });
 els.loadPlaylist.addEventListener('click', loadExternalPlaylist);
 els.playlistUrl.addEventListener('keydown', event => { if (event.key === 'Enter') loadExternalPlaylist(); });
+els.testCandidate.addEventListener('click', testCandidateUrl);
+els.candidateUrl.addEventListener('keydown', event => { if (event.key === 'Enter') testCandidateUrl(); });
 
 boot().catch(error => {
   setPlaybackState('error', 'Boot failed');
