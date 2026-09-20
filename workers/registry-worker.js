@@ -1,4 +1,4 @@
-const VERSION = '1.1';
+const VERSION = '1.2';
 
 function cors(origin='*'){
   return {
@@ -105,6 +105,7 @@ export default{async fetch(request,env){
       return json({ok:true,playlist:await upsertSavedPlaylist(env,await readJson(request))},200,origin);
     }
     if(path.startsWith('/api/playlists/')&&request.method==='GET'){
+      const auth=requireAdmin(request,env);if(!auth.ok)return auth.response;
       const id=decodeURIComponent(path.slice('/api/playlists/'.length));const row=await getPlaylist(env,id);
       return row?json({playlist:row},200,origin):json({error:'Playlist not found'},404,origin);
     }
