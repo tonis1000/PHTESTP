@@ -1,5 +1,6 @@
-const BUILD_ID = '20260920-1255';
+const BUILD_ID = '20260920-1405';
 const FRESH_DAYS = 30;
+const DEFAULT_WORKER = 'https://source-huntatonisworkersdev.atonis.workers.dev';
 const $ = id => document.getElementById(id);
 
 const channelNameEl = $('channel-name');
@@ -13,6 +14,10 @@ function log(message){
   diagLog.textContent = `[${stamp}] ${message}\n${diagLog.textContent}`.slice(0,18000);
 }
 
+function endpoint(){
+  return (localStorage.getItem('webtv_hunt_web_endpoint') || DEFAULT_WORKER).trim().replace(/\/$/, '');
+}
+
 function ensureUi(){
   const auto = $('hunt-auto');
   if(!auto || $('hunt-external')) return;
@@ -23,58 +28,74 @@ function ensureUi(){
   wrap.innerHTML = `
     <div class="hunt-auto-head">
       <div>
-        <strong>Web + Forums</strong>
-        <span id="hunt-external-status">Worker required · Web + Reddit + forums</span>
+        <strong>External Discovery</strong>
+        <span id="hunt-external-status">Ready · Seeds + Fresh Web + Forums / Reddit</span>
       </div>
     </div>
-    <div id="hunt-external-results" class="hunt-results"></div>
+
+    <div class="hunt-auto-head"><div><strong>Known M3U Seeds</strong><span id="hunt-seed-count">0 candidates</span></div></div>
+    <div id="hunt-seed-results" class="hunt-results"></div>
+
+    <div class="hunt-auto-head"><div><strong>Fresh Web · 30d</strong><span id="hunt-web-count">0 candidates</span></div></div>
+    <div id="hunt-web-results" class="hunt-results"></div>
+
+    <div class="hunt-auto-head"><div><strong>Forums / Reddit · 30d</strong><span id="hunt-forum-count">0 candidates</span></div></div>
+    <div id="hunt-forum-results" class="hunt-results"></div>
+
     <div class="candidate-tester">
-      <label for="hunt-worker-url">Web Hunt Worker URL</label>
+      <label for="hunt-worker-url">Source Hunt Worker</label>
       <div class="inline-form">
-        <input id="hunt-worker-url" type="url" placeholder="https://your-source-hunt.workers.dev">
-        <button id="save-hunt-worker" class="button" type="button">Save</button>
+        <input id="hunt-worker-url" type="url" value="${DEFAULT_WORKER}">
+        <button id="save-hunt-worker" class="button" type="button">Save override</button>
       </div>
-      <p class="muted small">Web, Reddit και forums περνάνε όλα από τον Worker. Δεν γίνεται direct Reddit request από το browser.</p>
+      <p class="muted small">Default Worker is built in. Save is only needed if you want to override it.</p>
     </div>`;
+
   auto.insertAdjacentElement('afterend', wrap);
 
   const input = $('hunt-worker-url');
-  if(input) input.value = localStorage.getItem('webtv_hunt_web_endpoint') || '';
+  if(input) input.value = endpoint();
+
   $('save-hunt-worker')?.addEventListener('click', () => {
     const v = (input?.value || '').trim().replace(/\/$/, '');
-    if(v) localStorage.setItem('webtv_hunt_web_endpoint', v);
+    if(v && v !== DEFAULT_WORKER) localStorage.setItem('webtv_hunt_web_endpoint', v);
     else localStorage.removeItem('webtv_hunt_web_endpoint');
-    $('hunt-external-status').textContent = v ? 'Worker saved · ready' : 'Worker required · Web + Reddit + forums';
+    if(input) input.value = endpoint();
+    $('hunt-external-status').textContent = 'Worker ready';
   });
 }
 
-function render(items, name, statusText){
-  const box = $('hunt-external-results');
-  const status = $('hunt-external-status');
+function empty(box, text){
+  const d = document.createElement('div');
+  d.className = 'hunt-empty';
+  d.textContent = text;
+  box.appendChild(d);
+}
+
+function renderGroup(boxId, countId, items, name, label){
+  const box = $(boxId);
+  const count = $(countId);
   if(!box) return;
   box.innerHTML = '';
-  if(status) status.textContent = statusText;
 
   const seen = new Set();
-  const filtered = (items || []).filter(x => x?.url && !seen.has(x.url) && seen.add(x.url)).slice(0,12);
+  const rows = (items || []).filter(x => x?.url && !seen.has(x.url) && seen.add(x.url)).slice(0,8);
+  if(count) count.textContent = `${rows.length} candidate${rows.length === 1 ? '' : 's'}`;
 
-  if(!filtered.length){
-    const d = document.createElement('div');
-    d.className = 'hunt-empty';
-    d.textContent = `Δεν βρέθηκαν fresh Web/Forum candidates για ${name}.`;
-    box.appendChild(d);
+  if(!rows.length){
+    empty(box, `Δεν βρέθηκαν ${label} candidates για ${name}.`);
     return;
   }
 
-  for(const item of filtered){
+  for(const item of rows){
     const card = document.createElement('div');
     card.className = 'hunt-result';
 
     const meta = document.createElement('div');
     const strong = document.createElement('strong');
-    strong.textContent = item.origin || 'Web';
+    strong.textContent = item.origin || label;
     const detail = document.createElement('span');
-    detail.textContent = `${item.detail || ''}${item.updatedAt ? ` · ${new Date(item.updatedAt).toLocaleDateString('de-DE')}` : ''}`;
+    detail.textContent = item.title || item.source || item.snippet || '';
     const code = document.createElement('code');
     code.textContent = item.url;
     meta.append(strong, detail, code);
@@ -87,7 +108,7 @@ function render(items, name, statusText){
       if(candidateInput) candidateInput.value = item.url;
       candidateInput?.dispatchEvent(new Event('input', {bubbles:true}));
       testButton?.click();
-      log(`HUNT external candidate selected · ${name} · ${item.url}`);
+      log(`HUNT external candidate selected · ${name} · ${label} · ${item.url}`);
     });
 
     card.append(meta, test);
@@ -96,28 +117,20 @@ function render(items, name, statusText){
 }
 
 async function huntWorker(name){
-  const endpoint = (localStorage.getItem('webtv_hunt_web_endpoint') || '').trim().replace(/\/$/, '');
-  if(!endpoint) return {items:[], skipped:true};
-
-  const url = `${endpoint}/hunt?channel=${encodeURIComponent(name)}&days=${FRESH_DAYS}`;
-  const r = await fetch(url, {cache:'no-store'});
-  if(!r.ok){
-    let detail = '';
-    try{ detail = (await r.json())?.error || ''; }catch{}
-    throw new Error(`Web Worker ${r.status}${detail ? ` · ${detail}` : ''}`);
+  const url = `${endpoint()}/hunt?channel=${encodeURIComponent(name)}&days=${FRESH_DAYS}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  try{
+    const r = await fetch(url, {cache:'no-store', signal:controller.signal});
+    if(!r.ok){
+      let detail = '';
+      try{ detail = (await r.json())?.error || ''; }catch{}
+      throw new Error(`Web Worker ${r.status}${detail ? ` · ${detail}` : ''}`);
+    }
+    return await r.json();
+  }finally{
+    clearTimeout(timer);
   }
-
-  const j = await r.json();
-  return {
-    items: (j.candidates || []).map(x => ({
-      url: x.url,
-      origin: x.origin || 'Web search',
-      detail: x.title || x.source || x.snippet || '',
-      updatedAt: x.updatedAt || null
-    })),
-    skipped:false,
-    searched: j.searched || null
-  };
 }
 
 async function runExternal(){
@@ -125,24 +138,29 @@ async function runExternal(){
   if(!name || name === 'Επίλεξε κανάλι') return;
 
   const status = $('hunt-external-status');
-  if(status) status.textContent = `Searching Web + Reddit + forums for ${name}…`;
-  log(`RUN EXTERNAL HUNT ${name} · Worker unified search · ${FRESH_DAYS}d`);
+  if(status) status.textContent = `Searching Seeds + Web + Forums for ${name}…`;
+  log(`RUN EXTERNAL HUNT ${name} · split discovery · ${FRESH_DAYS}d`);
 
   try{
     const result = await huntWorker(name);
-    if(result.skipped){
-      render([], name, 'Worker not configured');
-      log(`EXTERNAL HUNT SKIPPED ${name} · Worker not configured`);
-      return;
-    }
-    render(result.items, name, `Worker ${result.items.length} candidate(s)`);
-    log(`EXTERNAL HUNT DONE ${name} · Worker ${result.items.length}`);
+    const groups = result.groups || {seed:[], web:[], forums:[]};
+
+    renderGroup('hunt-seed-results','hunt-seed-count',groups.seed,name,'Seed');
+    renderGroup('hunt-web-results','hunt-web-count',groups.web,name,'Fresh Web');
+    renderGroup('hunt-forum-results','hunt-forum-count',groups.forums,name,'Forum / Reddit');
+
+    const counts = result.counts || {seed:groups.seed?.length||0,web:groups.web?.length||0,forums:groups.forums?.length||0,total:result.candidates?.length||0};
+    const cacheText = result.cached ? 'cache hit' : 'fresh scan';
+    const subreq = Number.isFinite(result.subrequestsUsed) ? ` · ${result.subrequestsUsed}/${result.subrequestBudget} subreq` : '';
+    if(status) status.textContent = `Seeds ${counts.seed} · Web ${counts.web} · Forums ${counts.forums} · ${cacheText}${subreq}`;
+    log(`EXTERNAL HUNT DONE ${name} · Seeds ${counts.seed} · Web ${counts.web} · Forums ${counts.forums} · ${cacheText}${subreq}`);
   }catch(error){
-    render([], name, `Worker failed · ${error.message}`);
-    log(`EXTERNAL HUNT FAILED ${name} · ${error.message}`);
+    const msg = error?.name === 'AbortError' ? 'Worker timeout after 30s' : error.message;
+    if(status) status.textContent = `Worker failed · ${msg}`;
+    log(`EXTERNAL HUNT FAILED ${name} · ${msg}`);
   }
 }
 
 ensureUi();
 $('run-hunt')?.addEventListener('click', runExternal);
-log(`Source Hunt Web/Forums loaded · build ${BUILD_ID} · Worker unified search`);
+log(`Source Hunt external UI loaded · build ${BUILD_ID} · split Seeds/Web/Forums`);
