@@ -1,8 +1,9 @@
 export const CONFIG = Object.freeze({
   appName: 'WebTV V2',
+  buildId: '20260920-0932',
   cacheBaseUrl: 'https://tv-cache.atonis.workers.dev',
   epgUrl: 'https://epg-proxy-gr.atonis.workers.dev/epg.xml',
-  channelCatalogUrl: './data/channels.m3u',
+  channelCatalogUrl: './data/channels.m3u?v=20260920-0932',
   healthStorageKey: 'webtv_v2_health',
   requestTimeoutMs: 9000,
   startupTimeoutMs: 12000,
