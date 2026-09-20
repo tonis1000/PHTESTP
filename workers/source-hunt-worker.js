@@ -1,11 +1,12 @@
 const ALLOWED_ORIGIN='*';
-const VERSION='1.10';
+const VERSION='1.11';
 const CACHE_TTL_SECONDS=900;
 const MAX_RESULTS=12;
-const MAX_FETCH_BYTES=1600000;
+const MAX_LEADS=8;
+const MAX_FETCH_BYTES=1400000;
 const MAX_SUBREQUEST_BUDGET=16;
 const MAX_PAGE_SCANS=4;
-const FETCH_TIMEOUT_MS=7000;
+const FETCH_TIMEOUT_MS=6500;
 const BRAVE_TIMEOUT_MS=6000;
 
 const PROFILES={
@@ -13,14 +14,14 @@ const PROFILES={
   'ERT2':{aliases:['ert2','ert 2','ert2.gr','ερτ2'],searches:['ERT2','ERT 2'],mainNames:['ert2','ert 2','ερτ2']},
   'ERT3':{aliases:['ert3','ert 3','ert3.gr','ερτ3'],searches:['ERT3','ERT 3'],mainNames:['ert3','ert 3','ερτ3']},
   'ERT News':{aliases:['ertnews','ert news','ert_news','ert-news','ertnews.gr','ερτ news'],searches:['ERT News','ERTNEWS'],mainNames:['ert news','ertnews','ερτ news']},
-  'ANT1':{aliases:['ant1','antenna1','ant1.gr','antenna','ant1 hd'],searches:['ANT1','ANT1 TV'],mainNames:['ant1','ant1 hd','ant1 tv','antenna']},
-  'Alpha TV':{aliases:['alpha tv','alphatv','alpha.gr','alpha hd'],searches:['Alpha TV','AlphaTV'],mainNames:['alpha','alpha tv','alpha hd','alphatv']},
-  'SKAI':{aliases:['skai','skaitv','skai tv','skai.gr','skai hd','σκαι','σκαϊ'],searches:['SKAI','SKAI TV'],mainNames:['skai','skai hd','skai tv','skaitv','σκαι','σκαϊ']},
-  'Open TV':{aliases:['open tv','opentv','open beyond','open.gr','open hd'],searches:['OPEN TV','OPEN Beyond'],mainNames:['open','open tv','open hd','open beyond','opentv']},
-  'MEGA':{aliases:['mega tv','megatv','mega channel','mega.gr','mega hd'],searches:['MEGA TV','Mega Channel'],mainNames:['mega','mega tv','mega hd','mega channel','megatv']},
-  'Star TV':{aliases:['star tv','startv','star channel','star.gr','star hd'],searches:['STAR TV','Star Channel Greece'],mainNames:['star','star tv','star hd','star channel','startv']},
-  'Action 24':{aliases:['action 24','action24','action tv','action24.gr'],searches:['Action 24','Action24'],mainNames:['action 24','action24','action tv']},
-  'Kontra':{aliases:['kontra','kontra channel','kontra tv','kontrachannel'],searches:['Kontra','Kontra Channel'],mainNames:['kontra','kontra channel','kontra tv','kontrachannel']}
+  'ANT1':{aliases:['ant1','antenna1','ant1.gr','antenna','ant1 hd'],searches:['ANT1 Greece TV','ANT1 TV'],mainNames:['ant1','ant1 hd','ant1 tv','antenna']},
+  'Alpha TV':{aliases:['alpha tv','alphatv','alpha.gr','alpha hd'],searches:['Alpha TV Greece','AlphaTV'],mainNames:['alpha','alpha tv','alpha hd','alphatv']},
+  'SKAI':{aliases:['skai','skaitv','skai tv','skai.gr','skai hd','σκαι','σκαϊ'],searches:['SKAI TV Greece','SKAI TV'],mainNames:['skai','skai hd','skai tv','skaitv','σκαι','σκαϊ']},
+  'Open TV':{aliases:['open tv','opentv','open beyond','open.gr','open hd'],searches:['OPEN TV Greece','OPEN Beyond'],mainNames:['open','open tv','open hd','open beyond','opentv']},
+  'MEGA':{aliases:['mega tv','megatv','mega channel','mega.gr','mega hd'],searches:['MEGA TV Greece','Mega Channel'],mainNames:['mega','mega tv','mega hd','mega channel','megatv']},
+  'Star TV':{aliases:['star tv','startv','star channel','star.gr','star hd'],searches:['STAR TV Greece','Star Channel Greece'],mainNames:['star','star tv','star hd','star channel','startv']},
+  'Action 24':{aliases:['action 24','action24','action tv','action24.gr'],searches:['Action 24 Greece','Action24'],mainNames:['action 24','action24','action tv']},
+  'Kontra':{aliases:['kontra','kontra channel','kontra tv','kontrachannel'],searches:['Kontra Channel Greece','Kontra Channel'],mainNames:['kontra','kontra channel','kontra tv','kontrachannel']}
 };
 
 const SEEDS=[
@@ -36,6 +37,7 @@ const NEG='-crypto -coin -token -restaurant -tiktok -music -lyrics -celebrity -g
 const REJECT_VARIANTS=/\b(hybrid|sport|sports|radio|fm|web radio|webradio|not 24\/7|test feed|promo)\b/i;
 const REJECT_NONLIVE=/(?:\/vod\/|\/archive\/|\/catchup\/|\/news\/.*\.mp4\/|chunklist|\.mp4\/|drm|widevine|playready)/i;
 const BLOCKED_RESULT_HOSTS=/^(?:x\.com|twitter\.com|tiktok\.com|www\.tiktok\.com)$/i;
+const ANT1_SUBCHANNELS=/\b(drama|comedy|just[ _-]?music|music|series|movies|kids|ant1\+|antenna\+)\b/i;
 
 function cors(){return {'access-control-allow-origin':ALLOWED_ORIGIN,'access-control-allow-methods':'GET,OPTIONS','access-control-allow-headers':'content-type'};}
 function json(data,status=200,extra={}){return new Response(JSON.stringify(data),{status,headers:{...cors(),'content-type':'application/json;charset=utf-8',...extra}});}
@@ -46,21 +48,17 @@ function cleanUrl(url=''){return String(url).replace(/&amp;/g,'&').replace(/\\\/
 function hostOf(url=''){try{return new URL(url).hostname.toLowerCase();}catch{return '';}}
 function isLiveUrl(url=''){const s=String(url);return /\.(?:m3u8|mpd)(?:\?|$)/i.test(s)&&!REJECT_NONLIVE.test(s);}
 function isStrm(url=''){return /\.strm(?:\?|$)/i.test(String(url));}
-function addUnique(list,item){if(item?.url&&!list.some(x=>x.url===item.url))list.push(item);}
+function addUnique(list,item,key='url'){const v=item?.[key];if(v&&!list.some(x=>x?.[key]===v))list.push(item);}
 function entryTitle(extinf=''){const i=String(extinf).lastIndexOf(',');return i>=0?String(extinf).slice(i+1).trim():String(extinf).trim();}
 
 class Budget{constructor(limit=MAX_SUBREQUEST_BUDGET){this.limit=limit;this.used=0;}canUse(n=1){return this.used+n<=this.limit;}take(){if(!this.canUse())throw new Error('hunt subrequest budget exhausted');this.used++;}}
 
-async function timedFetch(url,options={},timeoutMs=FETCH_TIMEOUT_MS){
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),timeoutMs);
-  try{return await fetch(url,{...options,signal:controller.signal});}
-  finally{clearTimeout(timer);}
-}
+async function timedFetch(url,options={},timeoutMs=FETCH_TIMEOUT_MS){const c=new AbortController();const t=setTimeout(()=>c.abort(),timeoutMs);try{return await fetch(url,{...options,signal:c.signal});}finally{clearTimeout(t);}}
 
 function classifyEntry(extinf='',url='',channel=''){
   const p=profile(channel),title=entryTitle(extinf),titleNorm=normalize(title),all=`${extinf} ${url}`;
   if(REJECT_VARIANTS.test(all))return false;
+  if(channel==='ANT1'&&ANT1_SUBCHANNELS.test(all))return false;
   if(/\b\d{2,3}[.,]\d\b/.test(all)||/listen\.pls|netradio/i.test(all))return false;
   if(!relevant(`${title} ${extinf}`,channel))return false;
   return p.mainNames.some(n=>titleNorm===normalize(n)||titleNorm.startsWith(`${normalize(n)} `))||p.aliases.some(a=>titleNorm.includes(normalize(a)));
@@ -73,191 +71,119 @@ function parseM3u(text='',channel=''){
     if(!/^#EXTINF:/i.test(extinf)||!relevant(extinf,channel))continue;
     let stream='';
     for(let j=i+1;j<Math.min(lines.length,i+10);j++){
-      const next=lines[j].trim();
-      if(!next||next.startsWith('#'))continue;
-      if(/^https?:\/\//i.test(next))stream=cleanUrl(next);
-      break;
+      const next=lines[j].trim();if(!next||next.startsWith('#'))continue;if(/^https?:\/\//i.test(next))stream=cleanUrl(next);break;
     }
     if(stream&&classifyEntry(extinf,stream,channel))out.push({url:stream,extinf:extinf.slice(0,500)});
   }
   return out;
 }
 
-function extractLive(text=''){
-  return [...new Set((String(text).match(/https?:\/\/[^\s"'<>]+?\.(?:m3u8|mpd)(?:\?[^\s"'<>]*)?/gi)||[]).map(cleanUrl))].filter(isLiveUrl);
-}
-
-function toRawGithubUrl(input=''){
-  try{
-    const u=new URL(input);
-    if(u.hostname==='github.com'){
-      const p=u.pathname.split('/').filter(Boolean);
-      if(p[2]==='blob'&&p.length>=5)return `https://raw.githubusercontent.com/${p[0]}/${p[1]}/${p[3]}/${p.slice(4).join('/')}`;
-    }
-    if(u.hostname==='gist.github.com'&&!u.pathname.endsWith('/raw'))return `${u.origin}${u.pathname}/raw`;
-  }catch{}
-  return input;
-}
+function extractLive(text=''){return [...new Set((String(text).match(/https?:\/\/[^\s"'<>]+?\.(?:m3u8|mpd)(?:\?[^\s"'<>]*)?/gi)||[]).map(cleanUrl))].filter(isLiveUrl);}
+function extractUsefulLinks(text=''){return [...new Set((String(text).match(/https?:\/\/[^\s"'<>]+/gi)||[]).map(cleanUrl))].filter(u=>/github\.com|gist\.github\.com|raw\.githubusercontent\.com|\.m3u(?:\?|$)|iptv|playlist/i.test(u));}
+function toRawGithubUrl(input=''){try{const u=new URL(input);if(u.hostname==='github.com'){const p=u.pathname.split('/').filter(Boolean);if(p[2]==='blob'&&p.length>=5)return `https://raw.githubusercontent.com/${p[0]}/${p[1]}/${p[3]}/${p.slice(4).join('/')}`;}if(u.hostname==='gist.github.com'&&!u.pathname.endsWith('/raw'))return `${u.origin}${u.pathname}/raw`;}catch{}return input;}
 
 async function fetchText(url,budget){
   budget.take();
-  try{
-    const r=await timedFetch(url,{redirect:'follow',headers:{'user-agent':`Mozilla/5.0 WebTV-SourceHunt/${VERSION}`,accept:'text/plain,text/html,application/json,application/vnd.apple.mpegurl,application/x-mpegURL,*/*'}},FETCH_TIMEOUT_MS);
-    if(!r.ok)return {ok:false,status:r.status,text:'',type:r.headers.get('content-type')||''};
-    return {ok:true,status:r.status,text:(await r.text()).slice(0,MAX_FETCH_BYTES),type:r.headers.get('content-type')||''};
-  }catch(error){return {ok:false,status:error?.name==='AbortError'?408:0,text:'',type:'',error:error?.message||String(error)};}
+  try{const r=await timedFetch(url,{redirect:'follow',headers:{'user-agent':`Mozilla/5.0 WebTV-SourceHunt/${VERSION}`,accept:'text/plain,text/html,application/json,application/vnd.apple.mpegurl,application/x-mpegURL,*/*'}},FETCH_TIMEOUT_MS);if(!r.ok)return {ok:false,status:r.status,text:'',type:r.headers.get('content-type')||''};return {ok:true,status:r.status,text:(await r.text()).slice(0,MAX_FETCH_BYTES),type:r.headers.get('content-type')||''};}
+  catch(error){return {ok:false,status:error?.name==='AbortError'?408:0,text:'',type:'',error:error?.message||String(error)};}
 }
-
-async function resolveStrm(url,budget){
-  if(!isStrm(url)||!budget.canUse())return null;
-  const f=await fetchText(toRawGithubUrl(url),budget);
-  if(!f.ok)return null;
-  return extractLive(f.text)[0]||null;
-}
+async function resolveStrm(url,budget){if(!isStrm(url)||!budget.canUse())return null;const f=await fetchText(toRawGithubUrl(url),budget);if(!f.ok)return null;return extractLive(f.text)[0]||null;}
 
 async function brave(env,q,budget,count=8){
-  if(!env.BRAVE_API_KEY)throw new Error('BRAVE_API_KEY is not configured');
-  budget.take();
-  const u=new URL('https://api.search.brave.com/res/v1/web/search');
-  u.searchParams.set('q',q);u.searchParams.set('count',String(count));u.searchParams.set('freshness','pm');u.searchParams.set('text_decorations','false');u.searchParams.set('search_lang','en');
-  const r=await timedFetch(u,{headers:{Accept:'application/json','X-Subscription-Token':env.BRAVE_API_KEY}},BRAVE_TIMEOUT_MS);
-  if(!r.ok)throw new Error(`Brave ${r.status}`);
-  const j=await r.json();return j?.web?.results||[];
+  if(!env.BRAVE_API_KEY)throw new Error('BRAVE_API_KEY is not configured');budget.take();
+  const u=new URL('https://api.search.brave.com/res/v1/web/search');u.searchParams.set('q',q);u.searchParams.set('count',String(count));u.searchParams.set('freshness','pm');u.searchParams.set('text_decorations','false');u.searchParams.set('search_lang','en');
+  const r=await timedFetch(u,{headers:{Accept:'application/json','X-Subscription-Token':env.BRAVE_API_KEY}},BRAVE_TIMEOUT_MS);if(!r.ok)throw new Error(`Brave ${r.status}`);const j=await r.json();return j?.web?.results||[];
 }
 
-function candidate(url,kind,origin,source,extra={}){
-  return {url,kind,origin,title:source?.title||source?.name||'',source:source?.url||'',snippet:(source?.description||'').slice(0,280),updatedAt:null,...extra};
+async function redditSearch(channel,budget){
+  if(!budget.canUse())return [];
+  budget.take();
+  const p=profile(channel),q=`${p.searches[0]||channel} (m3u8 OR IPTV OR stream OR playlist)`;
+  const u=new URL('https://www.reddit.com/search.json');u.searchParams.set('q',q);u.searchParams.set('sort','new');u.searchParams.set('t','month');u.searchParams.set('limit','12');u.searchParams.set('raw_json','1');
+  try{
+    const r=await timedFetch(u,{headers:{'user-agent':'WebTV-SourceHunt/1.11 (+public stream discovery)'}},BRAVE_TIMEOUT_MS);
+    if(!r.ok)return [];
+    const j=await r.json();
+    return (j?.data?.children||[]).map(x=>x?.data).filter(Boolean).map(d=>({title:d.title||'',description:d.selftext||'',url:d.url_overridden_by_dest||`https://www.reddit.com${d.permalink||''}`,permalink:d.permalink?`https://www.reddit.com${d.permalink}`:'',_kind:'forum',_reddit:true}));
+  }catch{return [];}
 }
+
+function candidate(url,kind,origin,source,extra={}){return {url,kind,origin,title:source?.title||source?.name||'',source:source?.url||'',snippet:(source?.description||'').slice(0,280),updatedAt:null,...extra};}
+function lead(url,kind,origin,source,extra={}){return {url,kind,origin,title:source?.title||'',snippet:(source?.description||'').slice(0,280),...extra};}
 
 async function scanSeed(seed,channel,budget,debug){
-  const out=[];const report={type:'seed',name:seed.name,status:null,accepted:0};
-  if(!budget.canUse())return out;
-  try{
-    const f=await fetchText(seed.url,budget);report.status=f.status;
-    if(f.ok){
-      for(const e of parseM3u(f.text,channel)){
-        let u=e.url,method='extinf-seed';
-        if(isStrm(u)){const resolved=await resolveStrm(u,budget);if(!resolved)continue;u=resolved;method='extinf-seed-strm';}
-        if(!isLiveUrl(u))continue;
-        addUnique(out,candidate(u,'seed','Known Greek M3U seed',seed,{method,extinf:e.extinf}));
-      }
-    }
-  }catch(error){report.error=error?.message||String(error);}
+  const out=[],report={type:'seed',name:seed.name,status:null,accepted:0};if(!budget.canUse())return out;
+  const f=await fetchText(seed.url,budget);report.status=f.status;
+  if(f.ok)for(const e of parseM3u(f.text,channel)){let u=e.url,method='extinf-seed';if(isStrm(u)){const resolved=await resolveStrm(u,budget);if(!resolved)continue;u=resolved;method='extinf-seed-strm';}if(isLiveUrl(u))addUnique(out,candidate(u,'seed','Known Greek M3U seed',seed,{method,extinf:e.extinf}));}
   report.accepted=out.length;if(debug)debug.push(report);return out;
 }
 
-function resultKind(r){
-  if(r?._kind==='forum')return 'forum';
-  if(r?._kind==='web')return 'web';
-  const h=hostOf(r.url||'');
-  if(/reddit\.com$/.test(h)||/forum|thread|linuxsat/i.test(`${r.url||''} ${r.title||''}`))return 'forum';
-  return 'web';
-}
-
-function rank(r,channel){
-  if(BLOCKED_RESULT_HOSTS.test(hostOf(r.url||'')))return -100;
-  const ctx=`${r.title||''} ${r.description||''} ${r.url||''}`;
-  let s=0;
-  if(relevant(ctx,channel))s+=10;
-  if(/m3u8|iptv|playlist|hls|stream|live tv|television|channel/i.test(ctx))s+=7;
-  if(/github|gist|raw\.githubusercontent/i.test(r.url||''))s+=4;
-  if(/reddit|forum|thread|linuxsat/i.test(ctx))s+=3;
-  if(REJECT_VARIANTS.test(ctx)||/wikipedia|tiktok|celebrity|actress|actor/i.test(ctx))s-=10;
-  return s;
-}
-
+function resultKind(r){if(r?._kind==='forum')return 'forum';if(r?._kind==='web')return 'web';const h=hostOf(r.url||'');return /reddit\.com$/.test(h)||/forum|thread|linuxsat/i.test(`${r.url||''} ${r.title||''}`)?'forum':'web';}
+function rank(r,channel){if(BLOCKED_RESULT_HOSTS.test(hostOf(r.url||'')))return -100;const ctx=`${r.title||''} ${r.description||''} ${r.url||''}`;let s=0;if(relevant(ctx,channel))s+=10;if(/m3u8|iptv|playlist|hls|stream|live tv|television|channel/i.test(ctx))s+=7;if(/github|gist|raw\.githubusercontent/i.test(r.url||''))s+=4;if(/reddit|forum|thread|linuxsat/i.test(ctx))s+=3;if(REJECT_VARIANTS.test(ctx)||/wikipedia|tiktok|celebrity|actress|actor/i.test(ctx))s-=10;return s;}
 function tvEvidence(context,channel){return relevant(context,channel)&&/(m3u8|iptv|hls|stream|live tv|television|channel|skai\.gr|ert\.gr|ant1\.gr|alphatv|megatv|star\.gr|open)/i.test(context);}
 
 async function inspectResult(r,channel,budget,debug){
-  const out=[];const kind=resultKind(r);const context=`${r.title||''}\n${r.description||''}\n${r.url||''}`;
-  const report={type:kind,title:(r.title||'').slice(0,100),status:null,accepted:0};
-  for(const u of extractLive(context))if(tvEvidence(`${context} ${u}`,channel)&&!REJECT_VARIANTS.test(`${context} ${u}`))addUnique(out,candidate(u,kind,kind==='forum'?'Forums / Reddit':'Fresh Web',r,{method:'snippet'}));
-  if(out.length||!r.url||!budget.canUse()){report.accepted=out.length;if(debug)debug.push(report);return out;}
-  try{
+  const candidates=[],leads=[],kind=resultKind(r),origin=kind==='forum'?'Forums / Reddit':'Fresh Web',context=`${r.title||''}\n${r.description||''}\n${r.url||''}`;
+  const report={type:kind,title:(r.title||'').slice(0,100),status:null,accepted:0,leads:0};
+  for(const u of extractLive(context))if(tvEvidence(`${context} ${u}`,channel)&&!REJECT_VARIANTS.test(`${context} ${u}`)&&!(channel==='ANT1'&&ANT1_SUBCHANNELS.test(context)))addUnique(candidates,candidate(u,kind,origin,r,{method:'snippet'}));
+  for(const u of extractUsefulLinks(context))if(!isLiveUrl(u))addUnique(leads,lead(u,kind,origin,r,{method:'linked-lead'}));
+  if(!candidates.length&&r.url&&relevant(context,channel))addUnique(leads,lead(r.permalink||r.url,kind,origin,r,{method:r._reddit?'reddit-post':'source-page'}));
+  if(!candidates.length&&r.url&&budget.canUse()){
     const f=await fetchText(toRawGithubUrl(r.url),budget);report.status=f.status;
     if(f.ok){
-      for(const e of parseM3u(f.text,channel)){
-        let u=e.url;if(isStrm(u)){const resolved=await resolveStrm(u,budget);if(!resolved)continue;u=resolved;}
-        if(isLiveUrl(u))addUnique(out,candidate(u,kind,kind==='forum'?'Forums / Reddit':'Fresh Web',r,{method:'extinf-page',extinf:e.extinf}));
-      }
-      for(const u of extractLive(f.text)){
-        if(out.some(x=>x.url===u))continue;
-        const idx=f.text.indexOf(u),near=idx>=0?f.text.slice(Math.max(0,idx-700),Math.min(f.text.length,idx+u.length+700)):'';
-        if(tvEvidence(`${context} ${near} ${u}`,channel)&&!REJECT_VARIANTS.test(`${context} ${near} ${u}`))addUnique(out,candidate(u,kind,kind==='forum'?'Forums / Reddit':'Fresh Web',r,{method:'nearby'}));
-      }
+      for(const e of parseM3u(f.text,channel)){let u=e.url;if(isStrm(u)){const rr=await resolveStrm(u,budget);if(!rr)continue;u=rr;}if(isLiveUrl(u))addUnique(candidates,candidate(u,kind,origin,r,{method:'extinf-page',extinf:e.extinf}));}
+      for(const u of extractLive(f.text)){if(candidates.some(x=>x.url===u))continue;const idx=f.text.indexOf(u),near=idx>=0?f.text.slice(Math.max(0,idx-700),Math.min(f.text.length,idx+u.length+700)):'';if(tvEvidence(`${context} ${near} ${u}`,channel)&&!REJECT_VARIANTS.test(`${context} ${near} ${u}`)&&!(channel==='ANT1'&&ANT1_SUBCHANNELS.test(`${context} ${near}`)))addUnique(candidates,candidate(u,kind,origin,r,{method:'nearby'}));}
+      for(const u of extractUsefulLinks(f.text))if(!isLiveUrl(u))addUnique(leads,lead(u,kind,origin,r,{method:'page-lead'}));
     }
-  }catch(error){report.error=error?.message||String(error);}
-  report.accepted=out.length;if(debug)debug.push(report);return out;
+  }
+  report.accepted=candidates.length;report.leads=leads.length;if(debug)debug.push(report);return {candidates,leads};
 }
 
-function buildQueries(channel){
-  const p=profile(channel),primary=p.searches[0]||channel,alt=p.searches[1]||primary;
-  return [
-    {kind:'web',q:`"${primary}" m3u8 live ${NEG}`},
-    {kind:'web',q:`"${alt}" IPTV playlist ${NEG}`},
-    {kind:'forum',q:`"${primary}" site:reddit.com IPTV ${NEG}`},
-    {kind:'forum',q:`"${primary}" IPTV forum stream ${NEG}`}
-  ];
+function buildQueries(channel){const p=profile(channel),primary=p.searches[0]||channel,alt=p.searches[1]||primary;return [
+  {kind:'web',q:`"${primary}" m3u8 live ${NEG}`},
+  {kind:'web',q:`"${alt}" IPTV playlist ${NEG}`},
+  {kind:'forum',q:`"${primary}" IPTV forum stream ${NEG}`}
+];}
+
+async function inspectLead(url,channel){
+  const budget=new Budget(5),source={title:'Lead inspection',url,description:''};
+  const r=await inspectResult({...source,_kind:/reddit\.com|forum|thread/i.test(url)?'forum':'web'},channel,budget,null);
+  return {version:VERSION,channel,url,candidates:r.candidates,leads:r.leads,subrequestsUsed:budget.used};
 }
 
 async function runHunt(env,channel,days,wantDebug=false){
-  const started=Date.now();
-  const budget=new Budget(),debug=[],seed=[],web=[],forum=[];
-
+  const started=Date.now(),budget=new Budget(),debug=[],seed=[],web=[],forum=[],webLeads=[],forumLeads=[];
   const seedRuns=await Promise.all(SEEDS.map(s=>scanSeed(s,channel,budget,wantDebug?debug:null)));
   for(const rows of seedRuns)for(const c of rows)addUnique(seed,c);
 
   const queries=buildQueries(channel);
-  const queryRuns=await Promise.all(queries.map(async x=>{
-    if(!budget.canUse())return {x,rows:[]};
-    try{return {x,rows:await brave(env,x.q,budget,8)};}
-    catch(error){if(wantDebug)debug.push({type:'query',query:x.q,error:error?.message||String(error)});return {x,rows:[]};}
-  }));
-
+  const tasks=[...queries.map(x=>brave(env,x.q,budget,8).then(rows=>({x,rows})).catch(error=>({x,rows:[],error}))),redditSearch(channel,budget).then(rows=>({x:{kind:'forum',q:'reddit-json'},rows}))];
+  const queryRuns=await Promise.all(tasks);
   const merged=[];let searches=0;
-  for(const q of queryRuns){if(q.rows.length)searches++;for(const r of q.rows)merged.push({...r,_kind:q.x.kind});}
+  for(const q of queryRuns){if(q.rows.length)searches++;if(q.error&&wantDebug)debug.push({type:'query',query:q.x.q,error:q.error?.message||String(q.error)});for(const r of q.rows)merged.push({...r,_kind:r._kind||q.x.kind});}
 
-  const ranked=[...new Map(merged.filter(r=>r?.url).map(r=>[r.url,r])).values()]
-    .map(r=>({r,score:rank(r,channel)})).filter(x=>x.score>=7).sort((a,b)=>b.score-a.score).slice(0,MAX_PAGE_SCANS);
+  const ranked=[...new Map(merged.filter(r=>r?.url).map(r=>[`${r._kind}:${r.url}`,r])).values()].map(r=>({r,score:rank(r,channel)})).filter(x=>x.score>=5).sort((a,b)=>b.score-a.score).slice(0,MAX_PAGE_SCANS);
+  const pageRuns=await Promise.all(ranked.map(({r})=>inspectResult(r,channel,budget,wantDebug?debug:null)));
+  for(const res of pageRuns){for(const c of res.candidates){if(c.kind==='forum')addUnique(forum,c);else addUnique(web,c);}for(const l of res.leads){if(l.kind==='forum')addUnique(forumLeads,l);else addUnique(webLeads,l);}}
 
-  const pageRuns=await Promise.all(ranked.map(async({r})=>{
-    if(!budget.canUse())return [];
-    return await inspectResult(r,channel,budget,wantDebug?debug:null);
-  }));
-  for(const found of pageRuns)for(const c of found){if(c.kind==='forum')addUnique(forum,c);else addUnique(web,c);}
-
-  const groups={seed:seed.slice(0,6),web:web.slice(0,6),forums:forum.slice(0,6)};
+  const groups={seed:seed.slice(0,6),web:web.slice(0,6),forums:forum.slice(0,6),webLeads:webLeads.slice(0,MAX_LEADS),forumLeads:forumLeads.slice(0,MAX_LEADS)};
   const flat=[...groups.seed,...groups.web,...groups.forums].slice(0,MAX_RESULTS);
-  return {version:VERSION,channel,days,candidates:flat,groups,counts:{seed:groups.seed.length,web:groups.web.length,forums:groups.forums.length,total:flat.length},freshSearchesRun:searches,resultsScanned:ranked.length,subrequestsUsed:budget.used,subrequestBudget:budget.limit,elapsedMs:Date.now()-started,debug:wantDebug?debug:undefined};
+  return {version:VERSION,channel,days,candidates:flat,groups,counts:{seed:groups.seed.length,web:groups.web.length,forums:groups.forums.length,webLeads:groups.webLeads.length,forumLeads:groups.forumLeads.length,total:flat.length},freshSearchesRun:searches,resultsScanned:ranked.length,subrequestsUsed:budget.used,subrequestBudget:budget.limit,elapsedMs:Date.now()-started,debug:wantDebug?debug:undefined};
 }
 
-async function cacheGet(requestUrl){
-  try{const u=new URL(requestUrl);u.searchParams.delete('debug');u.searchParams.set('_v',VERSION);return await caches.default.match(new Request(u.toString(),{method:'GET'}));}catch{return null;}
-}
-async function cachePut(requestUrl,payload){
-  try{const u=new URL(requestUrl);u.searchParams.delete('debug');u.searchParams.set('_v',VERSION);const r=json(payload,200,{'cache-control':`public,max-age=${CACHE_TTL_SECONDS}`,'x-source-hunt-cache':'MISS'});await caches.default.put(new Request(u.toString(),{method:'GET'}),r.clone());}catch{}
-}
+async function cacheGet(requestUrl){try{const u=new URL(requestUrl);u.searchParams.delete('debug');u.searchParams.set('_v',VERSION);return await caches.default.match(new Request(u.toString(),{method:'GET'}));}catch{return null;}}
+async function cachePut(requestUrl,payload){try{const u=new URL(requestUrl);u.searchParams.delete('debug');u.searchParams.set('_v',VERSION);const r=json(payload,200,{'cache-control':`public,max-age=${CACHE_TTL_SECONDS}`});await caches.default.put(new Request(u.toString(),{method:'GET'}),r.clone());}catch{}}
 
-export default{
-  async fetch(request,env){
-    if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors()});
-    const url=new URL(request.url);
-    if(url.pathname!=='/hunt')return json({ok:true,service:'WebTV Source Hunt Worker',version:VERSION,features:['parallel seeds/search/page scans','15m cache','16 subrequest budget','6-7s per-fetch timeout','split seed/web/forums','fresh 30d web search','exact EXTINF pairing'],endpoint:'/hunt?channel=SKAI&days=30'});
-    const channel=(url.searchParams.get('channel')||'').trim();
-    const days=Math.min(30,Math.max(1,Number(url.searchParams.get('days')||30)));
-    const wantDebug=url.searchParams.get('debug')==='1';
-    if(!channel)return json({error:'channel is required'},400);
-
-    if(!wantDebug){
-      const hit=await cacheGet(request.url);
-      if(hit){const data=await hit.json();return json({...data,cached:true,elapsedMs:0},200,{'cache-control':'no-store','x-source-hunt-cache':'HIT'});}
-    }
-
-    try{
-      const payload=await runHunt(env,channel,days,wantDebug);
-      payload.cached=false;
-      if(!wantDebug)await cachePut(request.url,payload);
-      return json(payload,200,{'cache-control':'no-store','x-source-hunt-cache':'MISS'});
-    }catch(error){return json({error:error?.message||String(error),channel,days},500);}
+export default{async fetch(request,env){
+  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors()});
+  const url=new URL(request.url);
+  if(url.pathname==='/inspect'){
+    const channel=(url.searchParams.get('channel')||'').trim(),target=(url.searchParams.get('url')||'').trim();
+    if(!channel||!target)return json({error:'channel and url are required'},400);
+    try{return json(await inspectLead(target,channel));}catch(error){return json({error:error?.message||String(error),channel,url:target},500);}
   }
-};
+  if(url.pathname!=='/hunt')return json({ok:true,service:'WebTV Source Hunt Worker',version:VERSION,features:['direct Reddit JSON search','Web/Forum leads','lead inspect endpoint','strict ANT1 main-channel filter','parallel discovery','15m cache'],endpoint:'/hunt?channel=SKAI&days=30'});
+  const channel=(url.searchParams.get('channel')||'').trim();const days=Math.min(30,Math.max(1,Number(url.searchParams.get('days')||30)));const wantDebug=url.searchParams.get('debug')==='1';if(!channel)return json({error:'channel is required'},400);
+  if(!wantDebug){const hit=await cacheGet(request.url);if(hit){const data=await hit.json();return json({...data,cached:true,elapsedMs:0},200,{'cache-control':'no-store','x-source-hunt-cache':'HIT'});}}
+  try{const payload=await runHunt(env,channel,days,wantDebug);payload.cached=false;if(!wantDebug)await cachePut(request.url,payload);return json(payload,200,{'cache-control':'no-store','x-source-hunt-cache':'MISS'});}catch(error){return json({error:error?.message||String(error),channel,days},500);}
+}};
