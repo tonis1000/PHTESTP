@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="dark">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>WebTV V2</title>
-  <link rel="stylesheet" href="./styles.css?v=20260920-1015">
+  <link rel="stylesheet" href="./styles.css?v=20260920-1021">
   <script defer src="https://cdn.jsdelivr.net/npm/hls.js@1.6.13/dist/hls.min.js"></script>
   <script defer src="https://cdn.dashjs.org/v4.7.4/dash.all.min.js"></script>
 </head>
@@ -19,6 +19,7 @@
       </div>
       <div class="topbar-actions">
         <span id="clock" class="clock" aria-live="polite"></span>
+        <button id="source-hunt-toggle" class="button hunt" type="button" hidden>Source Hunt 🔎</button>
         <button id="diagnostics-toggle" class="button ghost" type="button">Diagnostics</button>
       </div>
     </header>
@@ -55,6 +56,21 @@
           <div id="epg-progress" class="progress" hidden><span></span></div>
           <div id="next-programs" class="next-programs"></div>
         </section>
+
+        <section id="source-hunt" class="source-hunt panel" hidden>
+          <div class="section-heading">
+            <div><p class="eyebrow">DISCOVERY</p><h2>Source Hunt · <span id="hunt-channel">-</span></h2></div>
+            <span class="freshness-badge">Fresh 14d</span>
+          </div>
+          <p class="muted small hunt-intro">Αυστηρές αναζητήσεις για πρόσφατα HLS/M3U sources, GitHub code/issues/commits, forums και ενεργά playlists του επιλεγμένου καναλιού.</p>
+          <div id="hunt-links" class="hunt-links"></div>
+          <div class="candidate-tester">
+            <label for="candidate-url">Test candidate URL</label>
+            <div class="inline-form"><input id="candidate-url" type="url" placeholder="https://example.com/live/playlist.m3u8"><button id="test-candidate" class="button" type="button">Test</button></div>
+            <p class="muted small">Το candidate δοκιμάζεται προσωρινά. Για HLS δοκιμάζονται direct και Worker routes, χωρίς να προστίθεται μόνιμα στο playlist.</p>
+          </div>
+        </section>
+
         <section id="diagnostics" class="diagnostics panel" hidden>
           <div class="section-heading">
             <div><p class="eyebrow">ADMIN</p><h2>Diagnostics</h2></div>
@@ -76,6 +92,6 @@
       </section>
     </main>
   </div>
-  <script type="module" src="./src/main.js?v=20260920-1015"></script>
+  <script type="module" src="./src/main.js?v=20260920-1021"></script>
 </body>
 </html>
