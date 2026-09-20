@@ -4,321 +4,48 @@ import { HealthStore } from './core/health-store.js?v=20260920-1021';
 import { SourceRegistry } from './core/source-registry.js?v=20260920-1021';
 import { EpgService } from './core/epg.js?v=20260920-1021';
 import { PlayerController } from './core/player.js?v=20260920-1021';
-import { fetchWithTimeout, formatTime, normalizeId, cleanUrl, isHls, workerUrl } from './core/utils.js?v=20260920-1021';
+import { formatTime, normalizeId, cleanUrl, isHls, workerUrl } from './core/utils.js?v=20260920-1021';
 
-const $ = (id) => document.getElementById(id);
+const $ = id => document.getElementById(id);
 const els = {
-  clock: $('clock'), list: $('channel-list'), summary: $('channel-summary'), search: $('search'), group: $('group-filter'),
-  logo: $('channel-logo'), channelName: $('channel-name'), channelGroup: $('channel-group'), status: $('playback-status'), officialLive: $('official-live'),
-  video: $('video'), iframe: $('iframe'), empty: $('empty-state'), programTitle: $('program-title'),
-  programDescription: $('program-description'), programTime: $('program-time'), progress: $('epg-progress'),
-  progressBar: $('epg-progress').querySelector('span'), next: $('next-programs'), diagnostics: $('diagnostics'),
-  diagToggle: $('diagnostics-toggle'), diagSource: $('diag-source'), diagRoute: $('diag-route'), diagPlayer: $('diag-player'),
-  diagStartup: $('diag-startup'), diagLog: $('diagnostic-log'), clearHealth: $('clear-health'), playlistUrl: $('playlist-url'),
-  loadPlaylist: $('load-playlist'), sourceHuntToggle: $('source-hunt-toggle'), sourceHunt: $('source-hunt'), huntChannel: $('hunt-channel'),
-  huntLinks: $('hunt-links'), candidateUrl: $('candidate-url'), testCandidate: $('test-candidate'),
+  clock:$('clock'), list:$('channel-list'), summary:$('channel-summary'), search:$('search'), group:$('group-filter'),
+  logo:$('channel-logo'), channelName:$('channel-name'), channelGroup:$('channel-group'), status:$('playback-status'), officialLive:$('official-live'),
+  video:$('video'), iframe:$('iframe'), empty:$('empty-state'), programTitle:$('program-title'), programDescription:$('program-description'), programTime:$('program-time'),
+  progress:$('epg-progress'), progressBar:$('epg-progress').querySelector('span'), next:$('next-programs'), diagnostics:$('diagnostics'), diagToggle:$('diagnostics-toggle'),
+  diagSource:$('diag-source'), diagRoute:$('diag-route'), diagPlayer:$('diag-player'), diagStartup:$('diag-startup'), diagLog:$('diagnostic-log'), clearHealth:$('clear-health'),
+  sourceHuntToggle:$('source-hunt-toggle'), sourceHunt:$('source-hunt'), huntChannel:$('hunt-channel'), huntLinks:$('hunt-links'), candidateUrl:$('candidate-url'), testCandidate:$('test-candidate')
 };
 
 const health = new HealthStore();
 const sources = new SourceRegistry(health);
 const epg = new EpgService();
 let channels = [];
+let repoChannels = [];
 let selected = null;
 
-const player = new PlayerController({
-  video: els.video,
-  iframe: els.iframe,
-  emptyState: els.empty,
-  health,
-  onState: setPlaybackState,
-  onDiagnostics: updateDiagnostics,
-});
+const player = new PlayerController({video:els.video,iframe:els.iframe,emptyState:els.empty,health,onState:setPlaybackState,onDiagnostics:updateDiagnostics});
 
-function log(message) {
-  const stamp = new Date().toLocaleTimeString();
-  els.diagLog.textContent = `[${stamp}] ${message}\n${els.diagLog.textContent}`.slice(0, 18000);
-}
+function log(message){const stamp=new Date().toLocaleTimeString();els.diagLog.textContent=`[${stamp}] ${message}\n${els.diagLog.textContent}`.slice(0,18000);}
+function sourceLabel(value=''){try{const url=new URL(value);const path=url.pathname.length>70?`…${url.pathname.slice(-67)}`:url.pathname;return `${url.hostname}${path}`;}catch{return value||'-';}}
+function isoDateDaysAgo(days){const date=new Date();date.setDate(date.getDate()-days);return date.toISOString().slice(0,10);}
+function searchUrl(engine,query,type=''){if(engine==='github')return `https://github.com/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type||'code')}`;return `https://www.google.com/search?q=${encodeURIComponent(query)}`;}
 
-function sourceLabel(value = '') {
-  try {
-    const url = new URL(value);
-    const path = url.pathname.length > 70 ? `…${url.pathname.slice(-67)}` : url.pathname;
-    return `${url.hostname}${path}`;
-  } catch {
-    return value || '-';
-  }
-}
-
-function isoDateDaysAgo(days) {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString().slice(0, 10);
-}
-
-function searchUrl(engine, query, type = '') {
-  if (engine === 'github') return `https://github.com/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type || 'code')}`;
-  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-}
-
-function renderSourceHunt(channel) {
-  if (!channel) {
-    els.sourceHuntToggle.hidden = true;
-    els.sourceHunt.hidden = true;
-    return;
-  }
-
-  els.sourceHuntToggle.hidden = false;
-  els.huntChannel.textContent = channel.name;
-  const since = isoDateDaysAgo(14);
-  const name = channel.name;
-  const base = `"${name}" Greece Greek TV`;
-  const hunts = [
-    { title: 'Fresh Web', desc: 'Τελευταίες 14 μέρες · HLS / M3U8', url: searchUrl('google', `${base} (m3u8 OR HLS OR "playlist.m3u8") after:${since}`) },
-    { title: 'Active Playlists', desc: 'Πρόσφατα GitHub playlists / EXTINF', url: searchUrl('google', `site:github.com ${base} ("#EXTINF" OR m3u8 OR "playlist.m3u8") after:${since}`) },
-    { title: 'GitHub Code', desc: 'Code search για stream URLs', url: searchUrl('github', `"${name}" m3u8`, 'code') },
-    { title: 'GitHub Issues', desc: `Issues ενημερωμένα από ${since}`, url: searchUrl('github', `"${name}" m3u8 updated:>=${since}`, 'issues') },
-    { title: 'GitHub Commits', desc: 'Πρόσφατες αλλαγές σε stream lists', url: searchUrl('github', `"${name}" m3u8 committer-date:>=${since}`, 'commits') },
-    { title: 'Forums / Threads', desc: 'Forums, IPTV threads, community reports', url: searchUrl('google', `${base} (m3u8 OR HLS) (forum OR thread OR IPTV) after:${since}`) },
-  ];
-
-  els.huntLinks.innerHTML = '';
-  for (const hunt of hunts) {
-    const link = document.createElement('a');
-    link.className = 'hunt-link';
-    link.href = hunt.url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    const title = document.createElement('strong');
-    title.textContent = hunt.title;
-    const desc = document.createElement('span');
-    desc.textContent = hunt.desc;
-    link.append(title, desc);
-    els.huntLinks.appendChild(link);
-  }
-}
-
-function setPlaybackState(state, label) {
-  els.status.className = `status-pill ${state}`;
-  els.status.textContent = label;
-}
-
-function clearDiagnostics() {
-  els.diagSource.textContent = '-';
-  els.diagRoute.textContent = '-';
-  els.diagPlayer.textContent = '-';
-  els.diagStartup.textContent = '-';
-}
-
-function updateDiagnostics(info) {
-  els.diagSource.textContent = info.source || '-';
-  els.diagRoute.textContent = info.route || '-';
-  els.diagPlayer.textContent = info.player || '-';
-  els.diagStartup.textContent = info.startupMs ? `${info.startupMs} ms` : '-';
-  const source = sourceLabel(info.source);
-  if (info.error) log(`FAIL ${info.route} · ${source} · ${info.error}`);
-  else log(`OK ${info.player} via ${info.route} · ${source} · ${info.startupMs} ms`);
-}
-
-function setOfficialLive(channel) {
-  const key = normalizeId(channel?.id || channel?.originalId || channel?.name || '');
-  const url = OFFICIAL_LIVE[key] || '';
-  els.officialLive.hidden = !url;
-  els.officialLive.href = url || '#';
-  return url;
-}
-
-function renderGroups() {
-  const groups = [...new Set(channels.map(c => c.group || 'Other'))].sort((a, b) => a.localeCompare(b));
-  els.group.innerHTML = '';
-  const all = document.createElement('option');
-  all.value = 'all'; all.textContent = 'Όλες οι κατηγορίες'; els.group.appendChild(all);
-  for (const group of groups) {
-    const option = document.createElement('option');
-    option.value = group; option.textContent = group; els.group.appendChild(option);
-  }
-}
-
-function filteredChannels() {
-  const q = els.search.value.trim().toLowerCase();
-  const group = els.group.value;
-  return channels.filter(channel => {
-    const searchOk = !q || `${channel.name} ${channel.originalId}`.toLowerCase().includes(q);
-    const groupOk = group === 'all' || channel.group === group;
-    return searchOk && groupOk;
-  });
-}
-
-function renderChannels() {
-  const visible = filteredChannels();
-  els.summary.textContent = `${visible.length} / ${channels.length} κανάλια`;
-  els.list.innerHTML = '';
-
-  for (const channel of visible) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `channel-item${selected?.id === channel.id ? ' active' : ''}`;
-    button.setAttribute('role', 'listitem');
-
-    const logo = document.createElement('img');
-    logo.alt = '';
-    logo.loading = 'lazy';
-    logo.src = channel.logo || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="42" height="42"%3E%3Crect width="100%25" height="100%25" rx="8" fill="%2310161c"/%3E%3C/svg%3E';
-
-    const meta = document.createElement('div');
-    const name = document.createElement('strong');
-    name.textContent = channel.name;
-    const group = document.createElement('span');
-    group.textContent = channel.group || 'Other';
-    meta.append(name, group);
-
-    const stats = sources.getStats(channel);
-    const count = document.createElement('span');
-    count.className = 'source-count';
-    count.textContent = stats.cooling ? `${stats.active}/${stats.total}` : `${stats.total}`;
-    count.title = stats.cooling ? `${stats.cooling} route(s) in cooldown` : 'Playback routes';
-
-    button.append(logo, meta, count);
-    button.addEventListener('click', () => selectChannel(channel));
-    els.list.appendChild(button);
-  }
-}
-
-async function selectChannel(channel) {
-  selected = channel;
-  renderChannels();
-  renderSourceHunt(channel);
-  els.channelName.textContent = channel.name;
-  els.channelGroup.textContent = channel.group || 'WEBTV';
-  if (channel.logo) { els.logo.src = channel.logo; els.logo.hidden = false; } else { els.logo.hidden = true; }
-  clearDiagnostics();
-  const officialUrl = setOfficialLive(channel);
-
-  renderEpg();
-  const stats = sources.getStats(channel);
-  const routes = sources.getSources(channel);
-  log(`${channel.name}: ${stats.active}/${stats.total} active routes${stats.cooling ? `, ${stats.cooling} cooling` : ''}`);
-  try {
-    await player.play(channel, routes);
-  } catch (error) {
-    log(`${channel.name}: ${error.message}`);
-    if (officialUrl) setPlaybackState('error', 'Official fallback');
-  } finally {
-    renderChannels();
-  }
-}
-
-async function testCandidateUrl() {
-  if (!selected) return;
-  const url = cleanUrl(els.candidateUrl.value.trim());
-  if (!/^https?:\/\//i.test(url)) {
-    log('Candidate rejected: valid http/https URL required');
-    return;
-  }
-
-  const routes = [];
-  if (/^https:\/\//i.test(url)) routes.push({ originalUrl: url, playbackUrl: url, route: 'candidate-direct' });
-  if (isHls(url) && CONFIG.workerForHls) routes.push({ originalUrl: url, playbackUrl: workerUrl(url), route: 'candidate-worker' });
-  if (!routes.length) {
-    log(`Candidate rejected: unsupported or insecure non-HLS URL · ${sourceLabel(url)}`);
-    return;
-  }
-
-  clearDiagnostics();
-  log(`Candidate test for ${selected.name} · ${sourceLabel(url)} · ${routes.length} route(s)`);
-  try {
-    await player.play({ ...selected, name: `${selected.name} candidate` }, routes);
-  } catch (error) {
-    log(`Candidate failed · ${sourceLabel(url)} · ${error.message}`);
-  }
-}
-
-function renderEpg() {
-  if (!selected) return;
-  const { current, next } = epg.get(selected);
-  if (!current) {
-    els.programTitle.textContent = 'Δεν υπάρχουν τρέχοντα δεδομένα EPG';
-    els.programDescription.textContent = '';
-    els.programTime.textContent = '';
-    els.progress.hidden = true;
-  } else {
-    els.programTitle.textContent = current.title;
-    els.programDescription.textContent = current.description || '';
-    els.programTime.textContent = current.timeLabel;
-    els.progress.hidden = false;
-    els.progressBar.style.width = `${current.progress}%`;
-  }
-
-  els.next.innerHTML = '';
-  for (const item of next) {
-    const card = document.createElement('div');
-    card.className = 'next-card';
-    const time = document.createElement('time');
-    time.textContent = `${formatTime(item.start)} – ${formatTime(item.stop)}`;
-    const title = document.createElement('strong');
-    title.textContent = item.title;
-    card.append(time, title);
-    els.next.appendChild(card);
-  }
-}
-
-async function loadExternalPlaylist() {
-  const url = els.playlistUrl.value.trim();
-  if (!url) return;
-  els.loadPlaylist.disabled = true;
-  try {
-    const response = await fetchWithTimeout(url, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const imported = parseM3U(await response.text());
-    channels = dedupeChannels([...channels, ...imported]);
-    renderGroups(); renderChannels();
-    log(`Imported ${imported.length} channels from external M3U`);
-  } catch (error) {
-    log(`External playlist failed: ${error.message}`);
-  } finally {
-    els.loadPlaylist.disabled = false;
-  }
-}
-
-function startClock() {
-  const tick = () => { els.clock.textContent = new Date().toLocaleString('de-DE'); };
-  tick(); setInterval(tick, 1000);
-}
-
-async function boot() {
-  startClock();
-  setPlaybackState('idle', 'Idle');
-  clearDiagnostics();
-  els.officialLive.hidden = true;
-  els.sourceHuntToggle.hidden = true;
-  els.sourceHunt.hidden = true;
-
-  const catalogResponse = await fetch(CONFIG.channelCatalogUrl, { cache: 'no-store' });
-  if (!catalogResponse.ok) throw new Error(`Catalog HTTP ${catalogResponse.status}`);
-  channels = parseM3U(await catalogResponse.text());
-
-  const sourceTask = sources.refresh().then(() => log(`Source registry loaded · build ${CONFIG.buildId || 'dev'}`)).catch(error => log(`Source registry unavailable: ${error.message}`));
-  const epgTask = epg.refresh().then(() => { log('EPG loaded'); renderEpg(); }).catch(error => log(`EPG unavailable: ${error.message}`));
-
-  await sourceTask;
-  renderGroups(); renderChannels();
-  await epgTask;
-
-  setInterval(renderEpg, 30000);
-  setInterval(() => epg.refresh().then(renderEpg).catch(error => log(`EPG refresh failed: ${error.message}`)), CONFIG.epgRefreshMs);
-}
-
-els.search.addEventListener('input', renderChannels);
-els.group.addEventListener('change', renderChannels);
-els.diagToggle.addEventListener('click', () => { els.diagnostics.hidden = !els.diagnostics.hidden; });
-els.sourceHuntToggle.addEventListener('click', () => { if (selected) { renderSourceHunt(selected); els.sourceHunt.hidden = !els.sourceHunt.hidden; } });
-els.clearHealth.addEventListener('click', () => { health.clear(); log('Health data cleared'); renderChannels(); });
-els.loadPlaylist.addEventListener('click', loadExternalPlaylist);
-els.playlistUrl.addEventListener('keydown', event => { if (event.key === 'Enter') loadExternalPlaylist(); });
-els.testCandidate.addEventListener('click', testCandidateUrl);
-els.candidateUrl.addEventListener('keydown', event => { if (event.key === 'Enter') testCandidateUrl(); });
-
-boot().catch(error => {
-  setPlaybackState('error', 'Boot failed');
-  log(`BOOT ERROR: ${error.message}`);
-  console.error(error);
-});
+function renderSourceHunt(channel){if(!channel){els.sourceHuntToggle.hidden=true;els.sourceHunt.hidden=true;return;}els.sourceHuntToggle.hidden=false;els.huntChannel.textContent=channel.name;const since=isoDateDaysAgo(30),name=channel.name,base=`"${name}" Greece Greek TV`;const hunts=[{title:'Fresh Web',desc:'Τελευταίες 30 μέρες · HLS / M3U8',url:searchUrl('google',`${base} (m3u8 OR HLS OR "playlist.m3u8") after:${since}`)},{title:'Active Playlists',desc:'Πρόσφατα playlists / EXTINF',url:searchUrl('google',`site:github.com ${base} ("#EXTINF" OR m3u8 OR "playlist.m3u8") after:${since}`)},{title:'GitHub Code',desc:'Code search για stream URLs',url:searchUrl('github',`"${name}" m3u8`,'code')},{title:'GitHub Issues',desc:`Issues ενημερωμένα από ${since}`,url:searchUrl('github',`"${name}" m3u8 updated:>=${since}`,'issues')},{title:'GitHub Commits',desc:'Πρόσφατες αλλαγές σε stream lists',url:searchUrl('github',`"${name}" m3u8 committer-date:>=${since}`,'commits')},{title:'Forums / Threads',desc:'Forums, IPTV threads, community reports',url:searchUrl('google',`${base} (m3u8 OR HLS) (forum OR thread OR IPTV) after:${since}`)}];els.huntLinks.innerHTML='';for(const hunt of hunts){const link=document.createElement('a');link.className='hunt-link';link.href=hunt.url;link.target='_blank';link.rel='noopener noreferrer';const title=document.createElement('strong');title.textContent=hunt.title;const desc=document.createElement('span');desc.textContent=hunt.desc;link.append(title,desc);els.huntLinks.appendChild(link);}}
+function setPlaybackState(state,label){els.status.className=`status-pill ${state}`;els.status.textContent=label;}
+function clearDiagnostics(){els.diagSource.textContent='-';els.diagRoute.textContent='-';els.diagPlayer.textContent='-';els.diagStartup.textContent='-';}
+function updateDiagnostics(info){els.diagSource.textContent=info.source||'-';els.diagRoute.textContent=info.route||'-';els.diagPlayer.textContent=info.player||'-';els.diagStartup.textContent=info.startupMs?`${info.startupMs} ms`:'-';const source=sourceLabel(info.source);if(info.error)log(`FAIL ${info.route} · ${source} · ${info.error}`);else log(`OK ${info.player} via ${info.route} · ${source} · ${info.startupMs} ms`);}
+function setOfficialLive(channel){const key=normalizeId(channel?.id||channel?.originalId||channel?.name||'');const url=OFFICIAL_LIVE[key]||'';els.officialLive.hidden=!url;els.officialLive.href=url||'#';return url;}
+function renderGroups(){const groups=[...new Set(channels.map(c=>c.group||'Other'))].sort((a,b)=>a.localeCompare(b));els.group.innerHTML='';const all=document.createElement('option');all.value='all';all.textContent='Όλες οι κατηγορίες';els.group.appendChild(all);for(const group of groups){const option=document.createElement('option');option.value=group;option.textContent=group;els.group.appendChild(option);}}
+function filteredChannels(){const q=els.search.value.trim().toLowerCase(),group=els.group.value;return channels.filter(channel=>(!q||`${channel.name} ${channel.originalId}`.toLowerCase().includes(q))&&(group==='all'||channel.group===group));}
+function renderChannels(){const visible=filteredChannels();els.summary.textContent=`${visible.length} / ${channels.length} κανάλια`;els.list.innerHTML='';for(const channel of visible){const button=document.createElement('button');button.type='button';button.className=`channel-item${selected?.id===channel.id?' active':''}`;button.setAttribute('role','listitem');const logo=document.createElement('img');logo.alt='';logo.loading='lazy';logo.src=channel.logo||'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="42" height="42"%3E%3Crect width="100%25" height="100%25" rx="8" fill="%2310161c"/%3E%3C/svg%3E';const meta=document.createElement('div');const name=document.createElement('strong');name.textContent=channel.name;const group=document.createElement('span');group.textContent=channel.group||'Other';meta.append(name,group);const stats=sources.getStats(channel);const count=document.createElement('span');count.className='source-count';count.textContent=stats.cooling?`${stats.active}/${stats.total}`:`${stats.total}`;count.title=stats.cooling?`${stats.cooling} route(s) in cooldown`:'Playback routes';button.append(logo,meta,count);button.addEventListener('click',()=>selectChannel(channel));els.list.appendChild(button);}}
+function clearSelectedIfMissing(){if(!selected)return;if(channels.some(c=>c.id===selected.id))return;selected=null;els.channelName.textContent='Επίλεξε κανάλι';els.channelGroup.textContent='WEBTV';els.logo.hidden=true;els.officialLive.hidden=true;els.sourceHuntToggle.hidden=true;els.sourceHunt.hidden=true;player.stop?.();}
+function applyPlaylistText(text,{mode='replace',label='Playlist'}={}){const imported=parseM3U(text);if(!imported.length)throw new Error('No #EXTINF channels found');channels=mode==='merge'?dedupeChannels([...channels,...imported]):dedupeChannels(imported);clearSelectedIfMissing();renderGroups();renderChannels();log(`Playlist applied · ${label} · ${mode} · ${imported.length} imported · ${channels.length} total`);return{imported:imported.length,total:channels.length};}
+function resetToRepo(){channels=repoChannels.map(c=>({...c,directUrls:[...(c.directUrls||[])]}));clearSelectedIfMissing();renderGroups();renderChannels();return{total:channels.length};}
+window.WebTVPlaylistAPI={ready:false,applyText:applyPlaylistText,resetToRepo,getCount:()=>channels.length};
+async function selectChannel(channel){selected=channel;renderChannels();renderSourceHunt(channel);els.channelName.textContent=channel.name;els.channelGroup.textContent=channel.group||'WEBTV';if(channel.logo){els.logo.src=channel.logo;els.logo.hidden=false;}else els.logo.hidden=true;clearDiagnostics();const officialUrl=setOfficialLive(channel);renderEpg();const stats=sources.getStats(channel),routes=sources.getSources(channel);log(`${channel.name}: ${stats.active}/${stats.total} active routes${stats.cooling?`, ${stats.cooling} cooling`:''}`);try{await player.play(channel,routes);}catch(error){log(`${channel.name}: ${error.message}`);if(officialUrl)setPlaybackState('error','Official fallback');}finally{renderChannels();}}
+async function testCandidateUrl(){if(!selected)return;const url=cleanUrl(els.candidateUrl.value.trim());if(!/^https?:\/\//i.test(url)){log('Candidate rejected: valid http/https URL required');return;}const routes=[];if(/^https:\/\//i.test(url))routes.push({originalUrl:url,playbackUrl:url,route:'candidate-direct'});if(isHls(url)&&CONFIG.workerForHls)routes.push({originalUrl:url,playbackUrl:workerUrl(url),route:'candidate-worker'});if(!routes.length){log(`Candidate rejected: unsupported or insecure non-HLS URL · ${sourceLabel(url)}`);return;}clearDiagnostics();log(`Candidate test for ${selected.name} · ${sourceLabel(url)} · ${routes.length} route(s)`);try{await player.play({...selected,name:`${selected.name} candidate`},routes);}catch(error){log(`Candidate failed · ${sourceLabel(url)} · ${error.message}`);}}
+function renderEpg(){if(!selected)return;const{current,next}=epg.get(selected);if(!current){els.programTitle.textContent='Δεν υπάρχουν τρέχοντα δεδομένα EPG';els.programDescription.textContent='';els.programTime.textContent='';els.progress.hidden=true;}else{els.programTitle.textContent=current.title;els.programDescription.textContent=current.description||'';els.programTime.textContent=current.timeLabel;els.progress.hidden=false;els.progressBar.style.width=`${current.progress}%`;}els.next.innerHTML='';for(const item of next){const card=document.createElement('div');card.className='next-card';const time=document.createElement('time');time.textContent=`${formatTime(item.start)} – ${formatTime(item.stop)}`;const title=document.createElement('strong');title.textContent=item.title;card.append(time,title);els.next.appendChild(card);}}
+function startClock(){const tick=()=>{els.clock.textContent=new Date().toLocaleString('de-DE');};tick();setInterval(tick,1000);}
+async function boot(){startClock();setPlaybackState('idle','Idle');clearDiagnostics();els.officialLive.hidden=true;els.sourceHuntToggle.hidden=true;els.sourceHunt.hidden=true;const catalogResponse=await fetch(CONFIG.channelCatalogUrl,{cache:'no-store'});if(!catalogResponse.ok)throw new Error(`Catalog HTTP ${catalogResponse.status}`);channels=parseM3U(await catalogResponse.text());repoChannels=channels.map(c=>({...c,directUrls:[...(c.directUrls||[])]}));const sourceTask=sources.refresh().then(()=>log(`Source registry loaded · build ${CONFIG.buildId||'dev'}`)).catch(error=>log(`Source registry unavailable: ${error.message}`));const epgTask=epg.refresh().then(()=>{log('EPG loaded');renderEpg();}).catch(error=>log(`EPG unavailable: ${error.message}`));await sourceTask;renderGroups();renderChannels();window.WebTVPlaylistAPI.ready=true;window.dispatchEvent(new CustomEvent('webtv:ready'));await epgTask;setInterval(renderEpg,30000);setInterval(()=>epg.refresh().then(renderEpg).catch(error=>log(`EPG refresh failed: ${error.message}`)),CONFIG.epgRefreshMs);}
+els.search.addEventListener('input',renderChannels);els.group.addEventListener('change',renderChannels);els.diagToggle.addEventListener('click',()=>{els.diagnostics.hidden=!els.diagnostics.hidden;});els.sourceHuntToggle.addEventListener('click',()=>{if(selected){renderSourceHunt(selected);els.sourceHunt.hidden=!els.sourceHunt.hidden;}});els.clearHealth.addEventListener('click',()=>{health.clear();log('Health data cleared');renderChannels();});els.testCandidate.addEventListener('click',testCandidateUrl);els.candidateUrl.addEventListener('keydown',event=>{if(event.key==='Enter')testCandidateUrl();});
+boot().catch(error=>{setPlaybackState('error','Boot failed');log(`BOOT ERROR: ${error.message}`);console.error(error);});
