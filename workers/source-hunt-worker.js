@@ -1,30 +1,30 @@
 const ALLOWED_ORIGIN = '*';
-const VERSION = '1.5';
+const VERSION = '1.6';
+
 const MAX_RESULTS = 12;
 const TARGET_RESULTS = 8;
 const MAX_DEBUG = 40;
 const MAX_FETCH_BYTES = 2000000;
 const MAX_SUBREQUEST_BUDGET = 36;
-const MAX_SEARCH_RESULTS = 24;
+const MAX_SEARCH_RESULTS = 18;
 const MAX_PLAYLIST_LINKS_PER_PAGE = 2;
+const MIN_FRESH_SEARCHES = 3;
 
 const PROFILES = {
-  'ERT1': { aliases:['ert1','ert 1','ert1.gr','ερτ1'], searches:['ERT1','ERT 1'] },
-  'ERT2': { aliases:['ert2','ert 2','ert2.gr','ερτ2'], searches:['ERT2','ERT 2'] },
-  'ERT3': { aliases:['ert3','ert 3','ert3.gr','ερτ3'], searches:['ERT3','ERT 3'] },
-  'ERT News': { aliases:['ertnews','ert news','ert_news','ert-news','ertnews.gr','ερτ news'], searches:['ERT News','ERTNEWS'] },
-  'ANT1': { aliases:['ant1','antenna1','ant1.gr','antenna','ant1 hd'], searches:['ANT1','ANT1 TV'] },
-  'Alpha TV': { aliases:['alpha tv','alphatv','alpha.gr','alpha hd'], searches:['Alpha TV','AlphaTV'] },
-  'SKAI': { aliases:['skai','skaitv','skai tv','skai.gr','skai hd','σκαι','σκαϊ'], searches:['SKAI','SKAI TV'] },
-  'Open TV': { aliases:['open tv','opentv','open beyond','open.gr','open hd'], searches:['OPEN TV','OPEN Beyond'] },
-  'MEGA': { aliases:['mega tv','megatv','mega channel','mega.gr','mega hd'], searches:['MEGA TV','Mega Channel'] },
-  'Star TV': { aliases:['star tv','startv','star channel','star.gr','star hd'], searches:['STAR TV','Star Channel Greece'] },
-  'Action 24': { aliases:['action 24','action24','action tv','action24.gr'], searches:['Action 24','Action24'] },
-  'Kontra': { aliases:['kontra','kontra channel','kontra tv','kontrachannel'], searches:['Kontra','Kontra Channel'] },
+  'ERT1': { aliases:['ert1','ert 1','ert1.gr','ερτ1'], searches:['ERT1','ERT 1'], mainNames:['ert1','ert 1','ερτ1'] },
+  'ERT2': { aliases:['ert2','ert 2','ert2.gr','ερτ2'], searches:['ERT2','ERT 2'], mainNames:['ert2','ert 2','ερτ2'] },
+  'ERT3': { aliases:['ert3','ert 3','ert3.gr','ερτ3'], searches:['ERT3','ERT 3'], mainNames:['ert3','ert 3','ερτ3'] },
+  'ERT News': { aliases:['ertnews','ert news','ert_news','ert-news','ertnews.gr','ερτ news'], searches:['ERT News','ERTNEWS'], mainNames:['ert news','ertnews','ερτ news'] },
+  'ANT1': { aliases:['ant1','antenna1','ant1.gr','antenna','ant1 hd'], searches:['ANT1','ANT1 TV'], mainNames:['ant1','ant1 hd','ant1 tv','antenna'] },
+  'Alpha TV': { aliases:['alpha tv','alphatv','alpha.gr','alpha hd'], searches:['Alpha TV','AlphaTV'], mainNames:['alpha','alpha tv','alpha hd','alphatv'] },
+  'SKAI': { aliases:['skai','skaitv','skai tv','skai.gr','skai hd','σκαι','σκαϊ'], searches:['SKAI','SKAI TV'], mainNames:['skai','skai hd','skai tv','skaitv','σκαι','σκαϊ'] },
+  'Open TV': { aliases:['open tv','opentv','open beyond','open.gr','open hd'], searches:['OPEN TV','OPEN Beyond'], mainNames:['open','open tv','open hd','open beyond','opentv'] },
+  'MEGA': { aliases:['mega tv','megatv','mega channel','mega.gr','mega hd'], searches:['MEGA TV','Mega Channel'], mainNames:['mega','mega tv','mega hd','mega channel','megatv'] },
+  'Star TV': { aliases:['star tv','startv','star channel','star.gr','star hd'], searches:['STAR TV','Star Channel Greece'], mainNames:['star','star tv','star hd','star channel','startv'] },
+  'Action 24': { aliases:['action 24','action24','action tv','action24.gr'], searches:['Action 24','Action24'], mainNames:['action 24','action24','action tv'] },
+  'Kontra': { aliases:['kontra','kontra channel','kontra tv','kontrachannel'], searches:['Kontra','Kontra Channel'], mainNames:['kontra','kontra channel','kontra tv','kontrachannel'] }
 };
 
-// Known Greek playlist sources supplied by the project. These are scanned first
-// because one request can expose many exact #EXTINF channel entries.
 const SEED_PLAYLISTS = [
   {name:'hitnickgr/iptv',url:'https://raw.githubusercontent.com/hitnickgr/iptv/refs/heads/main/GreekChannels'},
   {name:'jimgate07/grtv',url:'https://raw.githubusercontent.com/jimgate07/grtv/refs/heads/master/android.m3u'},
@@ -35,19 +35,43 @@ const SEED_PLAYLISTS = [
 ];
 
 const NEGATIVE_TERMS='-crypto -coin -token -restaurant -tiktok -music -lyrics -celebrity -game -gaming';
+const REJECT_VARIANTS=/\b(hybrid|sport|sports|radio|fm|web radio|webradio|not 24\/7|test feed|promo)\b/i;
 
 function cors(){ return {'access-control-allow-origin':ALLOWED_ORIGIN,'access-control-allow-methods':'GET,OPTIONS','access-control-allow-headers':'content-type'}; }
 function json(data,status=200){ return new Response(JSON.stringify(data),{status,headers:{...cors(),'content-type':'application/json;charset=utf-8','cache-control':'no-store'}}); }
-function normalize(s=''){ return String(s).toLowerCase().replace(/[^a-z0-9α-ωάέήίόύώϊϋΐΰ]+/gi,' '); }
-function profile(channel){ return PROFILES[channel]||{aliases:[String(channel||'').toLowerCase()],searches:[String(channel||'')]}; }
-function relevant(text,channel){ const h=normalize(text); return profile(channel).aliases.some(a=>h.includes(normalize(a).trim())); }
+function normalize(s=''){ return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9α-ω]+/gi,' ').replace(/\s+/g,' ').trim(); }
+function profile(channel){ return PROFILES[channel]||{aliases:[String(channel||'').toLowerCase()],searches:[String(channel||'')],mainNames:[String(channel||'').toLowerCase()]}; }
+function relevant(text,channel){ const h=normalize(text); return profile(channel).aliases.some(a=>h.includes(normalize(a))); }
 function cleanUrl(url=''){ return String(url).replace(/&amp;/g,'&').replace(/\\\//g,'/').replace(/[),.;]+$/g,''); }
 function addUnique(list,item){ if(item?.url && !list.some(x=>x.url===item.url)) list.push(item); }
+function entryTitle(extinf=''){ const i=String(extinf).lastIndexOf(','); return i>=0?String(extinf).slice(i+1).trim():String(extinf).trim(); }
 
 class Budget {
   constructor(limit=MAX_SUBREQUEST_BUDGET){ this.limit=limit; this.used=0; }
   canUse(n=1){ return this.used+n<=this.limit; }
   take(){ if(!this.canUse()) throw new Error('hunt subrequest budget exhausted'); this.used++; }
+}
+
+function classifyEntry(extinf='',url='',channel=''){
+  const p=profile(channel);
+  const title=entryTitle(extinf);
+  const titleNorm=normalize(title);
+  const all=`${extinf} ${url}`;
+
+  if(REJECT_VARIANTS.test(all)) return {accepted:false,score:0,className:'special',reason:'special/hybrid/radio/sport'};
+  if(/\b\d{2,3}[.,]\d\b/.test(all) || /listen\.pls|netradio/i.test(all)) return {accepted:false,score:0,className:'radio',reason:'radio/frequency'};
+  if(!relevant(`${title} ${extinf}`,channel)) return {accepted:false,score:0,className:'other',reason:'channel mismatch'};
+
+  const exact=p.mainNames.some(n=>titleNorm===normalize(n));
+  if(exact) return {accepted:true,score:100,className:'main-tv',reason:'exact main title'};
+
+  const prefix=p.mainNames.some(n=>titleNorm.startsWith(`${normalize(n)} `));
+  if(prefix) return {accepted:true,score:90,className:'main-tv',reason:'main title variant'};
+
+  const alias=p.aliases.some(a=>titleNorm.includes(normalize(a)));
+  if(alias) return {accepted:true,score:70,className:'main-tv',reason:'channel alias match'};
+
+  return {accepted:false,score:0,className:'other',reason:'not main TV'};
 }
 
 function parseM3uEntries(text='',channel=''){
@@ -64,20 +88,29 @@ function parseM3uEntries(text='',channel=''){
       if(/^https?:\/\//i.test(next)) stream=cleanUrl(next);
       break;
     }
-    if(stream) out.push({url:stream,extinf:extinf.slice(0,500)});
+    if(!stream) continue;
+    const cls=classifyEntry(extinf,stream,channel);
+    if(cls.accepted) out.push({url:stream,extinf:extinf.slice(0,500),score:cls.score,className:cls.className,reason:cls.reason});
   }
-  return out;
+  return out.sort((a,b)=>b.score-a.score);
 }
 
 function extractDirectStreams(text=''){
   return [...new Set((String(text).match(/https?:\/\/[^\s"'<>]+?\.(?:m3u8|mpd|mp4|webm)(?:\?[^\s"'<>]*)?/gi)||[]).map(cleanUrl))];
 }
 
+function directAllowed(context,url,channel){
+  const all=`${context} ${url}`;
+  if(!relevant(all,channel)) return false;
+  if(REJECT_VARIANTS.test(all)) return false;
+  if(/\b\d{2,3}[.,]\d\b/.test(all) || /listen\.pls|netradio/i.test(all)) return false;
+  return true;
+}
+
 function isPlausiblePlaylistUrl(raw='',baseUrl=''){
   try{
     const u=new URL(cleanUrl(raw),baseUrl||undefined);
     if(!/^https?:$/.test(u.protocol)) return null;
-    // The pathname itself must look like a playlist. Do not accept ?id=foo.m3u noise.
     if(!/\.m3u$/i.test(u.pathname)) return null;
     if(/google\.com|play\.google\.com|accounts\.google\.com/i.test(u.hostname)) return null;
     return u.href;
@@ -135,15 +168,16 @@ function candidate(url,origin,source,extra={}){
 }
 
 async function scanPlaylist(seed,channel,budget,debug,origin='Known Greek M3U seed'){
-  const report={type:'playlist',name:seed.name||'',url:seed.url,status:null,entries:0,accepted:0,reason:''};
+  const report={type:'playlist',name:seed.name||'',url:seed.url,status:null,entries:0,accepted:0,rejectedSpecial:0,reason:''};
   const out=[];
-  if(!budget.canUse()) { report.reason='budget skipped'; if(debug) debug.push(report); return out; }
+  if(!budget.canUse()){ report.reason='budget skipped'; if(debug) debug.push(report); return out; }
   try{
     const f=await fetchText(toRawGithubUrl(seed.url),budget); report.status=f.status;
     if(!f.ok){ report.reason=`fetch failed ${f.status}`; if(debug) debug.push(report); return out; }
-    const entries=parseM3uEntries(f.text,channel); report.entries=entries.length;
-    for(const e of entries) addUnique(out,candidate(e.url,origin,seed,{method:'extinf-seed',extinf:e.extinf,playlist:seed.url}));
-    report.accepted=out.length; report.reason=out.length?'matching EXTINF entries':'channel not found';
+    const rawRelevant=(f.text.match(/#EXTINF:[^\n]*(?:skai|σκαι|σκαϊ|ert|ant1|alpha|mega|star|open|action|kontra)[^\n]*/gi)||[]).length;
+    const entries=parseM3uEntries(f.text,channel); report.entries=entries.length; report.rejectedSpecial=Math.max(0,rawRelevant-entries.length);
+    for(const e of entries) addUnique(out,candidate(e.url,origin,seed,{method:'extinf-seed',extinf:e.extinf,playlist:seed.url,quality:e.className,matchScore:e.score}));
+    report.accepted=out.length; report.reason=out.length?'main-TV EXTINF entries':'no main-TV entry';
   }catch(error){ report.reason=error?.message||String(error); }
   if(debug) debug.push(report); return out;
 }
@@ -168,6 +202,7 @@ function rankResult(r,channel){
   if(/github|gist|raw\.githubusercontent/i.test(r.url||'')) s+=7;
   if(/m3u|iptv|playlist|stream/i.test(ctx)) s+=5;
   if(/reddit|forum|linuxsat/i.test(ctx)) s+=2;
+  if(REJECT_VARIANTS.test(ctx)) s-=8;
   if(/wikipedia|tiktok|play\.google|aptoide|sourceforge/i.test(r.url||'')) s-=10;
   return s;
 }
@@ -175,65 +210,91 @@ function rankResult(r,channel){
 async function inspectWebResult(result,channel,budget,debug){
   const report={type:'page',title:(result.title||'').slice(0,120),url:result.url||'',score:rankResult(result,channel),status:null,directFound:0,playlistLinksFound:0,accepted:0,reason:''};
   const out=[]; const context=`${result.title||''}\n${result.description||''}\n${result.url||''}`;
-  for(const u of extractDirectStreams(context)) if(relevant(`${context} ${u}`,channel)) addUnique(out,candidate(u,'Web search',result,{method:'brave-snippet'}));
-  if(out.length>=TARGET_RESULTS || !result.url || report.score<3 || !budget.canUse()){ report.accepted=out.length; report.reason=out.length?'direct snippet':'skipped low-value/budget'; if(debug) debug.push(report); return out; }
+
+  for(const u of extractDirectStreams(context)) if(directAllowed(context,u,channel)) addUnique(out,candidate(u,'Fresh Web search',result,{method:'brave-snippet',quality:'main-tv'}));
+
+  if(!result.url || report.score<3 || !budget.canUse()){
+    report.accepted=out.length; report.reason=out.length?'direct snippet':'skipped low-value/budget'; if(debug) debug.push(report); return out;
+  }
 
   try{
     const f=await fetchText(toRawGithubUrl(result.url),budget); report.status=f.status;
     if(!f.ok){ report.reason=`fetch failed ${f.status}`; if(debug) debug.push(report); return out; }
 
     const own=parseM3uEntries(f.text,channel);
-    for(const e of own) addUnique(out,candidate(e.url,/github/i.test(result.url)?'GitHub/Web search':'Web search',result,{method:'extinf-page',extinf:e.extinf,playlist:result.url}));
+    for(const e of own) addUnique(out,candidate(e.url,/github/i.test(result.url)?'Fresh GitHub/Web':'Fresh Web search',result,{method:'extinf-page',extinf:e.extinf,playlist:result.url,quality:e.className,matchScore:e.score}));
 
     const direct=extractDirectStreams(f.text); report.directFound=direct.length;
     for(const u of direct){
       if(out.some(x=>x.url===u)) continue;
       const idx=f.text.indexOf(u); const nearby=idx>=0?f.text.slice(Math.max(0,idx-700),Math.min(f.text.length,idx+u.length+700)):'';
-      if(relevant(`${nearby} ${context}`,channel)) addUnique(out,candidate(u,'Web search',result,{method:'nearby'}));
+      if(directAllowed(`${nearby} ${context}`,u,channel)) addUnique(out,candidate(u,'Fresh Web search',result,{method:'nearby',quality:'main-tv'}));
     }
 
     const links=extractPlaylistLinks(f.text,result.url).slice(0,MAX_PLAYLIST_LINKS_PER_PAGE); report.playlistLinksFound=links.length;
     for(const url of links){
-      if(out.length>=TARGET_RESULTS || !budget.canUse()) break;
-      const found=await scanPlaylist({name:result.title||'linked playlist',url},channel,budget,debug,'Web linked M3U');
+      if(!budget.canUse()) break;
+      const found=await scanPlaylist({name:result.title||'linked playlist',url},channel,budget,debug,'Fresh Web linked M3U');
       for(const c of found) addUnique(out,c);
     }
-    report.accepted=out.length; report.reason=out.length?'accepted candidates':'no channel stream';
+
+    report.accepted=out.length; report.reason=out.length?'accepted main-TV candidates':'no main-TV stream';
   }catch(error){ report.reason=error?.message||String(error); }
   if(debug) debug.push(report); return out;
 }
 
 async function hunt(env,channel,days,wantDebug=false){
-  const budget=new Budget(); const candidates=[]; const scans=[]; const queryDebug=[];
+  const budget=new Budget();
+  const candidates=[];
+  const scans=[];
+  const queryDebug=[];
 
-  // Phase 1: efficient exact scans of known Greek playlists.
+  // Phase 1: scan all known Greek seed playlists. These are cheap and precise.
   for(const seed of SEED_PLAYLISTS){
-    if(candidates.length>=TARGET_RESULTS || !budget.canUse()) break;
+    if(!budget.canUse()) break;
     const found=await scanPlaylist(seed,channel,budget,wantDebug?scans:null);
     for(const c of found) addUnique(candidates,c);
   }
 
-  // Phase 2: recent Brave discovery, with fewer calls and ranked pages.
+  // Phase 2: always run a small fresh Brave pass, even when seeds already found streams.
   const queries=buildQueries(channel);
   const merged=[];
+  let searchesRun=0;
+
   for(const q of queries){
-    if(candidates.length>=TARGET_RESULTS || !budget.canUse()) break;
+    if(!budget.canUse()) break;
+    if(searchesRun>=MIN_FRESH_SEARCHES && candidates.length>=TARGET_RESULTS) break;
     try{
-      const rows=await braveSearch(env,q,budget,8); merged.push(...rows);
+      const rows=await braveSearch(env,q,budget,8); merged.push(...rows); searchesRun++;
       if(wantDebug) queryDebug.push({query:q,results:rows.length});
-    }catch(error){ if(wantDebug) queryDebug.push({query:q,error:error?.message||String(error)}); }
+    }catch(error){ searchesRun++; if(wantDebug) queryDebug.push({query:q,error:error?.message||String(error)}); }
   }
 
   const ranked=[...new Map(merged.filter(r=>r?.url).map(r=>[r.url,r])).values()]
-    .map(r=>({r,score:rankResult(r,channel)})).sort((a,b)=>b.score-a.score).slice(0,MAX_SEARCH_RESULTS);
+    .map(r=>({r,score:rankResult(r,channel)}))
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,MAX_SEARCH_RESULTS);
 
+  let webPagesScanned=0;
   for(const {r} of ranked){
-    if(candidates.length>=TARGET_RESULTS || !budget.canUse()) break;
+    if(!budget.canUse()) break;
+    if(webPagesScanned>=6 && candidates.length>=TARGET_RESULTS) break;
     const found=await inspectWebResult(r,channel,budget,wantDebug?scans:null);
+    webPagesScanned++;
     for(const c of found) addUnique(candidates,c);
   }
 
-  const result={candidates:candidates.slice(0,MAX_RESULTS),count:Math.min(candidates.length,MAX_RESULTS),searched:queryDebug.length||queries.length,resultsScanned:ranked.length,subrequestsUsed:budget.used,subrequestBudget:budget.limit};
+  candidates.sort((a,b)=>(b.matchScore||80)-(a.matchScore||80));
+
+  const result={
+    candidates:candidates.slice(0,MAX_RESULTS),
+    count:Math.min(candidates.length,MAX_RESULTS),
+    freshSearchesRun:searchesRun,
+    resultsScanned:webPagesScanned,
+    subrequestsUsed:budget.used,
+    subrequestBudget:budget.limit
+  };
+
   if(wantDebug) result.debug={queries:queryDebug,scans:scans.slice(0,MAX_DEBUG)};
   return result;
 }
@@ -242,12 +303,27 @@ export default {
   async fetch(request,env){
     if(request.method==='OPTIONS') return new Response(null,{status:204,headers:cors()});
     const url=new URL(request.url);
-    if(url.pathname!=='/hunt') return json({ok:true,service:'WebTV Source Hunt Worker',version:VERSION,features:['seed-first Greek M3U','exact EXTINF pairing','budgeted Brave fallback','ranked page scans'],endpoint:'/hunt?channel=SKAI&days=30&debug=1'});
+
+    if(url.pathname!=='/hunt'){
+      return json({
+        ok:true,
+        service:'WebTV Source Hunt Worker',
+        version:VERSION,
+        features:['strict main-TV classification','seed-first Greek M3U','exact EXTINF pairing','mandatory fresh web pass','budgeted scans'],
+        endpoint:'/hunt?channel=SKAI&days=30&debug=1'
+      });
+    }
+
     const channel=(url.searchParams.get('channel')||'').trim();
     const days=Math.min(30,Math.max(1,Number(url.searchParams.get('days')||30)));
     const wantDebug=url.searchParams.get('debug')==='1';
     if(!channel) return json({error:'channel is required'},400);
-    try{ return json({channel,days,...await hunt(env,channel,days,wantDebug)}); }
-    catch(error){ return json({error:error?.message||String(error),channel,days},500); }
+
+    try{
+      const result=await hunt(env,channel,days,wantDebug);
+      return json({channel,days,...result});
+    }catch(error){
+      return json({error:error?.message||String(error),channel,days},500);
+    }
   }
 };
