@@ -1,9 +1,9 @@
 export const CONFIG = Object.freeze({
   appName: 'WebTV V2',
-  buildId: '20260920-0946',
+  buildId: '20260920-1010',
   cacheBaseUrl: 'https://tv-cache.atonis.workers.dev',
   epgUrl: 'https://epg-proxy-gr.atonis.workers.dev/epg.xml',
-  channelCatalogUrl: './data/channels.m3u?v=20260920-0946',
+  channelCatalogUrl: './data/channels.m3u?v=20260920-1010',
   healthStorageKey: 'webtv_v2_health',
   requestTimeoutMs: 9000,
   startupTimeoutMs: 12000,
@@ -17,8 +17,34 @@ export const CONFIG = Object.freeze({
 });
 
 export const OFFICIAL_LIVE = Object.freeze({
+  ert1: 'https://live.ertflix.gr/',
+  ert2: 'https://live.ertflix.gr/',
+  ert3: 'https://live.ertflix.gr/',
+  ertnews: 'https://live.ertflix.gr/',
   ant1: 'https://www.antenna.gr/live',
 });
+
+export const SOURCE_BLOCKLIST = Object.freeze([
+  'https://spark3.smart-tv-data.com/ert1HD/ert1HD/playlist.m3u8',
+  'https://cdn4.smart-tv-data.com/vid/ert1/playlist.m3u8',
+  'http://195.226.218.163/vid/ert1/playlist.m3u8',
+  'https://ert-live.siliconweb.com/media/ert_1/ert_1.m3u8',
+  'https://ertflix.s.llnwi.net/ertlive/ert1/clrdef24723b/playlist.m3u8',
+  'https://ert-ucdn.broadpeak-aas.com/bpk-tv/ERT1/default/index.m3u8',
+  'https://spark3.smart-tv-data.com/vid/ert2hd/playlist.m3u8',
+  'https://wow.anixa.tv/live/ert2/playlist.m3u8',
+  'https://ert-live.siliconweb.com/media/ert_2/ert_2.m3u8',
+  'https://ertflix.s.llnwi.net/ertlive/ert2/clrdef24828z/playlist.m3u8',
+  'https://ert-ucdn.broadpeak-aas.com/bpk-tv/ERT2/default/index.m3u8',
+  'https://spark3.smart-tv-data.com/vid/ert3hd/playlist.m3u8',
+  'https://ertflix.akamaized.net/ertlive/ert3/clrdef24828n/playlist.m3u8',
+  'https://ertflix.s.llnwi.net/ertlive/ertnews/default/index.m3u8',
+  'https://ertflix.akamaized.net/ertlive/ertnews/default/playlist.m3u8',
+  'https://lcdn.antennaplus.gr/r86d08d448885424196f6cd3ddc5d1489/eu-central-1/6415884360001/playlist_dvr.m3u8',
+  'https://spark3.smart-tv-data.com/ant1HD/ant1HD/playlist.m3u8',
+  'https://mcdn.antennaplus.gr/live/media0/Ant1/HLS/Ant1.m3u8',
+  'https://cdn1.smart-tv-data.com/live/ant1/playlist.m3u8',
+]);
 
 export const CHANNEL_ALIASES = Object.freeze({
   ert1: ['ERT1.gr', 'ERT1.HD.gr', 'EPT1.gr', 'ΕΡΤ1'],
