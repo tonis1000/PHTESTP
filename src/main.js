@@ -1,15 +1,15 @@
-import { CONFIG } from './config.js';
+import { CONFIG, OFFICIAL_LIVE } from './config.js';
 import { parseM3U, dedupeChannels } from './core/channel-catalog.js';
 import { HealthStore } from './core/health-store.js';
 import { SourceRegistry } from './core/source-registry.js';
 import { EpgService } from './core/epg.js';
 import { PlayerController } from './core/player.js';
-import { fetchWithTimeout, formatTime } from './core/utils.js';
+import { fetchWithTimeout, formatTime, normalizeId } from './core/utils.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
   clock: $('clock'), list: $('channel-list'), summary: $('channel-summary'), search: $('search'), group: $('group-filter'),
-  logo: $('channel-logo'), channelName: $('channel-name'), channelGroup: $('channel-group'), status: $('playback-status'),
+  logo: $('channel-logo'), channelName: $('channel-name'), channelGroup: $('channel-group'), status: $('playback-status'), officialLive: $('official-live'),
   video: $('video'), iframe: $('iframe'), empty: $('empty-state'), programTitle: $('program-title'),
   programDescription: $('program-description'), programTime: $('program-time'), progress: $('epg-progress'),
   progressBar: $('epg-progress').querySelector('span'), next: $('next-programs'), diagnostics: $('diagnostics'),
@@ -59,6 +59,14 @@ function updateDiagnostics(info) {
   else log(`OK ${info.player} via ${info.route} in ${info.startupMs} ms`);
 }
 
+function setOfficialLive(channel) {
+  const key = normalizeId(channel?.id || channel?.originalId || channel?.name || '');
+  const url = OFFICIAL_LIVE[key] || '';
+  els.officialLive.hidden = !url;
+  els.officialLive.href = url || '#';
+  return url;
+}
+
 function renderGroups() {
   const groups = [...new Set(channels.map(c => c.group || 'Other'))].sort((a, b) => a.localeCompare(b));
   els.group.innerHTML = '';
@@ -103,10 +111,11 @@ function renderChannels() {
     group.textContent = channel.group || 'Other';
     meta.append(name, group);
 
+    const stats = sources.getStats(channel);
     const count = document.createElement('span');
     count.className = 'source-count';
-    count.textContent = `${sources.getSources(channel).length}`;
-    count.title = 'Playback routes';
+    count.textContent = stats.cooling ? `${stats.active}/${stats.total}` : `${stats.total}`;
+    count.title = stats.cooling ? `${stats.cooling} route(s) in cooldown` : 'Playback routes';
 
     button.append(logo, meta, count);
     button.addEventListener('click', () => selectChannel(channel));
@@ -121,12 +130,20 @@ async function selectChannel(channel) {
   els.channelGroup.textContent = channel.group || 'WEBTV';
   if (channel.logo) { els.logo.src = channel.logo; els.logo.hidden = false; } else { els.logo.hidden = true; }
   clearDiagnostics();
+  const officialUrl = setOfficialLive(channel);
 
   renderEpg();
+  const stats = sources.getStats(channel);
   const routes = sources.getSources(channel);
-  log(`${channel.name}: ${routes.length} playback routes`);
-  try { await player.play(channel, routes); }
-  catch (error) { log(`${channel.name}: ${error.message}`); }
+  log(`${channel.name}: ${stats.active}/${stats.total} active routes${stats.cooling ? `, ${stats.cooling} cooling` : ''}`);
+  try {
+    await player.play(channel, routes);
+  } catch (error) {
+    log(`${channel.name}: ${error.message}`);
+    if (officialUrl) setPlaybackState('error', 'Official fallback');
+  } finally {
+    renderChannels();
+  }
 }
 
 function renderEpg() {
@@ -185,6 +202,7 @@ async function boot() {
   startClock();
   setPlaybackState('idle', 'Idle');
   clearDiagnostics();
+  els.officialLive.hidden = true;
 
   const catalogResponse = await fetch(CONFIG.channelCatalogUrl, { cache: 'no-store' });
   if (!catalogResponse.ok) throw new Error(`Catalog HTTP ${catalogResponse.status}`);
