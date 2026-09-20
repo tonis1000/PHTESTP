@@ -1,10 +1,10 @@
-import { CONFIG, OFFICIAL_LIVE } from './config.js';
-import { parseM3U, dedupeChannels } from './core/channel-catalog.js';
-import { HealthStore } from './core/health-store.js';
-import { SourceRegistry } from './core/source-registry.js';
-import { EpgService } from './core/epg.js';
-import { PlayerController } from './core/player.js';
-import { fetchWithTimeout, formatTime, normalizeId } from './core/utils.js';
+import { CONFIG, OFFICIAL_LIVE } from './config.js?v=20260920-0935';
+import { parseM3U, dedupeChannels } from './core/channel-catalog.js?v=20260920-0935';
+import { HealthStore } from './core/health-store.js?v=20260920-0935';
+import { SourceRegistry } from './core/source-registry.js?v=20260920-0935';
+import { EpgService } from './core/epg.js?v=20260920-0935';
+import { PlayerController } from './core/player.js?v=20260920-0935';
+import { fetchWithTimeout, formatTime, normalizeId } from './core/utils.js?v=20260920-0935';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -208,7 +208,7 @@ async function boot() {
   if (!catalogResponse.ok) throw new Error(`Catalog HTTP ${catalogResponse.status}`);
   channels = parseM3U(await catalogResponse.text());
 
-  const sourceTask = sources.refresh().then(() => log('Source registry loaded')).catch(error => log(`Source registry unavailable: ${error.message}`));
+  const sourceTask = sources.refresh().then(() => log(`Source registry loaded · build ${CONFIG.buildId || 'dev'}`)).catch(error => log(`Source registry unavailable: ${error.message}`));
   const epgTask = epg.refresh().then(() => { log('EPG loaded'); renderEpg(); }).catch(error => log(`EPG unavailable: ${error.message}`));
 
   await sourceTask;
