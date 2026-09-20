@@ -43,6 +43,13 @@ function setPlaybackState(state, label) {
   els.status.textContent = label;
 }
 
+function clearDiagnostics() {
+  els.diagSource.textContent = '-';
+  els.diagRoute.textContent = '-';
+  els.diagPlayer.textContent = '-';
+  els.diagStartup.textContent = '-';
+}
+
 function updateDiagnostics(info) {
   els.diagSource.textContent = info.source || '-';
   els.diagRoute.textContent = info.route || '-';
@@ -113,6 +120,7 @@ async function selectChannel(channel) {
   els.channelName.textContent = channel.name;
   els.channelGroup.textContent = channel.group || 'WEBTV';
   if (channel.logo) { els.logo.src = channel.logo; els.logo.hidden = false; } else { els.logo.hidden = true; }
+  clearDiagnostics();
 
   renderEpg();
   const routes = sources.getSources(channel);
@@ -176,6 +184,7 @@ function startClock() {
 async function boot() {
   startClock();
   setPlaybackState('idle', 'Idle');
+  clearDiagnostics();
 
   const catalogResponse = await fetch(CONFIG.channelCatalogUrl, { cache: 'no-store' });
   if (!catalogResponse.ok) throw new Error(`Catalog HTTP ${catalogResponse.status}`);
