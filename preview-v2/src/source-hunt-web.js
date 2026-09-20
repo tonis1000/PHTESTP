@@ -1,4 +1,4 @@
-const BUILD_ID = '20260920-1405';
+const BUILD_ID = '20260920-1445';
 const FRESH_DAYS = 30;
 const DEFAULT_WORKER = 'https://source-huntatonisworkersdev.atonis.workers.dev';
 const $ = id => document.getElementById(id);
@@ -152,8 +152,9 @@ async function runExternal(){
     const counts = result.counts || {seed:groups.seed?.length||0,web:groups.web?.length||0,forums:groups.forums?.length||0,total:result.candidates?.length||0};
     const cacheText = result.cached ? 'cache hit' : 'fresh scan';
     const subreq = Number.isFinite(result.subrequestsUsed) ? ` · ${result.subrequestsUsed}/${result.subrequestBudget} subreq` : '';
-    if(status) status.textContent = `Seeds ${counts.seed} · Web ${counts.web} · Forums ${counts.forums} · ${cacheText}${subreq}`;
-    log(`EXTERNAL HUNT DONE ${name} · Seeds ${counts.seed} · Web ${counts.web} · Forums ${counts.forums} · ${cacheText}${subreq}`);
+    const elapsed = Number.isFinite(result.elapsedMs) ? ` · ${result.elapsedMs} ms` : '';
+    if(status) status.textContent = `Seeds ${counts.seed} · Web ${counts.web} · Forums ${counts.forums} · ${cacheText}${subreq}${elapsed}`;
+    log(`EXTERNAL HUNT DONE ${name} · Seeds ${counts.seed} · Web ${counts.web} · Forums ${counts.forums} · ${cacheText}${subreq}${elapsed}`);
   }catch(error){
     const msg = error?.name === 'AbortError' ? 'Worker timeout after 30s' : error.message;
     if(status) status.textContent = `Worker failed · ${msg}`;
@@ -163,4 +164,4 @@ async function runExternal(){
 
 ensureUi();
 $('run-hunt')?.addEventListener('click', runExternal);
-log(`Source Hunt external UI loaded · build ${BUILD_ID} · split Seeds/Web/Forums`);
+log(`Source Hunt external UI loaded · build ${BUILD_ID} · split Seeds/Web/Forums · elapsed timing`);
