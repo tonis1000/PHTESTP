@@ -13,87 +13,20 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div>
-        <p class="eyebrow">TONI'S WEBTV</p>
-        <h1>WebTV V2</h1>
-      </div>
-      <div class="topbar-actions">
-        <span id="clock" class="clock" aria-live="polite"></span>
-        <button id="source-hunt-toggle" class="button hunt" type="button" hidden>Source Hunt 🔎</button>
-        <button id="diagnostics-toggle" class="button ghost" type="button">Diagnostics</button>
-      </div>
+      <div><p class="eyebrow">TONI'S WEBTV</p><h1>WebTV V2</h1></div>
+      <div class="topbar-actions"><span id="clock" class="clock" aria-live="polite"></span><button id="source-hunt-toggle" class="button hunt" type="button" hidden>Source Hunt 🔎</button><button id="diagnostics-toggle" class="button ghost" type="button">Diagnostics</button></div>
     </header>
     <main class="layout">
-      <aside class="sidebar panel" aria-label="Κανάλια">
-        <div class="toolbar">
-          <input id="search" type="search" placeholder="Αναζήτηση καναλιού" autocomplete="off">
-          <select id="group-filter" aria-label="Κατηγορία"><option value="all">Όλες οι κατηγορίες</option></select>
-        </div>
-        <div id="channel-summary" class="muted small"></div>
-        <div id="channel-list" class="channel-list" role="list"></div>
-      </aside>
+      <aside class="sidebar panel" aria-label="Κανάλια"><div class="toolbar"><input id="search" type="search" placeholder="Αναζήτηση καναλιού" autocomplete="off"><select id="group-filter" aria-label="Κατηγορία"><option value="all">Όλες οι κατηγορίες</option></select></div><div id="channel-summary" class="muted small"></div><div id="channel-list" class="channel-list" role="list"></div></aside>
       <section class="viewer">
-        <section class="player-card panel">
-          <div class="channel-header">
-            <div class="channel-identity">
-              <img id="channel-logo" class="channel-logo" alt="" hidden>
-              <div><p id="channel-group" class="eyebrow">WEBTV</p><h2 id="channel-name">Επίλεξε κανάλι</h2></div>
-            </div>
-            <div class="channel-actions">
-              <a id="official-live" class="button official-live" href="#" target="_blank" rel="noopener noreferrer" hidden>Official Live ↗</a>
-              <div id="playback-status" class="status-pill idle">Idle</div>
-            </div>
-          </div>
-          <div class="player-stage">
-            <video id="video" controls playsinline hidden></video>
-            <iframe id="iframe" title="Embedded stream" allow="autoplay; fullscreen" allowfullscreen hidden></iframe>
-            <div id="empty-state" class="empty-state"><strong>WebTV V2</strong><span>Διάλεξε ένα κανάλι από αριστερά.</span></div>
-          </div>
-          <div class="now-playing">
-            <div><p class="eyebrow">ΤΩΡΑ</p><h3 id="program-title">Δεν υπάρχουν δεδομένα προγράμματος</h3><p id="program-description" class="muted"></p></div>
-            <div id="program-time" class="program-time"></div>
-          </div>
-          <div id="epg-progress" class="progress" hidden><span></span></div>
-          <div id="next-programs" class="next-programs"></div>
-        </section>
-
-        <section id="source-hunt" class="source-hunt panel" hidden>
-          <div class="section-heading">
-            <div><p class="eyebrow">DISCOVERY</p><h2>Source Hunt · <span id="hunt-channel">-</span></h2></div>
-            <span class="freshness-badge">Fresh 14d</span>
-          </div>
-          <p class="muted small hunt-intro">Αυστηρές αναζητήσεις για πρόσφατα HLS/M3U sources, GitHub code/issues/commits, forums και ενεργά playlists του επιλεγμένου καναλιού.</p>
-          <div id="hunt-links" class="hunt-links"></div>
-          <div class="candidate-tester">
-            <label for="candidate-url">Test candidate URL</label>
-            <div class="inline-form"><input id="candidate-url" type="url" placeholder="https://example.com/live/playlist.m3u8"><button id="test-candidate" class="button" type="button">Test</button></div>
-            <p class="muted small">Μετά από επιτυχημένο playback ενεργοποιείται το Save Source. Η αποθηκευμένη πηγή ξαναμπαίνει αυτόματα στο source pool του καναλιού σε αυτόν τον browser.</p>
-          </div>
-        </section>
-
-        <section id="diagnostics" class="diagnostics panel" hidden>
-          <div class="section-heading">
-            <div><p class="eyebrow">ADMIN</p><h2>Diagnostics</h2></div>
-            <button id="clear-health" class="button danger" type="button">Reset health data</button>
-          </div>
-          <div class="diagnostic-grid">
-            <div class="metric"><span>Source</span><strong id="diag-source">-</strong></div>
-            <div class="metric"><span>Route</span><strong id="diag-route">-</strong></div>
-            <div class="metric"><span>Player</span><strong id="diag-player">-</strong></div>
-            <div class="metric"><span>Startup</span><strong id="diag-startup">-</strong></div>
-          </div>
-          <div class="admin-loader">
-            <label for="playlist-url">Load external M3U</label>
-            <div class="inline-form"><input id="playlist-url" type="url" placeholder="https://example.com/playlist.m3u"><button id="load-playlist" class="button" type="button">Load</button></div>
-            <p class="muted small">Το playlist προστίθεται προσωρινά στο τρέχον session. Η φόρτωση εξαρτάται από CORS του server.</p>
-          </div>
-          <pre id="diagnostic-log" class="diagnostic-log" aria-live="polite"></pre>
-        </section>
+        <section class="player-card panel"><div class="channel-header"><div class="channel-identity"><img id="channel-logo" class="channel-logo" alt="" hidden><div><p id="channel-group" class="eyebrow">WEBTV</p><h2 id="channel-name">Επίλεξε κανάλι</h2></div></div><div class="channel-actions"><a id="official-live" class="button official-live" href="#" target="_blank" rel="noopener noreferrer" hidden>Official Live ↗</a><div id="playback-status" class="status-pill idle">Idle</div></div></div><div class="player-stage"><video id="video" controls playsinline hidden></video><iframe id="iframe" title="Embedded stream" allow="autoplay; fullscreen" allowfullscreen hidden></iframe><div id="empty-state" class="empty-state"><strong>WebTV V2</strong><span>Διάλεξε ένα κανάλι από αριστερά.</span></div></div><div class="now-playing"><div><p class="eyebrow">ΤΩΡΑ</p><h3 id="program-title">Δεν υπάρχουν δεδομένα προγράμματος</h3><p id="program-description" class="muted"></p></div><div id="program-time" class="program-time"></div></div><div id="epg-progress" class="progress" hidden><span></span></div><div id="next-programs" class="next-programs"></div></section>
+        <section id="source-hunt" class="source-hunt panel" hidden><div class="section-heading"><div><p class="eyebrow">DISCOVERY</p><h2>Source Hunt · <span id="hunt-channel">-</span></h2></div><span class="freshness-badge">Fresh 14d</span></div><p class="muted small hunt-intro">Αυστηρές αναζητήσεις για πρόσφατα HLS/M3U sources, GitHub code/issues/commits, forums και ενεργά playlists του επιλεγμένου καναλιού.</p><div id="hunt-links" class="hunt-links"></div><div class="candidate-tester"><label for="candidate-url">Test candidate URL</label><div class="inline-form"><input id="candidate-url" type="url" placeholder="https://example.com/live/playlist.m3u8"><button id="test-candidate" class="button" type="button">Test</button></div><p class="muted small">Μετά από επιτυχημένο playback ενεργοποιείται το Save Source. Η αποθηκευμένη πηγή ξαναμπαίνει αυτόματα στο source pool του καναλιού σε αυτόν τον browser.</p></div></section>
+        <section id="diagnostics" class="diagnostics panel" hidden><div class="section-heading"><div><p class="eyebrow">ADMIN</p><h2>Diagnostics</h2></div><button id="clear-health" class="button danger" type="button">Reset health data</button></div><div class="diagnostic-grid"><div class="metric"><span>Source</span><strong id="diag-source">-</strong></div><div class="metric"><span>Route</span><strong id="diag-route">-</strong></div><div class="metric"><span>Player</span><strong id="diag-player">-</strong></div><div class="metric"><span>Startup</span><strong id="diag-startup">-</strong></div></div><div class="admin-loader"><label for="playlist-url">Load external M3U</label><div class="inline-form"><input id="playlist-url" type="url" placeholder="https://example.com/playlist.m3u"><button id="load-playlist" class="button" type="button">Load</button></div><p class="muted small">Το playlist προστίθεται προσωρινά στο τρέχον session. Η φόρτωση εξαρτάται από CORS του server.</p></div><pre id="diagnostic-log" class="diagnostic-log" aria-live="polite"></pre></section>
       </section>
     </main>
   </div>
   <script type="module" src="./src/main.js?v=20260920-1025"></script>
   <script type="module" src="./src/saved-sources-ui.js?v=20260920-1025"></script>
-  <script type="module" src="./src/source-hunt-engine.js?v=20260920-1100"></script>
+  <script type="module" src="./src/source-hunt-engine.js?v=20260920-1145"></script>
 </body>
 </html>
