@@ -114,16 +114,42 @@ export class PlayerController {
         manifestLoadingTimeOut: CONFIG.requestTimeoutMs,
         levelLoadingTimeOut: CONFIG.requestTimeoutMs,
         fragLoadingTimeOut: 20000,
-        manifestLoadingMaxRetry: 2,
-        levelLoadingMaxRetry: 2,
-        fragLoadingMaxRetry: 3,
+        manifestLoadingMaxRetry: 1,
+        levelLoadingMaxRetry: 1,
+        fragLoadingMaxRetry: 2,
       });
-      this.hls.loadSource(url);
-      this.hls.attachMedia(this.video);
-      this.hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-        if (token === this.token) this.video.play().catch(() => {});
+      const hls = this.hls;
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        const cleanup = () => {
+          clearTimeout(timeout);
+          this.video.removeEventListener('playing', onPlaying);
+          this.video.removeEventListener('error', onVideoError);
+          try { hls.off(window.Hls.Events.ERROR, onHlsError); } catch {}
+        };
+        const done = (fn, value) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          fn(value);
+        };
+        const onPlaying = () => token === this.token ? done(resolve, 'hls.js') : done(reject, new Error('Superseded'));
+        const onVideoError = () => done(reject, new Error('hls.js media error'));
+        const onHlsError = (_event, data) => {
+          if (!data?.fatal) return;
+          const detail = data.details || data.type || 'fatal error';
+          done(reject, new Error(`hls.js ${detail}`));
+        };
+        const timeout = setTimeout(() => done(reject, new Error('hls.js startup timeout')), CONFIG.startupTimeoutMs);
+        this.video.addEventListener('playing', onPlaying, { once: true });
+        this.video.addEventListener('error', onVideoError, { once: true });
+        hls.on(window.Hls.Events.ERROR, onHlsError);
+        hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+          if (token === this.token) this.video.play().catch(() => {});
+        });
+        hls.loadSource(url);
+        hls.attachMedia(this.video);
       });
-      return this.#waitForVideo(token, 'hls.js');
     }
     if (this.video.canPlayType('application/vnd.apple.mpegurl')) return this.#playNative(url, token, 'native-hls');
     throw new Error('HLS is not supported');
