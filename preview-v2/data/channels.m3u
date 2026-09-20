@@ -3,6 +3,9 @@
 #EXTINF:-1 tvg-id="ert2" tvg-name="ERT2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/5/50/%CE%95%CE%A1%CE%A42.png" group-title="Greece",ERT2
 #EXTINF:-1 tvg-id="ert3" tvg-name="ERT3" tvg-logo="https://i.imgur.com/f2l9bDR.png" group-title="Greece",ERT3
 #EXTINF:-1 tvg-id="ertnews" tvg-name="ERT News" tvg-logo="https://i.imgur.com/XwLTzaF.jpg" group-title="Greece",ERT News
+https://ertflix.s.llnwi.net/ertlive/ertnews/default/index.m3u8
+#EXTINF:-1 tvg-id="ertnews" tvg-name="ERT News" tvg-logo="https://i.imgur.com/XwLTzaF.jpg" group-title="Greece",ERT News
+https://ertflix.akamaized.net/ertlive/ertnews/default/playlist.m3u8
 #EXTINF:-1 tvg-id="ant1" tvg-name="ANT1" tvg-logo="https://i.imgur.com/V1w22Or.png" group-title="Greece",ANT1
 #EXTINF:-1 tvg-id="alpha" tvg-name="Alpha TV" tvg-logo="https://i.imgur.com/6twzd38.png" group-title="Greece",Alpha TV
 #EXTINF:-1 tvg-id="skai" tvg-name="SKAI" tvg-logo="https://i.imgur.com/mrKRFnf.png" group-title="Greece",SKAI
