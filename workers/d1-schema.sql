@@ -46,6 +46,13 @@ CREATE TABLE IF NOT EXISTS my_playlist (
   FOREIGN KEY(channel_id) REFERENCES channels(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS pin_attempts (
+  client_key TEXT PRIMARY KEY,
+  failures INTEGER NOT NULL DEFAULT 0,
+  blocked_until INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_channel_sources_channel ON channel_sources(channel_id);
 CREATE INDEX IF NOT EXISTS idx_channel_sources_enabled ON channel_sources(enabled, priority);
 CREATE INDEX IF NOT EXISTS idx_my_playlist_position ON my_playlist(position);
