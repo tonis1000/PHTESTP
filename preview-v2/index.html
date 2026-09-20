@@ -7,7 +7,7 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>WebTV V2</title>
   <link rel="stylesheet" href="./styles.css?v=20260920-1046">
-  <link rel="stylesheet" href="./playlist-manager.css?v=20260920-1635">
+  <link rel="stylesheet" href="./playlist-manager.css?v=20260920-1745">
   <script defer src="https://cdn.jsdelivr.net/npm/hls.js@1.6.13/dist/hls.min.js"></script>
   <script defer src="https://cdn.dashjs.org/v4.7.4/dash.all.min.js"></script>
 </head>
@@ -26,21 +26,19 @@
       </section>
     </main>
   </div>
-
   <section id="playlist-manager" class="playlist-manager panel" hidden aria-label="Playlist Manager">
-    <div class="playlist-manager-head"><div><p class="eyebrow">LIBRARY</p><h2>Playlist Manager</h2><p class="muted small">Load, test, save and switch M3U playlists without touching the repo.</p></div><button id="playlist-manager-close" class="button ghost" type="button">Close</button></div>
+    <div class="playlist-manager-head"><div><p class="eyebrow">LIBRARY</p><h2>Playlist Manager</h2><p class="muted small">Load, test, save, curate and sync M3U playlists without touching the repo.</p></div><button id="playlist-manager-close" class="button ghost" type="button">Close</button></div>
     <div class="playlist-modebar"><div><strong>Load mode</strong><span>Choose what happens when a playlist is loaded.</span></div><label><input type="radio" name="playlist-mode" value="replace" checked> Replace current</label><label><input type="radio" name="playlist-mode" value="merge"> Merge</label><button id="playlist-use-repo" class="button ghost" type="button">Use Repo Playlist</button></div>
     <div class="playlist-manager-grid">
       <article class="playlist-tool-card"><div class="playlist-tool-title"><span class="playlist-tool-icon">↗</span><div><strong>Load by URL</strong><span>Pastebin Raw, GitHub Raw, Gist or any public M3U URL.</span></div></div><input id="playlist-url-name" type="text" placeholder="Playlist name (optional)"><input id="playlist-add-url" type="url" placeholder="https://example.com/channels.m3u"><div class="playlist-actions"><button id="playlist-test-url" class="button ghost" type="button">Test</button><button id="playlist-load-url" class="button" type="button">Load temporary</button><button id="playlist-save-url" class="button playlists" type="button">Save</button></div></article>
       <article class="playlist-tool-card"><div class="playlist-tool-title"><span class="playlist-tool-icon">≡</span><div><strong>Paste M3U</strong><span>Drop a complete M3U here, validate it, then load or save it.</span></div></div><input id="playlist-paste-name" type="text" placeholder="Playlist name (optional)"><textarea id="playlist-paste" spellcheck="false" placeholder="#EXTM3U&#10;#EXTINF:-1 tvg-name=&quot;SKAI&quot;,SKAI&#10;https://example.com/live/index.m3u8"></textarea><div class="playlist-actions"><button id="playlist-test-paste" class="button ghost" type="button">Test M3U</button><button id="playlist-load-paste" class="button" type="button">Load temporary</button><button id="playlist-save-paste" class="button playlists" type="button">Save</button></div></article>
     </div>
     <div id="playlist-manager-status" class="playlist-manager-status" data-tone="idle">Ready</div><div id="playlist-preview" class="playlist-preview"><div class="playlist-preview-empty">Test a URL or paste an M3U to preview its channels.</div></div>
-    <div class="saved-playlists-head"><div><strong>Saved Playlists</strong><span>Stored locally in this browser with IndexedDB.</span></div><span id="saved-playlist-count" class="freshness-badge">0 saved</span></div><div id="saved-playlists" class="saved-playlists"></div>
+    <div class="saved-playlists-head"><div><strong>Saved Playlists</strong><span>Stored locally with IndexedDB and optionally synced to Cloudflare D1.</span></div><span id="saved-playlist-count" class="freshness-badge">0 saved</span></div><div id="saved-playlists" class="saved-playlists"></div>
   </section>
-
   <script type="module" src="./src/main.js?v=20260920-1635"></script>
-  <script type="module" src="./src/playlist-manager.js?v=20260920-1635"></script>
-  <script type="module" src="./src/saved-sources-ui.js?v=20260920-1025"></script>
+  <script type="module" src="./src/playlist-manager.js?v=20260920-1745"></script>
+  <script type="module" src="./src/saved-sources-ui.js?v=20260920-1745"></script>
   <script type="module" src="./src/source-hunt-engine.js?v=20260920-1155"></script>
   <script type="module" src="./src/source-hunt-web.js?v=20260920-1605"></script>
 </body>
