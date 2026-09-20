@@ -1,5 +1,5 @@
 import { CONFIG } from '../config.js';
-import { isHls, isDash, isVideoFile, isEmbed } from './utils.js';
+import { isHls, isDash, isVideoFile } from './utils.js';
 
 export class PlayerController {
   constructor({ video, iframe, emptyState, health, onState, onDiagnostics }) {
@@ -19,8 +19,8 @@ export class PlayerController {
     this.#resetMedia();
     this.onState('loading', 'Connecting');
     if (!routes.length) {
-      this.onState('error', 'No sources');
-      throw new Error(`No stream sources found for ${channel.name}`);
+      this.onState('error', 'No active routes');
+      throw new Error(`No active playback routes for ${channel.name}`);
     }
     let lastError = null;
     for (const route of routes) {
@@ -29,15 +29,16 @@ export class PlayerController {
       try {
         const player = await this.#attempt(route, token);
         const startupMs = Math.round(performance.now() - startedAt);
-        this.health.recordSuccess(route.originalUrl, { startupMs, player, route: route.route });
+        this.health.recordSuccess(route.playbackUrl, { startupMs, player, route: route.route });
         this.onDiagnostics({ source: route.originalUrl, route: route.route, player, startupMs });
         this.onState('live', 'Live');
         return;
       } catch (error) {
         if (token !== this.token) return;
         lastError = error;
-        this.health.recordFailure(route.originalUrl);
-        this.onDiagnostics({ source: route.originalUrl, route: route.route, player: 'failed', startupMs: 0, error: error.message });
+        const entry = this.health.recordFailure(route.playbackUrl);
+        const cooling = (entry.cooldownUntil || 0) > Date.now();
+        this.onDiagnostics({ source: route.originalUrl, route: route.route, player: 'failed', startupMs: 0, error: cooling ? `${error.message} · cooldown` : error.message });
         this.#resetMedia();
       }
     }
@@ -67,23 +68,16 @@ export class PlayerController {
 
   async #attempt(route, token) {
     const url = route.playbackUrl;
-    if (isEmbed(url)) return this.#playIframe(url, token);
     if (isHls(url)) return this.#playHls(url, token);
     if (isDash(url)) return this.#playDash(url, token);
     if (isVideoFile(url)) return this.#playNative(url, token, 'native-video');
-    return this.#playIframe(url, token);
+    throw new Error('Unsupported non-media source');
   }
 
   #showVideo() {
     this.emptyState.hidden = true;
     this.iframe.hidden = true;
     this.video.hidden = false;
-  }
-
-  #showIframe() {
-    this.emptyState.hidden = true;
-    this.video.hidden = true;
-    this.iframe.hidden = false;
   }
 
   #waitForVideo(token, playerName) {
@@ -149,22 +143,5 @@ export class PlayerController {
     this.video.load();
     this.video.play().catch(() => {});
     return this.#waitForVideo(token, name);
-  }
-
-  #playIframe(url, token) {
-    return new Promise((resolve, reject) => {
-      this.#showIframe();
-      const timeout = setTimeout(() => reject(new Error('iframe startup timeout')), CONFIG.startupTimeoutMs);
-      this.iframe.onload = () => {
-        clearTimeout(timeout);
-        if (token !== this.token) return reject(new Error('Superseded'));
-        resolve('iframe');
-      };
-      this.iframe.onerror = () => {
-        clearTimeout(timeout);
-        reject(new Error('iframe load error'));
-      };
-      this.iframe.src = url;
-    });
   }
 }
