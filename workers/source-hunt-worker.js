@@ -1,5 +1,5 @@
 const ALLOWED_ORIGIN='*';
-const VERSION='1.7';
+const VERSION='1.8';
 
 const MAX_RESULTS=12;
 const TARGET_RESULTS=8;
@@ -38,6 +38,8 @@ const NEGATIVE_TERMS='-crypto -coin -token -restaurant -tiktok -music -lyrics -c
 const REJECT_VARIANTS=/\b(hybrid|sport|sports|radio|fm|web radio|webradio|not 24\/7|test feed|promo)\b/i;
 const BLOCKED_MEDIA_HOSTS=/^(?:pbs\.twimg\.com|abs\.twimg\.com|video\.twimg\.com|ton\.twitter\.com|media\.tenor\.com|yt3\.googleusercontent\.com|i\.ytimg\.com)$/i;
 const BLOCKED_RESULT_HOSTS=/^(?:x\.com|twitter\.com|tiktok\.com|www\.tiktok\.com)$/i;
+const REJECT_STREAM_PATTERNS=/(?:\/vod\/|\/video\/|\/videos\/|\/news\/|\/archive\/|\/catchup\/|chunklist|\.mp4\/|[_\/-]drm(?:[\/.?_-]|$)|widevine|playready|fairplay)/i;
+const POSITIVE_LIVE_PATTERNS=/(?:\/live\/|[-_/]live[-_/]|index\.m3u8(?:\?|$)|playlist\.m3u8(?:\?|$)|manifest\.mpd(?:\?|$))/i;
 
 function cors(){return {'access-control-allow-origin':ALLOWED_ORIGIN,'access-control-allow-methods':'GET,OPTIONS','access-control-allow-headers':'content-type'};}
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{...cors(),'content-type':'application/json;charset=utf-8','cache-control':'no-store'}});}
@@ -50,6 +52,14 @@ function entryTitle(extinf=''){const i=String(extinf).lastIndexOf(',');return i>
 function hostOf(url=''){try{return new URL(url).hostname.toLowerCase();}catch{return '';}}
 function isLiveTvUrl(url=''){return /\.(?:m3u8|mpd)(?:\?|$)/i.test(String(url));}
 function isStrmUrl(url=''){return /\.strm(?:\?|$)/i.test(String(url));}
+function isRejectedStreamUrl(url=''){return REJECT_STREAM_PATTERNS.test(String(url));}
+function isLikelyLiveStream(url=''){
+  if(!isLiveTvUrl(url)||isRejectedStreamUrl(url))return false;
+  const host=hostOf(url);
+  if(BLOCKED_MEDIA_HOSTS.test(host))return false;
+  if(/\.mpd(?:\?|$)/i.test(url)&&/drm|widevine|playready|fairplay/i.test(url))return false;
+  return POSITIVE_LIVE_PATTERNS.test(url)||/siliconweb|smart-tv-data|broadpeak|antennaplus|ert-live/i.test(url);
+}
 
 class Budget{
   constructor(limit=MAX_SUBREQUEST_BUDGET){this.limit=limit;this.used=0;}
@@ -106,9 +116,7 @@ function hasTvEvidence(context,channel){
 }
 
 function directAllowed(context,url,channel){
-  if(!isLiveTvUrl(url))return false;
-  const host=hostOf(url);
-  if(BLOCKED_MEDIA_HOSTS.test(host))return false;
+  if(!isLikelyLiveStream(url))return false;
   const all=`${context} ${url}`;
   if(!hasTvEvidence(all,channel))return false;
   if(REJECT_VARIANTS.test(all))return false;
@@ -168,7 +176,7 @@ async function resolveStrm(url,budget){
     const f=await fetchText(toRawGithubUrl(url),budget);
     if(!f.ok)return null;
     const direct=extractDirectStreams(f.text);
-    return direct.find(isLiveTvUrl)||null;
+    return direct.find(isLikelyLiveStream)||null;
   }catch{return null;}
 }
 
@@ -187,7 +195,7 @@ function candidate(url,origin,source,extra={}){
 }
 
 async function scanPlaylist(seed,channel,budget,debug,origin='Known Greek M3U seed'){
-  const report={type:'playlist',name:seed.name||'',url:seed.url,status:null,entries:0,accepted:0,resolvedStrm:0,rejectedSpecial:0,reason:''};
+  const report={type:'playlist',name:seed.name||'',url:seed.url,status:null,entries:0,accepted:0,resolvedStrm:0,rejectedNonLive:0,reason:''};
   const out=[];
   if(!budget.canUse()){report.reason='budget skipped';if(debug)debug.push(report);return out;}
   try{
@@ -199,10 +207,10 @@ async function scanPlaylist(seed,channel,budget,debug,origin='Known Greek M3U se
       let method='extinf-seed';
       if(isStrmUrl(finalUrl)){
         const resolved=await resolveStrm(finalUrl,budget);
-        if(!resolved)continue;
+        if(!resolved){report.rejectedNonLive++;continue;}
         finalUrl=resolved;method='extinf-seed-strm';report.resolvedStrm++;
       }
-      if(!isLiveTvUrl(finalUrl))continue;
+      if(!isLikelyLiveStream(finalUrl)){report.rejectedNonLive++;continue;}
       addUnique(out,candidate(finalUrl,origin,seed,{method,extinf:e.extinf,playlist:seed.url,quality:e.className,matchScore:e.score,resolvedFrom:isStrmUrl(e.url)?e.url:undefined}));
     }
     report.accepted=out.length;report.reason=out.length?'main-TV live entries':'no main-TV live entry';
@@ -213,7 +221,7 @@ async function scanPlaylist(seed,channel,budget,debug,origin='Known Greek M3U se
 function buildQueries(channel){
   const p=profile(channel);const primary=p.searches[0]||channel;const alt=p.searches[1]||primary;
   return [
-    `"${primary}" m3u8 ${NEGATIVE_TERMS}`,
+    `"${primary}" m3u8 live ${NEGATIVE_TERMS}`,
     `"${primary}" m3u IPTV ${NEGATIVE_TERMS}`,
     `"${primary}" EXTINF ${NEGATIVE_TERMS}`,
     `"${alt}" playlist ${NEGATIVE_TERMS}`,
@@ -224,29 +232,29 @@ function buildQueries(channel){
 }
 
 function resultHostBlocked(url=''){return BLOCKED_RESULT_HOSTS.test(hostOf(url));}
-
 function rankResult(r,channel){
   const ctx=`${r.title||''} ${r.description||''} ${r.url||''}`;
   let s=0;
   if(resultHostBlocked(r.url||''))return -100;
-  if(hasTvEvidence(ctx,channel))s+=14;
-  else if(relevant(ctx,channel))s+=2;
+  if(hasTvEvidence(ctx,channel))s+=14;else if(relevant(ctx,channel))s+=2;
   if(/github|gist|raw\.githubusercontent/i.test(r.url||''))s+=7;
   if(/m3u|iptv|playlist|stream|hls/i.test(ctx))s+=5;
   if(/reddit|forum|linuxsat/i.test(ctx))s+=2;
   if(REJECT_VARIANTS.test(ctx))s-=8;
   if(/wikipedia|tiktok|play\.google|aptoide|sourceforge|celebrity|actress|actor/i.test(ctx))s-=12;
+  if(/\/news\/|article|vod|catchup|archive/i.test(ctx))s-=8;
   return s;
 }
 
 async function inspectWebResult(result,channel,budget,debug){
-  const report={type:'page',title:(result.title||'').slice(0,120),url:result.url||'',score:rankResult(result,channel),status:null,directFound:0,playlistLinksFound:0,accepted:0,reason:''};
+  const report={type:'page',title:(result.title||'').slice(0,120),url:result.url||'',score:rankResult(result,channel),status:null,directFound:0,rejectedNonLive:0,playlistLinksFound:0,accepted:0,reason:''};
   const out=[];
   const context=`${result.title||''}\n${result.description||''}\n${result.url||''}`;
   if(resultHostBlocked(result.url||'')){report.reason='blocked noisy result host';if(debug)debug.push(report);return out;}
 
   for(const u of extractDirectStreams(context)){
     if(directAllowed(context,u,channel))addUnique(out,candidate(u,'Fresh Web search',result,{method:'brave-snippet',quality:'main-tv'}));
+    else if(isLiveTvUrl(u))report.rejectedNonLive++;
   }
 
   if(!result.url||report.score<5||!budget.canUse()){
@@ -262,10 +270,10 @@ async function inspectWebResult(result,channel,budget,debug){
       let finalUrl=e.url;let method='extinf-page';
       if(isStrmUrl(finalUrl)){
         const resolved=await resolveStrm(finalUrl,budget);
-        if(!resolved)continue;
+        if(!resolved){report.rejectedNonLive++;continue;}
         finalUrl=resolved;method='extinf-page-strm';
       }
-      if(!isLiveTvUrl(finalUrl))continue;
+      if(!isLikelyLiveStream(finalUrl)){report.rejectedNonLive++;continue;}
       addUnique(out,candidate(finalUrl,/github/i.test(result.url)?'GitHub/Web search':'Fresh Web search',result,{method,extinf:e.extinf,playlist:result.url,quality:'main-tv'}));
     }
 
@@ -275,6 +283,7 @@ async function inspectWebResult(result,channel,budget,debug){
       const idx=f.text.indexOf(u);
       const nearby=idx>=0?f.text.slice(Math.max(0,idx-700),Math.min(f.text.length,idx+u.length+700)):'';
       if(directAllowed(`${context} ${nearby}`,u,channel))addUnique(out,candidate(u,'Fresh Web search',result,{method:'nearby',quality:'main-tv'}));
+      else if(isLiveTvUrl(u))report.rejectedNonLive++;
     }
 
     const links=extractPlaylistLinks(f.text,result.url).slice(0,MAX_PLAYLIST_LINKS_PER_PAGE);report.playlistLinksFound=links.length;
@@ -284,7 +293,7 @@ async function inspectWebResult(result,channel,budget,debug){
       for(const c of found)addUnique(out,c);
     }
 
-    report.accepted=out.length;report.reason=out.length?'accepted live-TV candidates':'no main-TV stream';
+    report.accepted=out.length;report.reason=out.length?'accepted live-TV candidates':'no main-TV live stream';
   }catch(error){report.reason=error?.message||String(error);}
   if(debug)debug.push(report);return out;
 }
@@ -337,7 +346,7 @@ export default{
   async fetch(request,env){
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors()});
     const url=new URL(request.url);
-    if(url.pathname!=='/hunt')return json({ok:true,service:'WebTV Source Hunt Worker',version:VERSION,features:['strict main-TV classification','seed-first Greek M3U','STRM resolver','live-TV-only web candidates','noisy social-media blocking','mandatory fresh web pass','budgeted scans'],endpoint:'/hunt?channel=SKAI&days=30&debug=1'});
+    if(url.pathname!=='/hunt')return json({ok:true,service:'WebTV Source Hunt Worker',version:VERSION,features:['strict main-TV classification','seed-first Greek M3U','STRM resolver','VOD rejection','DRM rejection','live-TV-only web candidates','noisy social-media blocking','mandatory fresh web pass','budgeted scans'],endpoint:'/hunt?channel=SKAI&days=30&debug=1'});
 
     const channel=(url.searchParams.get('channel')||'').trim();
     const days=Math.min(30,Math.max(1,Number(url.searchParams.get('days')||30)));
