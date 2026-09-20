@@ -1,10 +1,12 @@
 const ALLOWED_ORIGIN='*';
-const VERSION='1.9';
+const VERSION='1.10';
 const CACHE_TTL_SECONDS=900;
 const MAX_RESULTS=12;
 const MAX_FETCH_BYTES=1600000;
-const MAX_SUBREQUEST_BUDGET=18;
-const MAX_PAGE_SCANS=6;
+const MAX_SUBREQUEST_BUDGET=16;
+const MAX_PAGE_SCANS=4;
+const FETCH_TIMEOUT_MS=7000;
+const BRAVE_TIMEOUT_MS=6000;
 
 const PROFILES={
   'ERT1':{aliases:['ert1','ert 1','ert1.gr','ερτ1'],searches:['ERT1','ERT 1'],mainNames:['ert1','ert 1','ερτ1']},
@@ -49,8 +51,15 @@ function entryTitle(extinf=''){const i=String(extinf).lastIndexOf(',');return i>
 
 class Budget{constructor(limit=MAX_SUBREQUEST_BUDGET){this.limit=limit;this.used=0;}canUse(n=1){return this.used+n<=this.limit;}take(){if(!this.canUse())throw new Error('hunt subrequest budget exhausted');this.used++;}}
 
+async function timedFetch(url,options={},timeoutMs=FETCH_TIMEOUT_MS){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{return await fetch(url,{...options,signal:controller.signal});}
+  finally{clearTimeout(timer);}
+}
+
 function classifyEntry(extinf='',url='',channel=''){
-  const p=profile(channel), title=entryTitle(extinf), titleNorm=normalize(title), all=`${extinf} ${url}`;
+  const p=profile(channel),title=entryTitle(extinf),titleNorm=normalize(title),all=`${extinf} ${url}`;
   if(REJECT_VARIANTS.test(all))return false;
   if(/\b\d{2,3}[.,]\d\b/.test(all)||/listen\.pls|netradio/i.test(all))return false;
   if(!relevant(`${title} ${extinf}`,channel))return false;
@@ -58,7 +67,7 @@ function classifyEntry(extinf='',url='',channel=''){
 }
 
 function parseM3u(text='',channel=''){
-  const lines=String(text).replace(/\r/g,'').split('\n'), out=[];
+  const lines=String(text).replace(/\r/g,'').split('\n'),out=[];
   for(let i=0;i<lines.length;i++){
     const extinf=lines[i].trim();
     if(!/^#EXTINF:/i.test(extinf)||!relevant(extinf,channel))continue;
@@ -92,9 +101,11 @@ function toRawGithubUrl(input=''){
 
 async function fetchText(url,budget){
   budget.take();
-  const r=await fetch(url,{redirect:'follow',headers:{'user-agent':`Mozilla/5.0 WebTV-SourceHunt/${VERSION}`,accept:'text/plain,text/html,application/json,application/vnd.apple.mpegurl,application/x-mpegURL,*/*'}});
-  if(!r.ok)return {ok:false,status:r.status,text:'',type:r.headers.get('content-type')||''};
-  return {ok:true,status:r.status,text:(await r.text()).slice(0,MAX_FETCH_BYTES),type:r.headers.get('content-type')||''};
+  try{
+    const r=await timedFetch(url,{redirect:'follow',headers:{'user-agent':`Mozilla/5.0 WebTV-SourceHunt/${VERSION}`,accept:'text/plain,text/html,application/json,application/vnd.apple.mpegurl,application/x-mpegURL,*/*'}},FETCH_TIMEOUT_MS);
+    if(!r.ok)return {ok:false,status:r.status,text:'',type:r.headers.get('content-type')||''};
+    return {ok:true,status:r.status,text:(await r.text()).slice(0,MAX_FETCH_BYTES),type:r.headers.get('content-type')||''};
+  }catch(error){return {ok:false,status:error?.name==='AbortError'?408:0,text:'',type:'',error:error?.message||String(error)};}
 }
 
 async function resolveStrm(url,budget){
@@ -109,7 +120,7 @@ async function brave(env,q,budget,count=8){
   budget.take();
   const u=new URL('https://api.search.brave.com/res/v1/web/search');
   u.searchParams.set('q',q);u.searchParams.set('count',String(count));u.searchParams.set('freshness','pm');u.searchParams.set('text_decorations','false');u.searchParams.set('search_lang','en');
-  const r=await fetch(u,{headers:{Accept:'application/json','X-Subscription-Token':env.BRAVE_API_KEY}});
+  const r=await timedFetch(u,{headers:{Accept:'application/json','X-Subscription-Token':env.BRAVE_API_KEY}},BRAVE_TIMEOUT_MS);
   if(!r.ok)throw new Error(`Brave ${r.status}`);
   const j=await r.json();return j?.web?.results||[];
 }
@@ -121,19 +132,23 @@ function candidate(url,kind,origin,source,extra={}){
 async function scanSeed(seed,channel,budget,debug){
   const out=[];const report={type:'seed',name:seed.name,status:null,accepted:0};
   if(!budget.canUse())return out;
-  const f=await fetchText(seed.url,budget);report.status=f.status;
-  if(f.ok){
-    for(const e of parseM3u(f.text,channel)){
-      let u=e.url,method='extinf-seed';
-      if(isStrm(u)){const resolved=await resolveStrm(u,budget);if(!resolved)continue;u=resolved;method='extinf-seed-strm';}
-      if(!isLiveUrl(u))continue;
-      addUnique(out,candidate(u,'seed','Known Greek M3U seed',seed,{method,extinf:e.extinf}));
+  try{
+    const f=await fetchText(seed.url,budget);report.status=f.status;
+    if(f.ok){
+      for(const e of parseM3u(f.text,channel)){
+        let u=e.url,method='extinf-seed';
+        if(isStrm(u)){const resolved=await resolveStrm(u,budget);if(!resolved)continue;u=resolved;method='extinf-seed-strm';}
+        if(!isLiveUrl(u))continue;
+        addUnique(out,candidate(u,'seed','Known Greek M3U seed',seed,{method,extinf:e.extinf}));
+      }
     }
-  }
+  }catch(error){report.error=error?.message||String(error);}
   report.accepted=out.length;if(debug)debug.push(report);return out;
 }
 
 function resultKind(r){
+  if(r?._kind==='forum')return 'forum';
+  if(r?._kind==='web')return 'web';
   const h=hostOf(r.url||'');
   if(/reddit\.com$/.test(h)||/forum|thread|linuxsat/i.test(`${r.url||''} ${r.title||''}`))return 'forum';
   return 'web';
@@ -158,18 +173,20 @@ async function inspectResult(r,channel,budget,debug){
   const report={type:kind,title:(r.title||'').slice(0,100),status:null,accepted:0};
   for(const u of extractLive(context))if(tvEvidence(`${context} ${u}`,channel)&&!REJECT_VARIANTS.test(`${context} ${u}`))addUnique(out,candidate(u,kind,kind==='forum'?'Forums / Reddit':'Fresh Web',r,{method:'snippet'}));
   if(out.length||!r.url||!budget.canUse()){report.accepted=out.length;if(debug)debug.push(report);return out;}
-  const f=await fetchText(toRawGithubUrl(r.url),budget);report.status=f.status;
-  if(f.ok){
-    for(const e of parseM3u(f.text,channel)){
-      let u=e.url;if(isStrm(u)){const resolved=await resolveStrm(u,budget);if(!resolved)continue;u=resolved;}
-      if(isLiveUrl(u))addUnique(out,candidate(u,kind,kind==='forum'?'Forums / Reddit':'Fresh Web',r,{method:'extinf-page',extinf:e.extinf}));
+  try{
+    const f=await fetchText(toRawGithubUrl(r.url),budget);report.status=f.status;
+    if(f.ok){
+      for(const e of parseM3u(f.text,channel)){
+        let u=e.url;if(isStrm(u)){const resolved=await resolveStrm(u,budget);if(!resolved)continue;u=resolved;}
+        if(isLiveUrl(u))addUnique(out,candidate(u,kind,kind==='forum'?'Forums / Reddit':'Fresh Web',r,{method:'extinf-page',extinf:e.extinf}));
+      }
+      for(const u of extractLive(f.text)){
+        if(out.some(x=>x.url===u))continue;
+        const idx=f.text.indexOf(u),near=idx>=0?f.text.slice(Math.max(0,idx-700),Math.min(f.text.length,idx+u.length+700)):'';
+        if(tvEvidence(`${context} ${near} ${u}`,channel)&&!REJECT_VARIANTS.test(`${context} ${near} ${u}`))addUnique(out,candidate(u,kind,kind==='forum'?'Forums / Reddit':'Fresh Web',r,{method:'nearby'}));
+      }
     }
-    for(const u of extractLive(f.text)){
-      if(out.some(x=>x.url===u))continue;
-      const idx=f.text.indexOf(u),near=idx>=0?f.text.slice(Math.max(0,idx-700),Math.min(f.text.length,idx+u.length+700)):'';
-      if(tvEvidence(`${context} ${near} ${u}`,channel)&&!REJECT_VARIANTS.test(`${context} ${near} ${u}`))addUnique(out,candidate(u,kind,kind==='forum'?'Forums / Reddit':'Fresh Web',r,{method:'nearby'}));
-    }
-  }
+  }catch(error){report.error=error?.message||String(error);}
   report.accepted=out.length;if(debug)debug.push(report);return out;
 }
 
@@ -184,20 +201,34 @@ function buildQueries(channel){
 }
 
 async function runHunt(env,channel,days,wantDebug=false){
+  const started=Date.now();
   const budget=new Budget(),debug=[],seed=[],web=[],forum=[];
-  for(const s of SEEDS){if(!budget.canUse())break;for(const c of await scanSeed(s,channel,budget,wantDebug?debug:null))addUnique(seed,c);}
 
-  const merged=[];const queries=buildQueries(channel);let searches=0;
-  for(const x of queries){if(!budget.canUse())break;try{const rows=await brave(env,x.q,budget,8);searches++;for(const r of rows)merged.push({...r,_kind:x.kind});}catch(error){if(wantDebug)debug.push({type:'query',query:x.q,error:error?.message||String(error)});}}
+  const seedRuns=await Promise.all(SEEDS.map(s=>scanSeed(s,channel,budget,wantDebug?debug:null)));
+  for(const rows of seedRuns)for(const c of rows)addUnique(seed,c);
+
+  const queries=buildQueries(channel);
+  const queryRuns=await Promise.all(queries.map(async x=>{
+    if(!budget.canUse())return {x,rows:[]};
+    try{return {x,rows:await brave(env,x.q,budget,8)};}
+    catch(error){if(wantDebug)debug.push({type:'query',query:x.q,error:error?.message||String(error)});return {x,rows:[]};}
+  }));
+
+  const merged=[];let searches=0;
+  for(const q of queryRuns){if(q.rows.length)searches++;for(const r of q.rows)merged.push({...r,_kind:q.x.kind});}
 
   const ranked=[...new Map(merged.filter(r=>r?.url).map(r=>[r.url,r])).values()]
     .map(r=>({r,score:rank(r,channel)})).filter(x=>x.score>=7).sort((a,b)=>b.score-a.score).slice(0,MAX_PAGE_SCANS);
 
-  for(const {r} of ranked){if(!budget.canUse())break;const found=await inspectResult(r,channel,budget,wantDebug?debug:null);for(const c of found){if(c.kind==='forum')addUnique(forum,c);else addUnique(web,c);}}
+  const pageRuns=await Promise.all(ranked.map(async({r})=>{
+    if(!budget.canUse())return [];
+    return await inspectResult(r,channel,budget,wantDebug?debug:null);
+  }));
+  for(const found of pageRuns)for(const c of found){if(c.kind==='forum')addUnique(forum,c);else addUnique(web,c);}
 
   const groups={seed:seed.slice(0,6),web:web.slice(0,6),forums:forum.slice(0,6)};
   const flat=[...groups.seed,...groups.web,...groups.forums].slice(0,MAX_RESULTS);
-  return {version:VERSION,channel,days,candidates:flat,groups,counts:{seed:groups.seed.length,web:groups.web.length,forums:groups.forums.length,total:flat.length},freshSearchesRun:searches,resultsScanned:ranked.length,subrequestsUsed:budget.used,subrequestBudget:budget.limit,debug:wantDebug?debug:undefined};
+  return {version:VERSION,channel,days,candidates:flat,groups,counts:{seed:groups.seed.length,web:groups.web.length,forums:groups.forums.length,total:flat.length},freshSearchesRun:searches,resultsScanned:ranked.length,subrequestsUsed:budget.used,subrequestBudget:budget.limit,elapsedMs:Date.now()-started,debug:wantDebug?debug:undefined};
 }
 
 async function cacheGet(requestUrl){
@@ -211,7 +242,7 @@ export default{
   async fetch(request,env){
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors()});
     const url=new URL(request.url);
-    if(url.pathname!=='/hunt')return json({ok:true,service:'WebTV Source Hunt Worker',version:VERSION,features:['split seed/web/forums','15m cache','18 subrequest budget','fresh 30d web search','exact EXTINF pairing'],endpoint:'/hunt?channel=SKAI&days=30'});
+    if(url.pathname!=='/hunt')return json({ok:true,service:'WebTV Source Hunt Worker',version:VERSION,features:['parallel seeds/search/page scans','15m cache','16 subrequest budget','6-7s per-fetch timeout','split seed/web/forums','fresh 30d web search','exact EXTINF pairing'],endpoint:'/hunt?channel=SKAI&days=30'});
     const channel=(url.searchParams.get('channel')||'').trim();
     const days=Math.min(30,Math.max(1,Number(url.searchParams.get('days')||30)));
     const wantDebug=url.searchParams.get('debug')==='1';
@@ -219,7 +250,7 @@ export default{
 
     if(!wantDebug){
       const hit=await cacheGet(request.url);
-      if(hit){const data=await hit.json();return json({...data,cached:true},200,{'cache-control':'no-store','x-source-hunt-cache':'HIT'});}
+      if(hit){const data=await hit.json();return json({...data,cached:true,elapsedMs:0},200,{'cache-control':'no-store','x-source-hunt-cache':'HIT'});}
     }
 
     try{
