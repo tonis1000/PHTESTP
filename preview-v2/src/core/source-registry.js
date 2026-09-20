@@ -1,5 +1,5 @@
-import { CONFIG, CHANNEL_ALIASES } from '../config.js';
-import { normalizeId, cleanUrl, workerUrl, isHls, isDash, isVideoFile } from './utils.js';
+import { CONFIG, CHANNEL_ALIASES, SOURCE_BLOCKLIST } from '../config.js?v=20260920-1010';
+import { normalizeId, cleanUrl, workerUrl, isHls, isDash, isVideoFile } from './utils.js?v=20260920-1010';
 
 function isPlayableMedia(url = '') {
   return isHls(url) || isDash(url) || isVideoFile(url);
@@ -8,6 +8,8 @@ function isPlayableMedia(url = '') {
 function isSecureUrl(url = '') {
   return /^https:\/\//i.test(url);
 }
+
+const BLOCKED = new Set((SOURCE_BLOCKLIST || []).map(cleanUrl).filter(Boolean));
 
 export class SourceRegistry {
   constructor(healthStore) {
@@ -49,12 +51,11 @@ export class SourceRegistry {
     const sources = [...new Set([...(channel.directUrls || []), ...this.#remoteUrls(channel)]
       .map(cleanUrl)
       .filter(Boolean)
-      .filter(isPlayableMedia))];
+      .filter(isPlayableMedia)
+      .filter(source => !BLOCKED.has(source)))];
 
     const routes = [];
     for (const source of sources) {
-      // GitHub Pages runs over HTTPS. Direct HTTP media is mixed content and will be blocked,
-      // so insecure HLS sources are routed only through our HTTPS Worker.
       if (isSecureUrl(source)) {
         routes.push({ originalUrl: source, playbackUrl: source, route: 'direct' });
       }
