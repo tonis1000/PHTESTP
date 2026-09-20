@@ -1,0 +1,14 @@
+name = "webtv-registry"
+main = "registry-worker.js"
+compatibility_date = "2026-09-20"
+
+[vars]
+ALLOWED_ORIGIN = "https://tonis1000.github.io"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "webtv-registry"
+database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"
+
+# Add the write token as a secret, never in this file:
+# wrangler secret put ADMIN_TOKEN
