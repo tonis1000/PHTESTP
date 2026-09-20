@@ -1,5 +1,6 @@
-const BUILD_ID = '20260920-1145';
+const BUILD_ID = '20260920-1155';
 const API = 'https://api.github.com';
+const FRESH_DAYS = 30;
 const $ = id => document.getElementById(id);
 
 const panel = $('source-hunt');
@@ -38,10 +39,20 @@ function log(message) {
   diagLog.textContent = `[${stamp}] ${message}\n${diagLog.textContent}`.slice(0, 18000);
 }
 
-function sinceDate(days = 30) {
+function sinceDate(days = FRESH_DAYS) {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d.toISOString().slice(0, 10);
+}
+
+function freshCutoffMs(days = FRESH_DAYS) {
+  return Date.now() - days * 24 * 60 * 60 * 1000;
+}
+
+function isFresh(value, days = FRESH_DAYS) {
+  if (!value) return false;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) && time >= freshCutoffMs(days);
 }
 
 function extractM3u8(text = '') {
@@ -159,6 +170,7 @@ async function huntIssues(name, since) {
   const data = await gh(`/search/issues?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=12`);
   const out = [];
   for (const item of data.items || []) {
+    if (!isFresh(item.updated_at)) continue;
     const body = `${item.title || ''}\n${item.body || ''}`;
     if (!relevance(body, name)) continue;
     out.push(...collectFromLooseText(body, name, {
@@ -174,7 +186,7 @@ async function discoverRepos(name) {
   const repos = new Map();
   for (const full of SEED_REPOS) repos.set(full, { full_name: full, default_branch: 'main', updated_at: null, seeded: true });
   const primary = fingerprints(name)[0] || name;
-  const queries = [`${primary} IPTV Greece`, `${primary} m3u Greece`, 'Greek IPTV playlist'];
+  const queries = [`${primary} IPTV Greece`, `${primary} m3u Greece`, `Greek IPTV playlist pushed:>=${sinceDate()}`];
   for (const q of queries) {
     try {
       const data = await gh(`/search/repositories?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=6`);
@@ -194,13 +206,15 @@ function pathScore(path = '') {
 }
 
 async function repoMeta(repo) {
-  if (repo.default_branch && !repo.seeded) return repo;
   try { return await gh(`/repos/${repo.full_name}`); }
   catch { return repo; }
 }
 
 async function deepScanRepo(repo, name) {
   const meta = await repoMeta(repo);
+  const repoUpdatedAt = meta.pushed_at || meta.updated_at || repo.pushed_at || repo.updated_at;
+  if (!isFresh(repoUpdatedAt)) return [];
+
   const branch = meta.default_branch || 'main';
   let tree;
   try { tree = await gh(`/repos/${repo.full_name}/git/trees/${encodeURIComponent(branch)}?recursive=1`); }
@@ -221,7 +235,7 @@ async function deepScanRepo(repo, name) {
       out.push(...collectFromText(text, name, {
         origin: 'GitHub deep scan',
         detail: `${repo.full_name}/${file.path}`,
-        updatedAt: meta.updated_at || repo.updated_at,
+        updatedAt: repoUpdatedAt,
       }));
     } catch {}
   }
@@ -241,10 +255,11 @@ async function huntRepositories(name) {
 function dedupeAndRank(items) {
   const map = new Map();
   for (const item of items) {
+    if (!isFresh(item.updatedAt)) continue;
     if (!map.has(item.url) || (item.score || 0) > (map.get(item.url).score || 0)) map.set(item.url, item);
   }
   return [...map.values()]
-    .sort((a, b) => (b.score || 0) - (a.score || 0) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')) || (b.score || 0) - (a.score || 0))
     .slice(0, 12);
 }
 
@@ -255,7 +270,7 @@ function ensureUi() {
   wrap = document.createElement('div');
   wrap.id = 'hunt-auto';
   wrap.className = 'hunt-auto';
-  wrap.innerHTML = `<div class="hunt-auto-head"><div><strong>Automatic Hunt</strong><span id="hunt-auto-status">Ready · exact channel parser</span></div><button id="run-hunt" class="button" type="button">Run Hunt</button></div><div id="hunt-results" class="hunt-results"></div>`;
+  wrap.innerHTML = `<div class="hunt-auto-head"><div><strong>Automatic Hunt</strong><span id="hunt-auto-status">Ready · last ${FRESH_DAYS} days only</span></div><button id="run-hunt" class="button" type="button">Run Hunt</button></div><div id="hunt-results" class="hunt-results"></div>`;
   const tester = panel.querySelector('.candidate-tester');
   panel.insertBefore(wrap, tester || null);
   return wrap;
@@ -268,7 +283,7 @@ function renderResults(items, name) {
   if (!items.length) {
     const empty = document.createElement('div');
     empty.className = 'hunt-empty';
-    empty.textContent = `Δεν βρέθηκε exact candidate για ${name}. Το Hunt πλέον απορρίπτει γειτονικά κανάλια από playlists.`;
+    empty.textContent = `Δεν βρέθηκε exact candidate για ${name} με activity μέσα στις τελευταίες ${FRESH_DAYS} ημέρες.`;
     results.appendChild(empty);
     return;
   }
@@ -304,18 +319,18 @@ async function runHunt() {
   if (!name || name === 'Επίλεξε κανάλι') return;
   const button = $('run-hunt');
   const status = $('hunt-auto-status');
-  const since = sinceDate(30);
+  const since = sinceDate();
   if (button) button.disabled = true;
-  if (status) status.textContent = `Exact searching ${name}…`;
-  log(`RUN HUNT ${name} · M3U-aware deep GitHub scan · since ${since}`);
+  if (status) status.textContent = `Searching ${name} · last ${FRESH_DAYS}d…`;
+  log(`RUN HUNT ${name} · exact M3U · freshness ${FRESH_DAYS}d · since ${since}`);
   try {
     const settled = await Promise.allSettled([huntIssues(name, since), huntRepositories(name)]);
     const combined = settled.flatMap(result => result.status === 'fulfilled' ? result.value : []);
     const items = dedupeAndRank(combined);
     renderResults(items, name);
     const failures = settled.filter(result => result.status === 'rejected').length;
-    if (status) status.textContent = `${items.length} exact candidate${items.length === 1 ? '' : 's'}${failures ? ' · partial' : ''}`;
-    log(`HUNT DONE ${name} · ${items.length} exact candidate(s) · M3U-aware${failures ? ` · ${failures} source(s) failed` : ''}`);
+    if (status) status.textContent = `${items.length} fresh exact candidate${items.length === 1 ? '' : 's'} · ${FRESH_DAYS}d${failures ? ' · partial' : ''}`;
+    log(`HUNT DONE ${name} · ${items.length} fresh exact candidate(s) · ${FRESH_DAYS}d${failures ? ` · ${failures} source(s) failed` : ''}`);
   } catch (error) {
     if (status) status.textContent = `Search failed: ${error.message}`;
     renderResults([], name);
@@ -327,5 +342,5 @@ async function runHunt() {
 
 if (ensureUi()) {
   $('run-hunt')?.addEventListener('click', runHunt);
-  log(`Source Hunt engine loaded · build ${BUILD_ID} · M3U-aware exact matching`);
+  log(`Source Hunt engine loaded · build ${BUILD_ID} · exact M3U · freshness ${FRESH_DAYS}d`);
 }
