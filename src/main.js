@@ -1,10 +1,10 @@
-import { CONFIG, OFFICIAL_LIVE } from './config.js?v=20260920-1010';
-import { parseM3U, dedupeChannels } from './core/channel-catalog.js?v=20260920-1010';
-import { HealthStore } from './core/health-store.js?v=20260920-1010';
-import { SourceRegistry } from './core/source-registry.js?v=20260920-1010';
-import { EpgService } from './core/epg.js?v=20260920-1010';
-import { PlayerController } from './core/player.js?v=20260920-1010';
-import { fetchWithTimeout, formatTime, normalizeId } from './core/utils.js?v=20260920-1010';
+import { CONFIG, OFFICIAL_LIVE } from './config.js?v=20260920-1015';
+import { parseM3U, dedupeChannels } from './core/channel-catalog.js?v=20260920-1015';
+import { HealthStore } from './core/health-store.js?v=20260920-1015';
+import { SourceRegistry } from './core/source-registry.js?v=20260920-1015';
+import { EpgService } from './core/epg.js?v=20260920-1015';
+import { PlayerController } from './core/player.js?v=20260920-1015';
+import { fetchWithTimeout, formatTime, normalizeId } from './core/utils.js?v=20260920-1015';
 
 const $ = (id) => document.getElementById(id);
 const els = {
