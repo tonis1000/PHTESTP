@@ -7,6 +7,9 @@ https://ertflix.s.llnwi.net/ertlive/ertnews/default/index.m3u8
 #EXTINF:-1 tvg-id="ertnews" tvg-name="ERT News" tvg-logo="https://i.imgur.com/XwLTzaF.jpg" group-title="Greece",ERT News
 https://ertflix.akamaized.net/ertlive/ertnews/default/playlist.m3u8
 #EXTINF:-1 tvg-id="ant1" tvg-name="ANT1" tvg-logo="https://i.imgur.com/V1w22Or.png" group-title="Greece",ANT1
+https://lcdn.antennaplus.gr/r86d08d448885424196f6cd3ddc5d1489/eu-central-1/6415884360001/playlist_dvr.m3u8
+#EXTINF:-1 tvg-id="ant1" tvg-name="ANT1" tvg-logo="https://i.imgur.com/V1w22Or.png" group-title="Greece",ANT1
+https://spark3.smart-tv-data.com/ant1HD/ant1HD/playlist.m3u8
 #EXTINF:-1 tvg-id="alpha" tvg-name="Alpha TV" tvg-logo="https://i.imgur.com/6twzd38.png" group-title="Greece",Alpha TV
 #EXTINF:-1 tvg-id="skai" tvg-name="SKAI" tvg-logo="https://i.imgur.com/mrKRFnf.png" group-title="Greece",SKAI
 #EXTINF:-1 tvg-id="open" tvg-name="Open TV" tvg-logo="https://i.imgur.com/M6XG03v.png" group-title="Greece",Open TV
