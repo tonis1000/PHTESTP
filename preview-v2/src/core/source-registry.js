@@ -5,6 +5,10 @@ function isPlayableMedia(url = '') {
   return isHls(url) || isDash(url) || isVideoFile(url);
 }
 
+function isSecureUrl(url = '') {
+  return /^https:\/\//i.test(url);
+}
+
 export class SourceRegistry {
   constructor(healthStore) {
     this.health = healthStore;
@@ -42,11 +46,21 @@ export class SourceRegistry {
     return [];
   }
   #allRoutes(channel) {
-    const sources = [...new Set([...(channel.directUrls || []), ...this.#remoteUrls(channel)].map(cleanUrl).filter(Boolean).filter(isPlayableMedia))];
+    const sources = [...new Set([...(channel.directUrls || []), ...this.#remoteUrls(channel)]
+      .map(cleanUrl)
+      .filter(Boolean)
+      .filter(isPlayableMedia))];
+
     const routes = [];
     for (const source of sources) {
-      routes.push({ originalUrl: source, playbackUrl: source, route: 'direct' });
-      if (isHls(source) && CONFIG.workerForHls) routes.push({ originalUrl: source, playbackUrl: workerUrl(source), route: 'worker' });
+      // GitHub Pages runs over HTTPS. Direct HTTP media is mixed content and will be blocked,
+      // so insecure HLS sources are routed only through our HTTPS Worker.
+      if (isSecureUrl(source)) {
+        routes.push({ originalUrl: source, playbackUrl: source, route: 'direct' });
+      }
+      if (isHls(source) && CONFIG.workerForHls) {
+        routes.push({ originalUrl: source, playbackUrl: workerUrl(source), route: 'worker' });
+      }
     }
     return routes.filter((item, index, arr) => arr.findIndex(other => other.playbackUrl === item.playbackUrl) === index);
   }
