@@ -1,10 +1,10 @@
-import { CONFIG, OFFICIAL_LIVE } from './config.js?v=20260920-0941';
-import { parseM3U, dedupeChannels } from './core/channel-catalog.js?v=20260920-0941';
-import { HealthStore } from './core/health-store.js?v=20260920-0941';
-import { SourceRegistry } from './core/source-registry.js?v=20260920-0941';
-import { EpgService } from './core/epg.js?v=20260920-0941';
-import { PlayerController } from './core/player.js?v=20260920-0941';
-import { fetchWithTimeout, formatTime, normalizeId } from './core/utils.js?v=20260920-0941';
+import { CONFIG, OFFICIAL_LIVE } from './config.js?v=20260920-0946';
+import { parseM3U, dedupeChannels } from './core/channel-catalog.js?v=20260920-0946';
+import { HealthStore } from './core/health-store.js?v=20260920-0946';
+import { SourceRegistry } from './core/source-registry.js?v=20260920-0946';
+import { EpgService } from './core/epg.js?v=20260920-0946';
+import { PlayerController } from './core/player.js?v=20260920-0946';
+import { fetchWithTimeout, formatTime, normalizeId } from './core/utils.js?v=20260920-0946';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -35,7 +35,17 @@ const player = new PlayerController({
 
 function log(message) {
   const stamp = new Date().toLocaleTimeString();
-  els.diagLog.textContent = `[${stamp}] ${message}\n${els.diagLog.textContent}`.slice(0, 12000);
+  els.diagLog.textContent = `[${stamp}] ${message}\n${els.diagLog.textContent}`.slice(0, 18000);
+}
+
+function sourceLabel(value = '') {
+  try {
+    const url = new URL(value);
+    const path = url.pathname.length > 70 ? `…${url.pathname.slice(-67)}` : url.pathname;
+    return `${url.hostname}${path}`;
+  } catch {
+    return value || '-';
+  }
 }
 
 function setPlaybackState(state, label) {
@@ -55,8 +65,9 @@ function updateDiagnostics(info) {
   els.diagRoute.textContent = info.route || '-';
   els.diagPlayer.textContent = info.player || '-';
   els.diagStartup.textContent = info.startupMs ? `${info.startupMs} ms` : '-';
-  if (info.error) log(`FAIL ${info.route}: ${info.error}`);
-  else log(`OK ${info.player} via ${info.route} in ${info.startupMs} ms`);
+  const source = sourceLabel(info.source);
+  if (info.error) log(`FAIL ${info.route} · ${source} · ${info.error}`);
+  else log(`OK ${info.player} via ${info.route} · ${source} · ${info.startupMs} ms`);
 }
 
 function setOfficialLive(channel) {
