@@ -1,4 +1,4 @@
-const BUILD_ID = '20260920-1100';
+const BUILD_ID = '20260920-1115';
 const API = 'https://api.github.com';
 const $ = id => document.getElementById(id);
 
@@ -9,19 +9,27 @@ const testButton = $('test-candidate');
 const diagLog = $('diagnostic-log');
 
 const CHANNEL_FINGERPRINTS = {
-  ert1: ['ert1', 'ert 1', 'ert_1', 'ert-1', 'ept1', 'ερτ1', 'ερτ 1'],
-  ert2: ['ert2', 'ert 2', 'ert_2', 'ert-2', 'ept2', 'ερτ2', 'ερτ 2'],
-  ert3: ['ert3', 'ert 3', 'ert_3', 'ert-3', 'ept3', 'ερτ3', 'ερτ 3'],
-  ertnews: ['ertnews', 'ert news', 'ert_news', 'ert-news', 'ερτnews', 'ερτ news'],
-  ant1: ['ant1', 'ant 1', 'antenna1', 'antenna 1'],
-  alphatv: ['alpha tv', 'alphatv', 'alpha.gr', 'alpha hd'],
-  skai: ['skai', 'skai tv', 'skaitv', 'skai.gr', 'σκαι'],
-  opentv: ['open tv', 'opentv', 'open beyond', 'open.gr'],
-  mega: ['mega tv', 'megatv', 'mega channel', 'mega.gr'],
-  startv: ['star tv', 'startv', 'star channel', 'star.gr'],
-  action24: ['action 24', 'action24', 'action tv', 'actiontv'],
-  kontra: ['kontra', 'kontra channel', 'kontratv'],
+  'ERT1': ['ert1', 'ert 1', 'ert1.gr', 'ept1'],
+  'ERT2': ['ert2', 'ert 2', 'ert2.gr', 'ept2'],
+  'ERT3': ['ert3', 'ert 3', 'ert3.gr', 'ept3'],
+  'ERT News': ['ertnews', 'ert news', 'ert_news', 'ert-news'],
+  'ANT1': ['ant1', 'antenna1', 'antenna gr'],
+  'Alpha TV': ['alpha tv', 'alphatv', 'alpha.gr'],
+  'SKAI': ['skai', 'skaitv', 'skai tv', 'skai.gr'],
+  'Open TV': ['open tv', 'opentv', 'open beyond', 'open.gr'],
+  'MEGA': ['mega tv', 'megatv', 'mega channel', 'mega.gr'],
+  'Star TV': ['star tv', 'startv', 'star.gr'],
+  'Action 24': ['action 24', 'action24', 'action tv'],
+  'Kontra': ['kontra', 'kontra channel'],
 };
+
+const SEED_REPOS = [
+  'kilirushi/iptv',
+  'iptv-org/iptv',
+  'LIVE-GRECO/TV-LIVE-GRECO',
+  'don24crk/Don24crk-Repository',
+  'sieutv/livetv',
+];
 
 function log(message) {
   if (!diagLog) return;
@@ -29,39 +37,7 @@ function log(message) {
   diagLog.textContent = `[${stamp}] ${message}\n${diagLog.textContent}`.slice(0, 18000);
 }
 
-function normalize(value = '') {
-  return String(value)
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9α-ω]+/g, ' ')
-    .trim();
-}
-
-function channelKey(name = '') {
-  const n = normalize(name).replace(/\s+/g, '');
-  if (n.startsWith('ertnews')) return 'ertnews';
-  if (n.startsWith('ert1')) return 'ert1';
-  if (n.startsWith('ert2')) return 'ert2';
-  if (n.startsWith('ert3')) return 'ert3';
-  if (n.startsWith('ant1')) return 'ant1';
-  if (n.includes('alpha')) return 'alphatv';
-  if (n.includes('skai')) return 'skai';
-  if (n === 'open' || n.includes('opentv')) return 'opentv';
-  if (n.includes('mega')) return 'mega';
-  if (n.includes('star')) return 'startv';
-  if (n.includes('action24')) return 'action24';
-  if (n.includes('kontra')) return 'kontra';
-  return n;
-}
-
-function fingerprints(name) {
-  const key = channelKey(name);
-  const aliases = CHANNEL_FINGERPRINTS[key] || [name];
-  return [...new Set(aliases.map(normalize).filter(Boolean))];
-}
-
-function sinceDate(days = 14) {
+function sinceDate(days = 30) {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d.toISOString().slice(0, 10);
@@ -72,21 +48,27 @@ function extractM3u8(text = '') {
   return [...new Set(found.map(url => url.replace(/[),.;]+$/g, '')))];
 }
 
-function relevance(text, url, name) {
-  const hay = normalize(`${text || ''} ${url || ''}`);
-  const compact = hay.replace(/\s+/g, '');
-  const aliases = fingerprints(name);
-  let score = 0;
-  for (const alias of aliases) {
-    if (hay.includes(alias)) score += 4;
-    const compactAlias = alias.replace(/\s+/g, '');
-    if (compactAlias.length >= 4 && compact.includes(compactAlias)) score += 3;
-  }
-  return score;
+function fingerprints(name) {
+  return CHANNEL_FINGERPRINTS[name] || [String(name || '').toLowerCase()];
 }
 
-function isStrongMatch(text, url, name) {
-  return relevance(text, url, name) >= 4;
+function normalize(text = '') {
+  return String(text).toLowerCase().replace(/[^a-z0-9α-ωάέήίόύώϊϋΐΰ]+/gi, ' ');
+}
+
+function relevance(text, name) {
+  const hay = normalize(text);
+  let best = 0;
+  for (const fp of fingerprints(name)) {
+    const needle = normalize(fp).trim();
+    if (!needle) continue;
+    if (hay.includes(needle)) best = Math.max(best, needle.length >= 6 ? 4 : 3);
+  }
+  return best;
+}
+
+function urlRelevance(url, name) {
+  return relevance(url, name);
 }
 
 async function gh(path) {
@@ -101,92 +83,130 @@ async function gh(path) {
   return response.json();
 }
 
-async function huntIssues(name, since) {
-  const aliases = fingerprints(name).slice(0, 3);
-  const out = [];
-  for (const alias of aliases) {
-    const q = `"${alias}" m3u8 updated:>=${since}`;
-    let data;
-    try {
-      data = await gh(`/search/issues?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=8`);
-    } catch {
-      continue;
-    }
-    for (const item of data.items || []) {
-      const body = `${item.title || ''}\n${item.body || ''}`;
-      for (const url of extractM3u8(body)) {
-        if (!isStrongMatch(body, url, name)) continue;
-        out.push({
-          url,
-          origin: 'GitHub issue',
-          detail: item.repository_url?.split('/repos/')[1] || item.html_url,
-          updatedAt: item.updated_at,
-          score: 8 + relevance(body, url, name),
-        });
-      }
-    }
-  }
-  return out;
-}
-
 async function fetchText(url) {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.text();
 }
 
-async function huntRepositories(name, since) {
-  const aliases = fingerprints(name).slice(0, 4);
-  const queries = aliases.flatMap(alias => [
-    `${alias} IPTV Greece`,
-    `${alias} m3u Greece`,
-  ]);
+function collectFromText(text, name, meta) {
+  const lines = String(text || '').split(/\r?\n/);
+  const out = [];
 
+  for (let i = 0; i < lines.length; i++) {
+    if (!/\.m3u8/i.test(lines[i])) continue;
+    const context = lines.slice(Math.max(0, i - 3), Math.min(lines.length, i + 4)).join('\n');
+    const contextScore = relevance(context, name);
+    for (const url of extractM3u8(lines[i])) {
+      const uScore = urlRelevance(url, name);
+      if (!contextScore && !uScore) continue;
+      out.push({
+        url,
+        origin: meta.origin,
+        detail: meta.detail,
+        updatedAt: meta.updatedAt,
+        score: 10 + contextScore * 3 + uScore * 4,
+      });
+    }
+  }
+  return out;
+}
+
+async function huntIssues(name, since) {
+  const primary = fingerprints(name)[0] || name;
+  const q = `"${primary}" m3u8 updated:>=${since}`;
+  const data = await gh(`/search/issues?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=12`);
+  const out = [];
+  for (const item of data.items || []) {
+    const body = `${item.title || ''}\n${item.body || ''}`;
+    if (!relevance(body, name)) continue;
+    out.push(...collectFromText(body, name, {
+      origin: 'GitHub issue',
+      detail: item.repository_url?.split('/repos/')[1] || item.html_url,
+      updatedAt: item.updated_at,
+    }));
+  }
+  return out;
+}
+
+async function discoverRepos(name) {
   const repos = new Map();
+  for (const full of SEED_REPOS) repos.set(full, { full_name: full, default_branch: 'main', updated_at: null, seeded: true });
+
+  const primary = fingerprints(name)[0] || name;
+  const queries = [
+    `${primary} IPTV Greece`,
+    `${primary} m3u Greece`,
+    'Greek IPTV playlist',
+  ];
+
   for (const q of queries) {
     try {
-      const data = await gh(`/search/repositories?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=5`);
+      const data = await gh(`/search/repositories?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=6`);
       for (const repo of data.items || []) repos.set(repo.full_name, repo);
     } catch {}
   }
 
-  const recentCutoff = new Date(`${since}T00:00:00Z`).getTime();
-  const selectedRepos = [...repos.values()]
-    .filter(repo => !repo.updated_at || new Date(repo.updated_at).getTime() >= recentCutoff)
-    .slice(0, 8);
+  return [...repos.values()].slice(0, 9);
+}
+
+function pathScore(path = '') {
+  const p = path.toLowerCase();
+  let score = 0;
+  if (/\.m3u8?$/.test(p)) score += 6;
+  if (/\.(txt|md|html?|js|json)$/.test(p)) score += 2;
+  if (/(greek|greece|\bgr\b|iptv|playlist|channel|tv)/.test(p)) score += 5;
+  return score;
+}
+
+async function repoMeta(repo) {
+  if (repo.default_branch && !repo.seeded) return repo;
+  try {
+    return await gh(`/repos/${repo.full_name}`);
+  } catch {
+    return repo;
+  }
+}
+
+async function deepScanRepo(repo, name) {
+  const meta = await repoMeta(repo);
+  const branch = meta.default_branch || 'main';
+  let tree;
+  try {
+    tree = await gh(`/repos/${repo.full_name}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
+  } catch {
+    return [];
+  }
+
+  const files = (tree.tree || [])
+    .filter(item => item.type === 'blob' && /\.(m3u8?|txt|md|html?|js|json)$/i.test(item.path || ''))
+    .map(item => ({ ...item, priority: pathScore(item.path) }))
+    .sort((a, b) => b.priority - a.priority)
+    .slice(0, 14);
 
   const out = [];
-  for (const repo of selectedRepos) {
-    const candidateFiles = [];
+  for (const file of files) {
+    const raw = `https://raw.githubusercontent.com/${repo.full_name}/${encodeURIComponent(branch)}/${file.path.split('/').map(encodeURIComponent).join('/')}`;
     try {
-      const root = await gh(`/repos/${repo.full_name}/contents`);
-      for (const item of root || []) {
-        if (item.type === 'file' && /\.(m3u8?|txt|md)$/i.test(item.name || '')) candidateFiles.push(item);
-      }
+      const text = await fetchText(raw);
+      if (!relevance(text, name) && !relevance(file.path, name)) continue;
+      out.push(...collectFromText(text, name, {
+        origin: 'GitHub deep scan',
+        detail: `${repo.full_name}/${file.path}`,
+        updatedAt: meta.updated_at || repo.updated_at,
+      }));
     } catch {}
+  }
+  return out;
+}
 
-    for (const item of candidateFiles.slice(0, 6)) {
-      if (!item.download_url) continue;
-      try {
-        const text = await fetchText(item.download_url);
-        const lines = text.split(/\r?\n/);
-        for (let i = 0; i < lines.length; i++) {
-          if (!/\.m3u8/i.test(lines[i])) continue;
-          const context = lines.slice(Math.max(0, i - 3), Math.min(lines.length, i + 2)).join('\n');
-          const urls = extractM3u8(context);
-          for (const url of urls) {
-            if (!isStrongMatch(context, url, name)) continue;
-            out.push({
-              url,
-              origin: 'GitHub playlist',
-              detail: `${repo.full_name}/${item.name}`,
-              updatedAt: repo.updated_at,
-              score: 10 + relevance(context, url, name),
-            });
-          }
-        }
-      } catch {}
-    }
+async function huntRepositories(name) {
+  const repos = await discoverRepos(name);
+  const out = [];
+  for (const repo of repos) {
+    try {
+      out.push(...await deepScanRepo(repo, name));
+    } catch {}
   }
   return out;
 }
@@ -199,7 +219,7 @@ function dedupeAndRank(items) {
   }
   return [...map.values()]
     .sort((a, b) => (b.score || 0) - (a.score || 0) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
-    .slice(0, 12);
+    .slice(0, 20);
 }
 
 function ensureUi() {
@@ -212,7 +232,7 @@ function ensureUi() {
   wrap.className = 'hunt-auto';
   wrap.innerHTML = `
     <div class="hunt-auto-head">
-      <div><strong>Automatic Hunt</strong><span id="hunt-auto-status">Ready · strict channel match</span></div>
+      <div><strong>Automatic Hunt</strong><span id="hunt-auto-status">Ready · deep GitHub scan</span></div>
       <button id="run-hunt" class="button" type="button">Run Hunt</button>
     </div>
     <div id="hunt-results" class="hunt-results"></div>
@@ -230,7 +250,7 @@ function renderResults(items, name) {
   if (!items.length) {
     const empty = document.createElement('div');
     empty.className = 'hunt-empty';
-    empty.textContent = `Δεν βρέθηκαν αξιόπιστα .m3u8 candidates που να ταιριάζουν αυστηρά με ${name}. Καλύτερα 0 σωστά παρά 20 άσχετα.`;
+    empty.textContent = `Δεν βρέθηκε ισχυρό GitHub match για ${name}. Το Hunt έψαξε recursive nested files, όχι μόνο root repos.`;
     results.appendChild(empty);
     return;
   }
@@ -238,7 +258,6 @@ function renderResults(items, name) {
   for (const item of items) {
     const card = document.createElement('div');
     card.className = 'hunt-result';
-
     const meta = document.createElement('div');
     const source = document.createElement('strong');
     source.textContent = item.origin;
@@ -270,22 +289,22 @@ async function runHunt() {
   if (!name || name === 'Επίλεξε κανάλι') return;
   const button = $('run-hunt');
   const status = $('hunt-auto-status');
-  const since = sinceDate(14);
+  const since = sinceDate(30);
   if (button) button.disabled = true;
-  if (status) status.textContent = `Searching ${name} · strict match…`;
-  log(`RUN HUNT ${name} · strict channel match · since ${since}`);
+  if (status) status.textContent = `Deep searching ${name}…`;
+  log(`RUN HUNT ${name} · deep GitHub recursive scan · since ${since}`);
 
   try {
     const settled = await Promise.allSettled([
       huntIssues(name, since),
-      huntRepositories(name, since),
+      huntRepositories(name),
     ]);
     const combined = settled.flatMap(result => result.status === 'fulfilled' ? result.value : []);
     const items = dedupeAndRank(combined);
     renderResults(items, name);
     const failures = settled.filter(result => result.status === 'rejected').length;
-    if (status) status.textContent = `${items.length} strict candidate${items.length === 1 ? '' : 's'}${failures ? ' · partial search' : ''}`;
-    log(`HUNT DONE ${name} · ${items.length} strict candidate(s)${failures ? ` · ${failures} source(s) failed` : ''}`);
+    if (status) status.textContent = `${items.length} candidate${items.length === 1 ? '' : 's'} · deep scan${failures ? ' · partial' : ''}`;
+    log(`HUNT DONE ${name} · ${items.length} candidate(s) · deep scan${failures ? ` · ${failures} source(s) failed` : ''}`);
   } catch (error) {
     if (status) status.textContent = `Search failed: ${error.message}`;
     renderResults([], name);
@@ -297,5 +316,5 @@ async function runHunt() {
 
 if (ensureUi()) {
   $('run-hunt')?.addEventListener('click', runHunt);
-  log(`Source Hunt engine loaded · build ${BUILD_ID} · strict relevance`);
+  log(`Source Hunt engine loaded · build ${BUILD_ID} · deep recursive GitHub`);
 }
